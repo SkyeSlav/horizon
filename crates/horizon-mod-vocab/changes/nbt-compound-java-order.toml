@@ -1,0 +1,3 @@
+ids = ["type:Compound"]
+why = "Compound is now its own type that keeps CompoundTag's Java HashMap iteration order, the order vanilla writes NBT and SNBT in, instead of an alias of BTreeMap sorted by key. It crosses the wasm boundary as the same map of entries."
+migrate = "Use Compound's own methods (new, insert, get, get_mut, remove, contains_key, entry, iter, keys, values, len, is_empty, retain, clear, into_values) and build one with Compound::new(), collect or From an array instead of BTreeMap::new(). BTreeMap-only methods such as range and first_key_value are gone. Iteration is no longer sorted by key: sort the keys yourself where an order matters."
