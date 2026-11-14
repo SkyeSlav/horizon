@@ -1,5 +1,4 @@
 use super::*;
-use std::collections::BTreeMap;
 
 fn scratch(name: &str) -> PathBuf {
     let root = std::env::temp_dir().join(format!(
@@ -18,13 +17,13 @@ fn put(path: &Path, bytes: &[u8]) {
 
 /// A gzipped level.dat whose player has a UUID.
 fn level_dat() -> Vec<u8> {
-    let mut player = BTreeMap::new();
+    let mut player = nbt::Compound::new();
     player.insert("UUID".into(), Tag::IntArray(vec![1, 2, 3, 4]));
     player.insert("XpLevel".into(), Tag::Int(7));
-    let mut data = BTreeMap::new();
+    let mut data = nbt::Compound::new();
     data.insert("LevelName".into(), Tag::String("Base".into()));
     data.insert("Player".into(), Tag::Compound(player));
-    let mut root = BTreeMap::new();
+    let mut root = nbt::Compound::new();
     root.insert("Data".into(), Tag::Compound(data));
     let raw = nbt::write_named(
         &nbt::NamedTag {
