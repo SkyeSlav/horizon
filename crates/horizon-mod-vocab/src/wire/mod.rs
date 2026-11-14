@@ -1078,17 +1078,12 @@ macro_rules! maps {
 }
 maps!(BTreeMap[Ord], HashMap[Eq + Hash]);
 
+// Crosses as the map it was before it kept Java's order: entries in iteration order.
 impl Wire for horizon_core::nbt::Compound {
     const LAYOUT_SEED: u64 = layout_name("map");
     const MIN: usize = 4;
     fn layout(visiting: &mut Vec<&'static str>) -> u64 {
-        layout_mix(
-            layout_mix(
-                Self::LAYOUT_SEED,
-                horizon_core::nbt::JavaString::layout(visiting),
-            ),
-            crate::Tag::layout(visiting),
-        )
+        <BTreeMap<horizon_core::nbt::JavaString, crate::Tag> as Wire>::layout(visiting)
     }
     fn put(&self, out: &mut Writer) {
         out.put_len(self.len());
