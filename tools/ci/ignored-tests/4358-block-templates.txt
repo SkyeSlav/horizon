@@ -1,0 +1,1 @@
+horizon-client game::block_entity_ticks::add_blocks_tests::vanilla_template_membership_creates_ticks_and_saves HORIZON_TEST_RESOURCES needs
