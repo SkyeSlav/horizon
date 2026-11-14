@@ -1713,6 +1713,53 @@ mod tests {
     }
 
     #[test]
+    fn item_model_identifiers_decode_and_match_borrowed_components() {
+        use super::{Registries, Tag, decoded_component_value};
+        use horizon_items::{item_data::ingredient_components::component_equal, items::ItemStack};
+
+        let registry = Registries::default();
+        let mut expected = ItemStack::new("minecraft:stone", 1);
+        expected.data_mut().set_other(
+            "minecraft:item_model",
+            Some(Tag::String("minecraft:stone".into())),
+        );
+        for literal in ["stone", ":stone"] {
+            let decoded = decoded_component_value(
+                "minecraft:item_model",
+                &Tag::String(literal.into()),
+                &registry,
+            )
+            .unwrap();
+            assert_eq!(decoded, Tag::String("minecraft:stone".into()));
+            let mut actual = ItemStack::new("minecraft:stone", 1);
+            actual
+                .data_mut()
+                .set_other("minecraft:item_model", Some(decoded));
+            assert!(component_equal("minecraft:item_model", &actual, &expected));
+        }
+        let different = decoded_component_value(
+            "minecraft:item_model",
+            &Tag::String("dirt".into()),
+            &registry,
+        )
+        .unwrap();
+        let mut actual = ItemStack::new("minecraft:stone", 1);
+        actual
+            .data_mut()
+            .set_other("minecraft:item_model", Some(different));
+        assert!(!component_equal("minecraft:item_model", &actual, &expected));
+        for invalid in [
+            Tag::String("Bad ID".into()),
+            Tag::String("Uppercase:stone".into()),
+            Tag::String("minecraft:stone:extra".into()),
+            Tag::Int(1),
+            Tag::compound([] as [(&str, Tag); 0]),
+        ] {
+            assert!(decoded_component_value("minecraft:item_model", &invalid, &registry).is_err());
+        }
+    }
+
+    #[test]
     fn decoded_component_values_use_codec_numbers_and_retain_stored_values() {
         use super::{Registries, Tag, decoded_component_value};
         let registry = Registries::default();

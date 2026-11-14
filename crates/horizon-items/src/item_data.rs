@@ -1232,7 +1232,7 @@ fn canonical_other_component(id: &str, tag: &Tag) -> Tag {
     if id == "minecraft:map_decorations"
         && let Tag::Compound(entries) = &mut value
     {
-        for entry in entries.values_mut() {
+        entries.for_each_mut(|_, entry| {
             if let Some(Tag::String(kind)) = entry.get_mut("type") {
                 let text = kind.to_string_lossy();
                 if !text.is_empty()
@@ -1242,7 +1242,7 @@ fn canonical_other_component(id: &str, tag: &Tag) -> Tag {
                     *kind = id.to_string().as_str().into();
                 }
             }
-        }
+        });
     }
     value
 }

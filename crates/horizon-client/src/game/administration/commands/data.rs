@@ -2538,7 +2538,7 @@ mod bell_command_identity_tests {
     }
 
     #[test]
-    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
+    #[ignore = "daily"]
     fn placed_bell_is_a_real_stored_entity_with_command_metadata() {
         with_game(|game| {
             let clock = game.world.game_time;

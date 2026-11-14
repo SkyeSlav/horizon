@@ -914,7 +914,7 @@ mod add_blocks_tests {
     use std::sync::{Arc, OnceLock};
 
     #[test]
-    #[ignore = "needs prepared resources; isolates process-wide registries"]
+    #[ignore = "daily"]
     fn vanilla_template_membership_creates_ticks_and_saves() {
         const FLAG: &str = "HORIZON_ADD_BLOCKS_CASE";
         const BLOCK: &str = "add_blocks_test:vault";
