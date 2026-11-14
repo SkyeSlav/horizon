@@ -1,0 +1,460 @@
+diff --git a/.github/workflows/daily.yml b/.github/workflows/daily.yml
+index 9291871eb71..ccf2059a09b 100644
+--- a/.github/workflows/daily.yml
++++ b/.github/workflows/daily.yml
+@@ -3,8 +3,8 @@ run-name: daily ${{ inputs.commit || github.sha }}${{ github.event_name == 'work
+ # The daily tier (CI tiers, owner 2026-11-13; docs/release-flow.md "Daily run"): every in-game test, once a day on
+ # main's head and by a maintainer's dispatch. Its legs are the workflows that used to run on main pushes, called unchanged:
+ # the ignored-tests data shards, the wasm fixture and guest stacks, fn-replace-check and the native linkage probe,
+-# plus the launcher's Windows runtime-lease tests (launcher-windows-check.yml), the machine sample built against this
+-# API (machine-sample.yml) and the prebuilt SDK of the commit (prebuilt-game-build.yml), which the nightly needs.
++# plus the launcher's Windows runtime-lease tests (launcher-windows-check.yml) and the prebuilt SDK of the commit
++# (prebuilt-game-build.yml), which the nightly needs.
+ # The summary then moves the tag `daily-green` to the commit when every leg passed, or files one issue per failing
+ # test (tools/ci/daily_summary.py), and on all green the nightly is published from that commit (release.yml).
+ # Only a run on main with dry_run false writes anything: tags, issues, the nightly.
+@@ -128,14 +128,6 @@ jobs:
+     uses: ./.github/workflows/launcher-windows-check.yml
+     with:
+       commit: ${{ needs.resolve.outputs.commit }}
+-  # arismoko/horizon-machine-sample at its pin, compiled against this commit's mod API: a red means the sample must
+-  # follow an API change (its issue says so), never that the change was wrong.
+-  machine-sample:
+-    needs: resolve
+-    if: needs.resolve.outputs.skip == 'false'
+-    uses: ./.github/workflows/machine-sample.yml
+-    with:
+-      commit: ${{ needs.resolve.outputs.commit }}
+   # The prebuilt SDK of this commit, built and smoked on every OS; its archives stay this run's artifacts until
+   # sdk-publish releases them after a green summary (a red daily publishes no SDK, as it publishes no nightly).
+   sdk:
+@@ -149,7 +141,7 @@ jobs:
+   summary:
+     # The resolved commit names the job: what a scheduled run's lookup (daily_summary.py --seen) matches.
+     name: summary ${{ needs.resolve.outputs.commit }}${{ needs.resolve.outputs.dry_run == 'true' && ' (dry run)' || '' }}
+-    needs: [resolve, shards, wasm-mods, fn-replace-check, linkage, windows-runtime-leases, machine-sample, sdk]
++    needs: [resolve, shards, wasm-mods, fn-replace-check, linkage, windows-runtime-leases, sdk]
+     if: always() && needs.resolve.result == 'success' && needs.resolve.outputs.skip == 'false'
+     runs-on: ubuntu-latest
+     timeout-minutes: 15
+diff --git a/.github/workflows/machine-sample.yml b/.github/workflows/machine-sample.yml
+deleted file mode 100644
+index 70942aa78c2..00000000000
+--- a/.github/workflows/machine-sample.yml
++++ /dev/null
+@@ -1,44 +0,0 @@
+-name: machine sample
+-
+-# The machine sample (arismoko/horizon-machine-sample at tools/ci/check_machine_sample.py's pin) compiled against
+-# this commit's mod API. Run by the daily run (daily.yml) and by dispatch, never on pull requests or main pushes: an
+-# approved API change never reddens the gate because another repository must follow (owner, 2026-11-13). Its steps
+-# are what the lint job ran before it: the same toolchain and command.
+-on:
+-  workflow_call:
+-    inputs:
+-      commit:
+-        description: The commit to check (the daily run's)
+-        type: string
+-        default: ''
+-  workflow_dispatch:
+-
+-permissions:
+-  contents: read
+-
+-# A daily call and a dispatch on main always finish; a newer dispatch on a branch replaces the older (as fn-replace-check).
+-concurrency:
+-  group: machine-sample-${{ inputs.commit && github.run_id || github.ref == 'refs/heads/main' && github.run_id || github.ref }}
+-  cancel-in-progress: ${{ inputs.commit == '' && github.ref != 'refs/heads/main' }}
+-
+-env:
+-  CARGO_INCREMENTAL: 0
+-
+-jobs:
+-  build:
+-    runs-on: ubuntu-latest
+-    timeout-minutes: 45
+-    steps:
+-      - uses: actions/checkout@v4
+-        with:
+-          persist-credentials: false
+-          ref: ${{ inputs.commit || github.sha }}
+-      - name: Install Rust toolchain and the runner image's packages
+-        run: |
+-          sudo apt-get update && sudo apt-get install -y --no-install-recommends $(grep -v '^#' tools/ci/runner-packages.txt)
+-          bash tools/ci/rustup_install.sh --profile minimal --component rustfmt --component clippy --target wasm32-unknown-unknown
+-      # The build runs at the runner's size, not the host's (tools/ci/cargo_jobs.py), as lint's did.
+-      - name: Cap build parallelism to the runner
+-        run: python3 tools/ci/cargo_jobs.py --job-mib 3072 --cap
+-      - name: The machine sample builds against this API
+-        run: python3 tools/ci/check_machine_sample.py
+diff --git a/AGENTS.md b/AGENTS.md
+index df156d55974..e0731abfb96 100644
+--- a/AGENTS.md
++++ b/AGENTS.md
+@@ -35,7 +35,7 @@ Feature → files → harness for the most-changed areas: [docs/architecture.md]
+   nightly, published by the daily run when every leg is green ([docs/release-flow.md](docs/release-flow.md#daily-run)).
+ - **CI tiers** ([CONTRIBUTING.md](CONTRIBUTING.md#ci-tiers)): every PR push and main push runs `checks`
+   (`verify`: format, lint and unit tests only; `launcher`); the ignored-test shards, the wasm
+-  fixture, `fn-replace-check`, the SDK build and its linkage probe and the machine-sample build run once a day (`daily.yml`). A new test that needs prepared
++  fixture, `fn-replace-check`, the SDK build and its linkage probe run once a day (`daily.yml`). A new test that needs prepared
+   resources, boots the game, starts a child process, uses the network or a compiled wasm fixture, or takes 2 s or
+   more is `#[ignore]`d with a row in `tools/ci/ignored-tests/`; say in the PR when you could not run it. A daily red
+   becomes an issue listing the suspect PRs, fixed by an ordinary PR. Existing tests still in `verify` that need
+@@ -58,7 +58,7 @@ break**, and every change to it follows these rules. Reviews block a PR that bre
+ 
+ - **No compatibility paths.** No aliases, shims, deprecated names, migration or fallback code, version
+   gates, or "kept for old mods" branches. Old mods rebuild; the compiler says what moved. Removing an old
+-  path updates every caller, the catalog, docs, tests and horizon-machine-sample in the same change.
++  path updates every caller, the catalog, docs and tests in the same change.
+ - **One hook per moment.** A hook with a NeoForge 26.3 counterpart takes its name, side and full contract.
+   Two hooks at the same vanilla call site (including `_v1`/`_v2` pairs) merge into that one, and the old
+   one is deleted, not kept beside it. A veto before an action and a notice after it are separate moments
+diff --git a/CONTRIBUTING.md b/CONTRIBUTING.md
+index b72caf63b57..30577fccad6 100644
+--- a/CONTRIBUTING.md
++++ b/CONTRIBUTING.md
+@@ -128,7 +128,7 @@ network and are still in `verify` are being moved by the next change of #4022.
+ | Tier | Runs on | What |
+ | --- | --- | --- |
+ | Push | every pull request push, pushes to main | `checks`: `verify` (format, lint, unit tests only, the test-tier and mod API surface checks), `launcher` |
+-| Daily | once a day on main's head | every test that boots the game or needs prepared resources, the wasm fixture, `fn-replace-check`, the SDK build and its linkage probe, the machine sample built against the mod API |
++| Daily | once a day on main's head | every test that boots the game or needs prepared resources, the wasm fixture, `fn-replace-check`, the SDK build and its linkage probe |
+ 
+ **A unit test** uses no prepared resources, boots no game, starts no child process, uses no network and no compiled
+ wasm fixture, and finishes in under 2 seconds. Any other test is a daily test: it carries `#[ignore]` and a row in
+diff --git a/docs/modding-book.md b/docs/modding-book.md
+index 042caac5663..f5665387c51 100644
+--- a/docs/modding-book.md
++++ b/docs/modding-book.md
+@@ -77,9 +77,8 @@ A reviewer runs your change in game at your head only when a test can't cover on
+ - client-server sync: LAN guests, a dedicated server, packets;
+ - when or in what order something happens compared with vanilla, such as a hook's firing point.
+ 
+-If your PR changes or removes something mods already use, the reviewer also runs
+-[horizon-machine-sample](https://github.com/arismoko/horizon-machine-sample) against it. A new item's `///` doc is its
+-reference.
++If your PR changes or removes something mods already use, say so in the PR: mods built against the old API stop
++building. A new item's `///` doc is its reference.
+ 
+ ## A catalog point and the wasm fixture
+ 
+diff --git a/docs/modding/src/how-to/items/reload-stable-recipes.md b/docs/modding/src/how-to/items/reload-stable-recipes.md
+index b9f9a06d631..96ecac70322 100644
+--- a/docs/modding/src/how-to/items/reload-stable-recipes.md
++++ b/docs/modding/src/how-to/items/reload-stable-recipes.md
+@@ -52,5 +52,5 @@ Keep capability, pipe, inventory and world reads live too. Caching definitions
+ does not authorize a write or reserve output capacity. A blocked machine resets
+ progress according to its existing policy.
+ 
+-The [machine sample](https://github.com/arismoko/horizon-machine-sample) demonstrates
+-the full processing and transfer path.
++An example mod showing the full processing and transfer path lives at
++<https://github.com/arismoko/horizon-machine-sample>.
+diff --git a/docs/modding/src/introduction.md b/docs/modding/src/introduction.md
+index d304be29d08..83cd5ba2e74 100644
+--- a/docs/modding/src/introduction.md
++++ b/docs/modding/src/introduction.md
+@@ -48,5 +48,5 @@ The same Rust, built to `mod.wasm` and run in the game's sandbox.
+ - **Reference** lists the manifest, the package and registry formats, and links the
+   [API reference](reference/api.md), which documents every hook, event and `Host` method.
+ 
+-The complete example mod is [horizon-machine-sample](https://github.com/arismoko/horizon-machine-sample).
++An example mod lives at <https://github.com/arismoko/horizon-machine-sample>.
+ A coding agent can start from [`llms.txt`](llms.txt).
+diff --git a/docs/release-flow.md b/docs/release-flow.md
+index def47228223..25c58fa48ea 100644
+--- a/docs/release-flow.md
++++ b/docs/release-flow.md
+@@ -245,8 +245,7 @@ dispatch replaces an older waiting one. The schedule stops when main's head alre
+ a hand dispatch never does, so it retries a run whose tag move, issues or nightly failed. Its legs are the workflows that left main pushes:
+ the ignored-tests data shards (`ignored-tests.yml`), the wasm fixture and guest stacks (`wasm-mods.yml`),
+ `fn-replace-check.yml`, the native linkage probe (`native-dylib-probe.yml`), the launcher's Windows runtime-lease
+-tests (`launcher-windows-check.yml`), the machine sample built against the commit's mod API (`machine-sample.yml`)
+-and the prebuilt SDK of the commit
++tests (`launcher-windows-check.yml`) and the prebuilt SDK of the commit
+ (`prebuilt-game-build.yml`; each leg packs its slices, and `sdk-publish` signs and publishes them as the mod SDK's
+ release `sdk-<sha>` (`sdk-publish.yml`) only after a green summary on a real run on main, before the Nightly that
+ needs them; a failed publish files one issue, `Daily: sdk-publish did not complete`), each called
+@@ -258,9 +257,7 @@ summary (`tools/ci/daily_summary.py`) reads each leg's result and its sanitised
+   age rule; the pause switch and release-blockers still hold it);
+ - a failing test: one issue `Daily: <crate> <test>` (label `bug`) with its panic location, the first daily run that
+   saw it and the pull requests merged since the last green daily as suspects; later runs comment on it, and the
+-  first run where it passes closes it. A leg that failed without a test name gets one issue per leg. A red machine
+-  sample is no break: its one issue, `Daily: update the machine sample for the mod API change`, asks for the sample
+-  to follow the API change and its pin to move.
++  first run where it passes closes it. A leg that failed without a test name gets one issue per leg.
+ 
+ Only a run on `main` with `dry_run` false moves the tag, files issues or publishes; any other run prints what it
+ would do. A Nightly ships only the commit `daily-green` points to, with its SDK (`release.yml`, `nightly build`).
+diff --git a/tests/test_ci_concurrency.py b/tests/test_ci_concurrency.py
+index 391238ed12e..a49b02dbc44 100644
+--- a/tests/test_ci_concurrency.py
++++ b/tests/test_ci_concurrency.py
+@@ -12,8 +12,7 @@ import yaml
+ 
+ # The daily run's legs: called by daily.yml or dispatched by hand, never on pull requests or main pushes (owner,
+ # 2026-11-12; CI tiers 2026-11-13).
+-DAILY_LEGS = [ROOT / ".github/workflows" / name for name in ("wasm-mods.yml", "fn-replace-check.yml",
+-                                                                          "machine-sample.yml")]
++DAILY_LEGS = [ROOT / ".github/workflows" / name for name in ("wasm-mods.yml", "fn-replace-check.yml")]
+ 
+ 
+ def expression_value(expression, github, inputs=None, matrix=None):
+diff --git a/tests/test_ci_rust_changes.py b/tests/test_ci_rust_changes.py
+index abfa17b02c7..2b3025c4ef0 100644
+--- a/tests/test_ci_rust_changes.py
++++ b/tests/test_ci_rust_changes.py
+@@ -99,7 +99,7 @@ class RustChangesTests(unittest.TestCase):
+             self.assertTrue(selected["rust_required"])
+             self.assertTrue(selected["launcher_required"])
+             self.assertTrue(selected["tooling_required"])
+-        # The machine sample is a daily leg: a mod API change selects nothing extra in the checks.
++        # A documentation change in a mod API crate selects no Rust checks.
+         self.assertFalse(selections([("M", "crates/horizon-mod-api/README.md")])["rust_required"])
+ 
+     def test_git_status_and_cli_selections_for_actual_documentation_changes(self):
+diff --git a/tests/test_daily_summary.py b/tests/test_daily_summary.py
+index 5f8d001a21e..f8b286a0792 100644
+--- a/tests/test_daily_summary.py
++++ b/tests/test_daily_summary.py
+@@ -28,7 +28,6 @@ GREEN_JOBS = [job("shards / plan"), job("shards / ignored-tests-shards (horizon-
+               job("linkage / route"), job("linkage / linkage x86_64-unknown-linux-gnu"),
+               job("windows-runtime-leases / gate"), job("windows-runtime-leases / test", "skipped"),
+               job("windows-runtime-leases / runtime-leases"), job("windows-runtime-leases / launcher-processes"),
+-              job("machine-sample / route"), job("machine-sample / build"),
+               job("sdk / fresh"), job("sdk / build linux"), job("sdk / publish", "skipped")]
+ # Every other shard of the daily matrix, green (the summary expects each by name: summary.expected_shards).
+ GREEN_JOBS += [job(name) for name in summary.expected_shards() if name != "shards / ignored-tests-shards (horizon-world)"]
+@@ -326,30 +325,6 @@ class DailySummaryTests(unittest.TestCase):
+                 self.assertEqual([body["title"] for body in created], [f"Daily: {leg} did not complete"])
+                 self.assertIn(f"`{helper}` failed", created[0]["body"])
+ 
+-    def test_a_red_machine_sample_files_one_action_issue_naming_the_step_and_closes_when_green(self):
+-        step = "The machine sample builds against this API"
+-        jobs = [j for j in GREEN_JOBS if j["name"] != "machine-sample / build"] + [
+-            job("machine-sample / build", "failure", [step])]
+-        api = Api(jobs)
+-        _, out = self.run_summary(api, [shard_report()], results=dict(LEGS, **{"machine-sample": {"result": "failure"}}),
+-                                  merged=[4100, 4101])
+-        self.assertIn("green=false", out)
+-        created = [body for _, path, body in api.writes if path == "issues"]
+-        self.assertEqual([body["title"] for body in created], ["Daily: update the machine sample for the mod API change"])
+-        self.assertEqual(created[0]["labels"], ["bug"])
+-        self.assertIn(f"`{step}`", created[0]["body"])
+-        self.assertIn("#4100, #4101", created[0]["body"])
+-        self.assertIn("check_machine_sample.py", created[0]["body"])
+-        # Still red the next day: a comment on the same issue. Green: closed.
+-        issue = [{"number": 77, "title": "Daily: update the machine sample for the mod API change", "body": "> filed"}]
+-        api = Api(jobs, issues=issue)
+-        self.run_summary(api, [shard_report()], results=dict(LEGS, **{"machine-sample": {"result": "failure"}}))
+-        self.assertEqual([(m, p) for m, p, _ in api.writes], [("POST", "issues/77/comments")])
+-        api = Api(GREEN_JOBS, issues=issue)
+-        _, out = self.run_summary(api, [shard_report()])
+-        self.assertIn("green=true", out)
+-        self.assertIn(("PATCH", "issues/77"), [(m, p) for m, p, _ in api.writes])
+-
+     def test_a_skipped_sdk_build_is_green_only_when_fresh_found_the_release(self):
+         jobs = [j for j in GREEN_JOBS if not j["name"].startswith("sdk / ")] + [
+             job("sdk / fresh", "cancelled"), job("sdk / build linux", "skipped")]
+diff --git a/tests/test_machine_sample_ci.py b/tests/test_machine_sample_ci.py
+deleted file mode 100644
+index 280bf561e31..00000000000
+--- a/tests/test_machine_sample_ci.py
++++ /dev/null
+@@ -1,24 +0,0 @@
+-"""The sample leg builds the committed pin and removes its scratch folder."""
+-import os
+-import unittest
+-from unittest.mock import patch
+-
+-from tools.ci import check_machine_sample as gate
+-
+-
+-class MachineSampleGateTests(unittest.TestCase):
+-    def test_builds_the_committed_pin_and_cleans_up(self):
+-        visited = []
+-
+-        def check(destination, revision):
+-            self.assertTrue(destination.is_dir())
+-            self.assertEqual(revision, gate.PIN)
+-            visited.append(destination)
+-
+-        with patch.dict(os.environ, {"GITHUB_STEP_SUMMARY": ""}), patch.object(gate, "check", check):
+-            gate.main()
+-        self.assertFalse(visited[0].exists())
+-
+-
+-if __name__ == "__main__":
+-    unittest.main()
+diff --git a/tools/ci/check_machine_sample.py b/tools/ci/check_machine_sample.py
+deleted file mode 100644
+index 99cd5306cf5..00000000000
+--- a/tools/ci/check_machine_sample.py
++++ /dev/null
+@@ -1,43 +0,0 @@
+-#!/usr/bin/env python3
+-"""Compile the machine sample at PIN against this checkout's API (the daily leg machine-sample.yml).
+-
+-A pull request that changes the API the sample uses updates PIN to a sample commit that builds against it.
+-"""
+-import os
+-from pathlib import Path
+-import subprocess
+-import sys
+-import time
+-import tempfile
+-
+-ROOT = Path(__file__).resolve().parents[2]
+-PIN = "ba91a01eddfdfae53a93cc93965f7767ca7f65c2"
+-
+-
+-def main():
+-    revision = PIN
+-    started = time.monotonic()
+-    with tempfile.TemporaryDirectory(prefix="machine-sample-", dir=ROOT.parent) as directory:
+-        check(Path(directory), revision)
+-    elapsed = time.monotonic() - started
+-    summary = f"Machine sample `{revision}`: {elapsed:.1f} seconds ({elapsed / 60:.2f} runner minutes).\n"
+-    print(summary)
+-    if os.environ.get("GITHUB_STEP_SUMMARY"):
+-        with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as output:
+-            output.write(summary)
+-
+-
+-def check(directory, revision):
+-    sample = directory / "sample"
+-    subprocess.run(["git", "clone", "--no-checkout", "https://github.com/arismoko/horizon-machine-sample", str(sample)], check=True)
+-    subprocess.run(["git", "fetch", "origin", revision], cwd=sample, check=True)
+-    subprocess.run(["git", "checkout", "--detach", revision], cwd=sample, check=True)
+-    # The sample names the API by the path `cargo horizon-mod` fetches the signed SDK to. This checkout's own API
+-    # source goes there instead, so the check builds the sample against this PR's API with no SDK release.
+-    subprocess.run([sys.executable, str(ROOT / "tools/sdk_api_source.py"), "build", str(sample / ".horizon/sdk/api")],
+-                   cwd=ROOT, check=True)
+-    subprocess.run(["cargo", "check", "--all-targets"], cwd=sample, check=True)
+-
+-
+-if __name__ == "__main__":
+-    main()
+diff --git a/tools/ci/daily_summary.py b/tools/ci/daily_summary.py
+index 3c92530413b..3a0dc80c117 100644
+--- a/tools/ci/daily_summary.py
++++ b/tools/ci/daily_summary.py
+@@ -9,8 +9,7 @@ files (tools/ci/ignored_tests.py --report: test identity, kind, panic location,
+ - a leg that failed without a test name (build error, timeout, killed, cancelled, skipped, or a leg with no
+   sanitised verdict): one issue per leg, `Daily: <leg> did not complete`, naming the failed steps and, for a shard,
+   why each run stopped as its verdict file says (signal or exit status, memory peak and limit, wall time, the tests
+-  still running past 60 s; stopped_text); a leg whose red asks for an action is titled as that action (ACTIONS:
+-  `Daily: update the machine sample for the mod API change`);
++  still running past 60 s; stopped_text);
+ - a test (or leg) green again: closes its open issue with a comment.
+ A job it does not know, or an expected leg with no job, is a red leg ("did not report"), never green; so is a
+ shard of the matrix (tools/ci/ignored_shards.py, which builds it) with no job of its name. Each comment
+@@ -46,14 +45,7 @@ PREFIX = "Daily: "
+ UNFINISHED = " did not complete"
+ DISCLOSURE = "> 🤖 Filed by the daily run."
+ # daily.yml's leg jobs (each a called workflow), and the called workflows' own routing jobs, which test nothing.
+-LEGS = ("shards", "wasm-mods", "fn-replace-check", "linkage", "windows-runtime-leases", "machine-sample", "sdk")
+-# Legs whose red is an action for someone, not a break: their one issue is titled as the action, and says what to do.
+-ACTIONS = {
+-    "machine-sample": ("update the machine sample for the mod API change",
+-                       "arismoko/horizon-machine-sample, at the pin in `tools/ci/check_machine_sample.py`, no longer "
+-                       "builds against this commit's mod API. Update the sample for the API change, then move the pin "
+-                       "to the updated sample in a pull request here."),
+-}
++LEGS = ("shards", "wasm-mods", "fn-replace-check", "linkage", "windows-runtime-leases", "sdk")
+ HELPERS = ("plan", "route", "fresh", "gate")
+ # Jobs of a called workflow that the daily run does not use: launcher-windows-check's push and pull-request tests.
+ NOT_DAILY = ("windows-runtime-leases / test",)
+@@ -285,8 +277,7 @@ def test_title(item):
+ 
+ 
+ def leg_title(leg):
+-    action = ACTIONS.get(leg.split(" / ", 1)[0])
+-    return f"{PREFIX}{action[0]}" if action else f"{PREFIX}{leg}{UNFINISHED}"
++    return f"{PREFIX}{leg}{UNFINISHED}"
+ 
+ 
+ def detail(item):
+@@ -302,9 +293,7 @@ def detail(item):
+ 
+ def leg_detail(leg, conclusion, steps, reason):
+     named_steps = ", ".join(f"`{step}`" for step in steps) or "none recorded"
+-    action = ACTIONS.get(leg.split(" / ", 1)[0])
+-    return ((f"{action[1]}\n\n" if action else "")
+-            + f"Leg `{leg}` ended `{conclusion}`: {reason}. Failed steps: {named_steps}.")
++    return f"Leg `{leg}` ended `{conclusion}`: {reason}. Failed steps: {named_steps}."
+ 
+ 
+ def plan(commit, run_url, tests, unfinished, passed, green_legs, green, open_issues, numbers):
+@@ -333,10 +322,7 @@ def plan(commit, run_url, tests, unfinished, passed, green_legs, green, open_iss
+         if title in filed:
+             continue
+         rest = title[len(PREFIX):]
+-        acted = [leg for leg, (action, _) in ACTIONS.items() if action == rest]
+-        if acted:
+-            back = acted[0] in green_legs or any(name.startswith(f"{acted[0]} / ") for name in green_legs)
+-        elif rest.endswith(UNFINISHED):
++        if rest.endswith(UNFINISHED):
+             back = rest[:-len(UNFINISHED)] in green_legs
+         else:
+             package, _, test = rest.partition(" ")
+diff --git a/tools/ci/runner-packages.txt b/tools/ci/runner-packages.txt
+deleted file mode 100644
+index 092fea4c0c4..00000000000
+--- a/tools/ci/runner-packages.txt
++++ /dev/null
+@@ -1,22 +0,0 @@
+-# The apt packages a CI runner image installs, in the order its Containerfile lists them. GitHub-hosted runners
+-# install exactly this list (machine-sample.yml), so they match the image and cannot drift from it. When the image's
+-# list changes, update this file to match.
+-xvfb
+-xauth
+-x11-xkb-utils
+-xkb-data
+-pkg-config
+-libasound2-dev
+-libudev-dev
+-libxkbcommon-x11-dev
+-libwayland-dev
+-libx11-xcb-dev
+-libfontconfig-dev
+-libvulkan-dev
+-libxcursor1
+-libxi6
+-libxrandr2
+-valgrind
+-libc6-dbg
+-gcc-mingw-w64-x86-64
+-g++-mingw-w64-x86-64
+diff --git a/tools/ci/rust_changes.py b/tools/ci/rust_changes.py
+index 9c2009618bd..e033368329f 100644
+--- a/tools/ci/rust_changes.py
++++ b/tools/ci/rust_changes.py
+@@ -2,8 +2,7 @@
+ """Select CI checks from one fail-closed Git diff.
+ 
+ The default answers Rust selection; --launcher uses the launcher's dependency paths.
+---all emits the shared Rust, launcher and tooling decisions in one answer (the machine sample is a daily leg,
+-machine-sample.yml, so nothing selects it here).
++--all emits the shared Rust, launcher and tooling decisions in one answer.
+ """
+ 
+ import argparse
+@@ -38,12 +37,6 @@ def needs_launcher(paths):
+ UNKNOWN_CHANGE = "Cargo.lock"
+ 
+ 
+-def needs_sample(paths):
+-    return any(path in ROOT_RUST or path == "tools/ci/check_machine_sample.py"
+-               or path.startswith(("crates/horizon-mod-", "crates/horizon-core/",
+-                                   "crates/horizon-game-discovery/")) for path in paths)
+-
+-
+ def needs_tooling(changes):
+     paths = [path for _, path in changes]
+     return needs_rust(paths) or any(
+@@ -99,4 +92,3 @@ if __name__ == "__main__":
+     else:
+         needs = needs_launcher if args.launcher else needs_rust
+         print(f"required={str(needs(paths)).lower()}")
+-        print(f"sample={str(needs_sample(paths)).lower()}")

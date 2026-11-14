@@ -1,0 +1,361 @@
+diff --git a/tests/test_ci_apt_retry.py b/tests/test_ci_apt_retry.py
+index b80a4c9105b..995764242d9 100644
+--- a/tests/test_ci_apt_retry.py
++++ b/tests/test_ci_apt_retry.py
+@@ -50,7 +50,7 @@ fi
+             env = dict(os.environ, PATH=f"{root}:{os.environ['PATH']}",
+                        LOG=str(root / "log"), STATE=str(root / "state"),
+                        FAILED_COMMAND=failed_command, FAILURES=str(failures),
+-                       DYNA_CI_APT_TRIES="4", DYNA_CI_APT_PAUSE="5")
++                       APT_RETRY_TRIES="4", APT_RETRY_PAUSE="5")
+             result = subprocess.run(
+                 ["bash", ROOT / "tools/ci/install_launcher_deps.sh", "libx11-xcb-dev", "libudev-dev"],
+                 env=env, text=True, capture_output=True)
+diff --git a/tests/test_hot_paths.py b/tests/test_hot_paths.py
+index 9d57cf29a3d..65dd8d69f2c 100644
+--- a/tests/test_hot_paths.py
++++ b/tests/test_hot_paths.py
+@@ -30,7 +30,7 @@ class Record(unittest.TestCase):
+         self.assertEqual(kept['notes'], ['instructions and allocations not measured: no valgrind on this machine'])
+ 
+     def test_a_path_or_an_unknown_metric_is_refused(self):
+-        for change in ({'host': '/box/work/runner'}, {'cpu': 'C:\\Users\\someone'}, {'commit': 'main'},
++        for change in ({'host': '/srv/work/runner'}, {'cpu': 'C:\\Users\\someone'}, {'commit': 'main'},
+                        {'metrics': {'server.tick.mobs_128.assets': [1.0]}},
+                        {'metrics': {'other.workload.instructions': [1.0]}},
+                        {'workloads': {'../escape': {'operations': 1, 'checksum': '0' * 16}}}):
+diff --git a/tests/test_preparation_step.py b/tests/test_preparation_step.py
+index 4628038d772..5ab3115ea63 100644
+--- a/tests/test_preparation_step.py
++++ b/tests/test_preparation_step.py
+@@ -101,7 +101,7 @@ class PreparationStepTests(unittest.TestCase):
+             prepare = root / "target/release/horizon-prepare"
+             prepare.write_text('#!/bin/sh\nmkdir .local/scratch\necho "SECRET No space left on device"\nexit 23\n')
+             prepare.chmod(0o755)
+-            env = dict(os.environ, HORIZON_DYNA_CACHE="true", HORIZON_PREPARED_CACHE=str(root / "cache"),
++            env = dict(os.environ, HORIZON_PERSISTENT_CACHE="true", HORIZON_PREPARED_CACHE=str(root / "cache"),
+                        HORIZON_SHARED_SOURCE=str(root / "source"), HORIZON_PREPARE_KEY="0123456789abcdef",
+                        RUNNER_TEMP=str(root), CARGO_TARGET_DIR=str(root / "target"),
+                        PATH=str(root / "bin") + os.pathsep + os.environ["PATH"])
+@@ -143,7 +143,7 @@ class PreparationStepTests(unittest.TestCase):
+             prepare.write_text('#!/bin/sh\nmkdir -p .local/horizon-client/26.3\necho one > .local/horizon-client/26.3/a\n'
+                                'echo "prepared" >> "$PREPARED_RUNS"\n')
+             prepare.chmod(0o755)
+-            env = dict(os.environ, HORIZON_DYNA_CACHE="true", HORIZON_PREPARED_CACHE=str(root / "cache"),
++            env = dict(os.environ, HORIZON_PERSISTENT_CACHE="true", HORIZON_PREPARED_CACHE=str(root / "cache"),
+                        HORIZON_SHARED_SOURCE=str(root / "source"), HORIZON_PREPARE_KEY="0123456789abcdef",
+                        RUNNER_TEMP=str(root), CARGO_TARGET_DIR=str(root / "target"),
+                        PREPARED_RUNS=str(root / "runs"), PATH=str(root / "bin") + os.pathsep + os.environ["PATH"])
+diff --git a/tools/ci/apt_retry.sh b/tools/ci/apt_retry.sh
+index 0919476cdf0..55c1bdfa0a4 100644
+--- a/tools/ci/apt_retry.sh
++++ b/tools/ci/apt_retry.sh
+@@ -1,7 +1,7 @@
+ #!/usr/bin/env bash
+ # Shared bounded backoff for CI apt commands. Source before calling retry.
+-tries="${DYNA_CI_APT_TRIES:-4}"
+-pause="${DYNA_CI_APT_PAUSE:-5}"
++tries="${APT_RETRY_TRIES:-4}"
++pause="${APT_RETRY_PAUSE:-5}"
+ retry() {
+   local attempt=1 status=0
+   while :; do
+diff --git a/tools/ci/test_prepared_cache.py b/tools/ci/test_prepared_cache.py
+index dd4bc9ec741..2f30565ea26 100644
+--- a/tools/ci/test_prepared_cache.py
++++ b/tools/ci/test_prepared_cache.py
+@@ -1,4 +1,4 @@
+-"""The slot preparation cache (HORIZON_DYNA_CACHE) reuses keys and recovers its lock after a killed job."""
++"""The persistent preparation cache (HORIZON_PERSISTENT_CACHE) reuses keys and recovers its lock after a killed job."""
+ import os
+ from pathlib import Path
+ import signal
+@@ -43,7 +43,7 @@ class PreparedCacheTest(unittest.TestCase):
+             cargo = binary / "cargo"
+             cargo.write_text('#!/bin/sh\nexit 0\n')
+             cargo.chmod(0o755)
+-            env = dict(os.environ, PATH=f"{binary}:{os.environ['PATH']}", HORIZON_DYNA_CACHE="true",
++            env = dict(os.environ, PATH=f"{binary}:{os.environ['PATH']}", HORIZON_PERSISTENT_CACHE="true",
+                        HORIZON_PREPARED_CACHE=str(cache), HORIZON_SHARED_SOURCE=str(source),
+                        HORIZON_PREPARE_KEY="fixture", HORIZON_PREPARE_EXPORT_DIGEST=str(tmp / "export.digest"),
+                        RUNNER_TEMP=str(tmp), CARGO_TARGET_DIR=str(work / "target"))
+diff --git a/tools/ci/vanilla-data.sh b/tools/ci/vanilla-data.sh
+index 006b7c61fe5..72ed3bde71c 100755
+--- a/tools/ci/vanilla-data.sh
++++ b/tools/ci/vanilla-data.sh
+@@ -7,11 +7,12 @@
+ # .local/horizon-client and the exporter outputs beside it, what horizon-prepare makes, are prepared by this
+ # checkout's own preparer once per preparer version (its sources, the exporters and research-lock.json), so a
+ # change to the preparer is checked with what it prepares; the four newest preparations are kept on legacy runners.
+-# Dyna uses a per-slot HORIZON_PREPARED_CACHE and read-only HORIZON_SHARED_SOURCE; old keys stay until slot GC.
++# A runner pool that keeps HORIZON_PREPARED_CACHE between jobs (HORIZON_PERSISTENT_CACHE=true) reads a read-only
++# HORIZON_SHARED_SOURCE; old keys stay until the pool collects them.
+ set -euo pipefail
+ shared="${HORIZON_PREPARED_CACHE:-${RUNNER_WORKSPACE:?}/shared-local}"
+ source="${HORIZON_SHARED_SOURCE:-$HOME/code/horizon-parity/shared-local}"
+-dyna="${HORIZON_DYNA_CACHE:-false}"
++persistent="${HORIZON_PERSISTENT_CACHE:-false}"
+ version=$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' research-lock.json | head -1)
+ if [ ! -f "$shared/minecraft/$version/prepared.json" ]; then
+   [ -f "$source/minecraft/$version/prepared.json" ] || { echo "::error::no imported Minecraft $version"; exit 1; }
+@@ -44,7 +45,7 @@ else
+   done
+   trap 'rmdir "$lock" 2>/dev/null || true' EXIT
+ fi
+-# Dyna keeps $prepared on the slot between jobs, so a job must never change it: it is only ever read here,
++# A persistent cache keeps $prepared between jobs, so a job must never change it: it is only ever read here,
+ # against the digest of its files written when its preparation finished, and the job gets a private copy.
+ # Each file's digest, then one digest of the list; .manifest* themselves are left out.
+ file_digests() {
+@@ -60,7 +61,7 @@ use_private_copy() {
+   while read -r name; do ln -sfn "$work/$name" ".local/$name"; done < "$work/.entries"
+   echo "prepared key $key: private copy for this job ($(find "$work" -type f | wc -l) files)"
+ }
+-if [ "$dyna" = true ] && [ -f "$prepared/.entries" ] && grep -qx horizon-client "$prepared/.entries"; then
++if [ "$persistent" = true ] && [ -f "$prepared/.entries" ] && grep -qx horizon-client "$prepared/.entries"; then
+   expected=$(cat "$prepared/.manifest" 2>/dev/null || echo none)
+   found=$(digest "$prepared")
+   if [ "$found" = "$expected" ]; then
+@@ -82,7 +83,7 @@ if [ "$dyna" = true ] && [ -f "$prepared/.entries" ] && grep -qx horizon-client
+   fi
+   rm -rf "$prepared"
+ fi
+-if [ "$dyna" = true ]; then
++if [ "$persistent" = true ]; then
+   echo "prepared key $key stale"
+   # The preparer owns its scratch data; never let it write through the source mount.
+   for name in minecraft tools; do ln -sfn "$source/$name" ".local/$name"; done
+@@ -127,7 +128,7 @@ if [ ! -f "$prepared/.entries" ]; then
+   done
+   before=$(ls -1A .local | LC_ALL=C sort)
+   started=$SECONDS
+-  if [ "$dyna" = true ]; then
++  if [ "$persistent" = true ]; then
+     python3 tools/ci/preparation_step.py preparer-build "$RUNNER_TEMP/prepare-build.log" cargo build --release --locked -p horizon-prepare
+   else
+     cargo build --release --locked -p horizon-prepare
+@@ -144,7 +145,7 @@ if [ ! -f "$prepared/.entries" ]; then
+   fi
+   LC_ALL=C comm -13 <(echo "$before") <(ls -1A .local | LC_ALL=C sort) > "$RUNNER_TEMP/prepared-entries"
+   while read -r name; do mv ".local/$name" "$prepared/$name"; done < "$RUNNER_TEMP/prepared-entries"
+-  if [ "$dyna" = true ]; then
++  if [ "$persistent" = true ]; then
+     # Optional dispatch-only measurement before shared extras can affect the output.
+     if [ -n "${HORIZON_PREPARE_EXPORT_DIGEST:-}" ]; then
+       python3 tools/prepare_output.py digest "$prepared/horizon-client/$version" > "$HORIZON_PREPARE_EXPORT_DIGEST" 2> "$RUNNER_TEMP/export-digest.log" || { echo "::error::export digest unavailable"; exit 1; }
+@@ -153,11 +154,11 @@ if [ ! -f "$prepared/.entries" ]; then
+     python3 tools/ci/preparation_step.py seed-extras "$RUNNER_TEMP/seed-extras.log" python3 -m tools.ci.seed_prepared_extras "$source/horizon-client/$version" "$prepared/horizon-client/$version/"
+   fi
+   mv "$RUNNER_TEMP/prepared-entries" "$prepared/.entries"
+-  if [ "$dyna" != true ]; then echo "Prepared in $((SECONDS - started)) s: $(tr '\n' ' ' < "$prepared/.entries")"; fi
++  if [ "$persistent" != true ]; then echo "Prepared in $((SECONDS - started)) s: $(tr '\n' ' ' < "$prepared/.entries")"; fi
+ fi
+ # The game finds some data relative to its resources (<resources>/../../datagen): beside the prepared folders,
+ # the same neighbours as in the shared folder.
+-if [ "$dyna" = true ]; then
++if [ "$persistent" = true ]; then
+   for name in minecraft tools; do [ -e "$prepared/$name" ] || ln -sfn "$source/$name" "$prepared/$name"; done
+ else
+   for entry in "$shared"/*; do
+@@ -204,7 +205,7 @@ if [ -d "$languages/minecraft/lang" ] && [ -d "$assets" ]; then
+   fi
+ fi
+ touch "$prepared"
+-if [ "$dyna" = true ]; then
++if [ "$persistent" = true ]; then
+   echo "prepared in $((SECONDS - started)) s"
+   # Written last, once the preparation is whole: the next job reuses this tree only if it still matches.
+   file_digests "$prepared" > "$RUNNER_TEMP/prepared-files"
+@@ -215,7 +216,7 @@ if [ "$dyna" = true ]; then
+   report_prepared
+ fi
+ # The four newest preparations stay.
+-# Dyna keeps old keys because another active job may still read them; slot GC handles them.
+-if [ "$dyna" != true ]; then
++# A persistent cache keeps old keys because another active job may still read them; the pool collects them.
++if [ "$persistent" != true ]; then
+   ls -1dt "$shared/prepared"/*/ 2>/dev/null | tail -n +5 | while read -r old; do rm -rf "$old"; done
+ fi
+diff --git a/tools/datafix_paths.py b/tools/datafix_paths.py
+index b9c1f450413..1750c1953e6 100644
+--- a/tools/datafix_paths.py
++++ b/tools/datafix_paths.py
+@@ -4,7 +4,8 @@ from pathlib import Path
+ 
+ ROOT = Path(__file__).resolve().parent.parent
+ VARIABLE = 'HORIZON_DATAFIX_ROOT'
+-READ_ONLY = Path('/box/shared/vanilla')
++# The read-only shared copy of the vanilla data (tools/ci/vanilla-data.sh's HORIZON_SHARED_SOURCE).
++READ_ONLY = Path(os.environ.get('HORIZON_SHARED_SOURCE') or Path.home() / 'code/horizon-parity/shared-local')
+ 
+ 
+ def writable_root():
+diff --git a/tools/refactors/api-pr0/move.py b/tools/refactors/api-pr0/move.py
+index 42e79ec9964..4b2bad2ff28 100755
+--- a/tools/refactors/api-pr0/move.py
++++ b/tools/refactors/api-pr0/move.py
+@@ -297,7 +297,7 @@ def step2():
+         if new != text:
+             p.write_text(new)
+             changed.append(f)
+-    pathlib.Path('/box/shared/api-lead/pr0/changed-files.txt').write_text('\n'.join(changed))
++    pathlib.Path('.local/api-pr0-changed-files.txt').write_text('\n'.join(changed))
+     print(len(changed), 'files rewritten')
+ 
+ 
+diff --git a/tools/refactors/centralize_ci_selection.py b/tools/refactors/centralize_ci_selection.py
+deleted file mode 100644
+index 4271aa08660..00000000000
+--- a/tools/refactors/centralize_ci_selection.py
++++ /dev/null
+@@ -1,46 +0,0 @@
+-#!/usr/bin/env python3
+-"""Move dyna-checks' repeated selection into changes (base: 3fe084c56b)."""
+-from pathlib import Path
+-import re
+-
+-path = Path(__file__).resolve().parents[2] / '.github/workflows/dyna-ci.yml'
+-source = path.read_text()
+-if 'steps.selection.outputs.rust_required' in source:
+-    print('selection is already centralized')
+-    raise SystemExit(0)
+-source = source.replace("steps.rust.outputs.required", "needs.changes.outputs.rust_required")
+-source = source.replace("steps.rust.outputs.sample", "needs.changes.outputs.sample_required")
+-source = source.replace("steps.launcher.outputs.required", "needs.changes.outputs.launcher_required")
+-# Remove the three per-job selector steps, not the surrounding checks.
+-source, count = re.subn(r'      - name: Does this pull request (?:need Rust checks\?|change the launcher or a crate it builds\?)\n.*?        run: python3 tools/ci/rust_changes.py[^\n]*\n', '', source, flags=re.S)
+-assert count == 3, count
+-source = source.replace('    outputs:\n', '''    outputs:
+-      rust_required: ${{ steps.selection.outputs.rust_required || 'true' }}
+-      launcher_required: ${{ steps.selection.outputs.launcher_required || 'true' }}
+-      tooling_required: ${{ steps.selection.outputs.tooling_required || 'true' }}
+-      sample_required: ${{ steps.selection.outputs.sample_required || 'true' }}
+-''', 1)
+-anchor = '      # workflow_run omits pull_requests for fork runs.'
+-selection = '''      - name: Fetch this commit's history for selection
+-        if: github.event_name == 'pull_request'
+-        run: git fetch -q --no-tags --unshallow origin "$(git rev-parse HEAD)"
+-      - name: Select checks once for this pull request
+-        if: github.event_name == 'pull_request'
+-        id: selection
+-        env:
+-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+-        run: python3 tools/ci/rust_changes.py --all "$BASE_SHA" "$HEAD_SHA" >> "$GITHUB_OUTPUT"
+-'''
+-assert source.count(anchor) == 1
+-source = source.replace(anchor, selection + anchor)
+-# History in lint and launcher served only their now-centralized selector.
+-for name in ('lint', 'launcher'):
+-    start = source.index(f'  {name}:\n')
+-    following = re.search(r'^  [\w-]+:\n', source[start + len(name) + 5:], re.M)
+-    stop = start + len(name) + 5 + following.start() if following else len(source)
+-    block = source[start:stop]
+-    block, count = re.subn(r'      # Only this commit.s own history.*?        run: git fetch -q --no-tags --unshallow origin "\$\(git rev-parse HEAD\)"\n', '', block, flags=re.S)
+-    assert count == 1, (name, count)
+-    source = source[:start] + block + source[stop:]
+-path.write_text(source)
+diff --git a/tools/refactors/split_verify_static.py b/tools/refactors/split_verify_static.py
+deleted file mode 100644
+index d00fe2e5bff..00000000000
+--- a/tools/refactors/split_verify_static.py
++++ /dev/null
+@@ -1,84 +0,0 @@
+-#!/usr/bin/env python3
+-"""Move compile-free verify work into its independently routed required job.
+-
+-One-shot mechanical migration; hand corrections to setup, gates and tests follow
+-in separate commits. Step bodies, selection conditions and runner routing stay
+-byte-for-byte intact in this move.
+-"""
+-from pathlib import Path
+-import re
+-
+-ROOT = Path(__file__).resolve().parents[2]
+-WORKFLOW = ROOT / ".github/workflows/dyna-ci.yml"
+-COMMON = {
+-    "Require successful check selection",
+-    "actions/checkout@v4",
+-    "actions/setup-python@v5",
+-    "Install Rust toolchain and the runner image's packages",
+-}
+-RUNTIME = {
+-    "Check Dyna dependencies (install fallback without root)",
+-    "Swatinem/rust-cache@v2",
+-    "Build the runtime holder test actor",
+-    "Test Rust core and voxel kernel correctness",
+-    "Build the source stage generator (test profile)",
+-    "Validate prebuilt source stage and listed slots",
+-    "Test Rust documentation examples",
+-    "Report test compiler cache",
+-}
+-STATIC = {
+-    "Fetch this commit's history",
+-    "Keep game artifacts out of Git",
+-    "Check duplicate public native functions",
+-    "Built-in addresses stay in their home",
+-    "Big files don't grow",
+-    "Crates follow the layers",
+-    "Test offline research tooling",
+-    "Build the mod-host map tables",
+-    "Upload the mod-host map tables",
+-    "Report optional mod-host map upload failure",
+-}
+-
+-
+-def main() -> None:
+-    source = WORKFLOW.read_text()
+-    if "\n  verify-static:\n" in source:
+-        raise SystemExit("verify-static already exists; this migration is one-shot")
+-    start = source.index("  verify:\n")
+-    end = source.index("  # The #[ignore]d library tests", start)
+-    header, body = source[start:end].split("    steps:\n", 1)
+-    lines = body.splitlines(keepends=True)
+-    positions = []
+-    for index, line in enumerate(lines):
+-        match = re.fullmatch(r"      - (?:name|uses): (.+)\n", line)
+-        if match is None:
+-            continue
+-        beginning = index
+-        while beginning and (lines[beginning - 1].startswith("      #")
+-                             or not lines[beginning - 1].strip()):
+-            beginning -= 1
+-        positions.append((beginning, match[1]))
+-    names = [name for _, name in positions]
+-    expected = COMMON | RUNTIME | STATIC
+-    if len(names) != len(set(names)) or set(names) != expected:
+-        raise SystemExit(f"step assignment changed: missing={expected - set(names)}, "
+-                         f"unknown={set(names) - expected}, duplicate={len(names) != len(set(names))}")
+-    if positions[0][0] != 0:
+-        raise SystemExit("unexpected prelude before the selection failure guard")
+-    runtime = []
+-    static = []
+-    for number, (beginning, name) in enumerate(positions):
+-        stop = positions[number + 1][0] if number + 1 < len(positions) else len(lines)
+-        block = "".join(lines[beginning:stop])
+-        if name in COMMON | RUNTIME:
+-            runtime.append(block)
+-        if name in COMMON | STATIC:
+-            static.append(block)
+-    runtime_job = header + "    steps:\n" + "".join(runtime)
+-    static_header = header.replace("  verify:\n", "  verify-static:\n", 1)
+-    static_job = static_header + "    steps:\n" + "".join(static)
+-    WORKFLOW.write_text(source[:start] + runtime_job + "\n" + static_job + source[end:])
+-
+-
+-if __name__ == "__main__":
+-    main()
+diff --git a/tools/test_block_entity_tick_items_mutants.py b/tools/test_block_entity_tick_items_mutants.py
+index 057c2c8e5d3..124eb8ee7b1 100644
+--- a/tools/test_block_entity_tick_items_mutants.py
++++ b/tools/test_block_entity_tick_items_mutants.py
+@@ -20,7 +20,8 @@ parser = argparse.ArgumentParser()
+ parser.add_argument("--resources", type=Path, required=True)
+ args = parser.parse_args()
+ resources = args.resources.resolve()
+-if resources.is_relative_to(Path("/box/shared/vanilla")):
++shared = os.environ.get("HORIZON_SHARED_SOURCE") or Path.home() / "code/horizon-parity/shared-local"
++if resources.is_relative_to(Path(shared)):
+     parser.error("use a private resource copy, not the read-only shared tree")
+ logs = ROOT / ".local/row4-mutants"
+ logs.mkdir(parents=True, exist_ok=True)

@@ -1,33 +1,98 @@
 # upstream-prep: report
 
-Branch `upstream-prep` on arismoko/horizon, head `dc39907bf95`, = main `77b62ef6b60` + 8 commits (one per category, no
-trailers). Built by `prep.sh` from the inputs in this folder, also committed on branch `upstream-prep-tools` (an
-orphan branch holding only this folder). Fork main is untouched.
+Branch `upstream-prep` on arismoko/horizon, head `dde1fa4f9a2`, = main `77b62ef6b60` + 19 commits (no trailers).
+Built by `prep.sh` from the inputs in this folder; the same folder is the orphan branch `upstream-prep-tools`.
+Fork main is untouched. Draft pull request description for the owner: `pr-body.md`.
 
-| Commit | Files | + / − |
-| --- | --- | --- |
-| CI: run the kept workflows without the fork's runner pool and gate | 38 | +163 / −584 |
-| Docs and comments: drop the fork's own process and names | 19 | +30 / −39 |
-| Reword comments and a test mod id (also PR #4432 to main; skipped by the script once main has it) | 3 | +10 / −9 |
-| Remove the fork's CI gate, runner pool and boat plumbing | 26 | −4158 |
-| Remove the fork's board, roadmap and Discord automation | 8 | −602 |
-| Remove the fork's upstream-sync tools and records | 34 | −2849 |
-| Remove the conflict-measurement scripts | 9 | −1307 |
-| Remove the shm-scene bench scratch crate | 3 | −189 |
-| Total | 137 | +203 / −9737 |
+| # | Commit | Files | + / − |
+| --- | --- | --- | --- |
+| | CI: run the kept workflows without the fork's runner pool and gate | 38 | +163 / −584 |
+| | Docs and comments: drop the fork's own process and names | 19 | +30 / −39 |
+| | Reword comments and a test mod id (also PR #4432; skipped once main has it) | 3 | +10 / −9 |
+| | Remove the fork's CI gate, runner pool and boat plumbing | 26 | −4158 |
+| | Remove the fork's board, roadmap and Discord automation | 8 | −602 |
+| | Remove the fork's upstream-sync tools and records | 34 | −2849 |
+| | Remove the conflict-measurement scripts | 9 | −1307 |
+| | Remove the shm-scene bench scratch crate | 3 | −189 |
+| 2 | README: upstream's text, without the fork notice | 1 | +3 / −14 |
+| 3 | Launcher: build only upstream's identity (scripted) | 18 | +99 / −396 |
+| 3 | Launcher: drop the fork's names, icons, keys and packaging | 46 | +139 / −1096 |
+| 5 | CI: upstream's telemetry-server and mod-registry workflows | 2 | +27 / −9 |
+| 6 | Claims: upstream's claim command and limit | 4 | +73 / −484 |
+| 7 | CI: restore upstream's runner watch | 1 | +34 |
+| 9 | CI: stop building the external machine sample | 16 | +21 / −214 |
+| 8 | Docs and tools: drop the remaining local paths and agent-runner names | 11 | +26 / −153 |
+| | Remove the fork's changelog digest | 5 | −568 |
+| 1 | Point every repository reference at horizon-rust/horizon (scripted) | 58 | +147 / −145 |
+| 1 | Repository references: corrections after the rename | 8 | +16 / −17 |
+| | Total | 258 | +752 / −12797 |
 
-## Proofs (static, `proofs.sh`, log in `proofs.log`)
+Item 4 (Microsoft application id) needed no commit: the launcher already reads `HORIZON_MSA_CLIENT_ID` exactly as
+upstream's does (`vars.HORIZON_MSA_CLIENT_ID` in launcher.yml, `account::client_id()`); the only fork handling was the
+README and launcher README text, gone with items 2 and 3.
 
-1. Nothing kept names a removed path: 0 hits. Accepted and listed: `tools/refactors/centralize_ci_selection.py` and
-   `split_verify_static.py` name `dyna-ci.yml` (one-off refactor scripts; `tools/refactors/` is kept whole by the brief).
-2. `actionlint` 1.7.7 on every remaining workflow: clean. (Main itself fails it: 13 findings, all in the removed
-   workflows plus `horizon-parity-main`, upstream's own Mac label, which is now listed in `.github/actionlint.yaml`.
-   Upstream's own main fails it too, 4 findings.)
-3. `python3 -m unittest discover -s tests` and `discover -s tools/ci -p 'test_prepared_*.py'` (what ci.yml verify
-   runs) under Python 3.12 (CI's): OK, 1747 tests. Under this box's Python 3.11 one test fails on main too
-   (`test_prebuilt_game`, `tarfile.extractall(filter=)` is 3.12).
-4. Rust/Cargo files changed: only the three files of the naming commit and the deleted `tools/shm-scene/` (both
-   approved by root). The naming commit passed `cargo check --tests` on its three crates and CI on PR #4432.
+## Proofs (`proofs.sh`, log in `proofs.log`)
+
+1. Nothing kept names a path the branch deleted (every `D` against main, by path and file name): 0 hits.
+2. `actionlint` on every workflow: clean. 2b. `tools/check_addresses.py` (ci.yml verify): passed.
+3. `python3 -m unittest discover -s tests` + `tools/ci` prepared-data tests, Python 3.12 (CI's): OK, 1706 tests.
+4. Rust/Cargo files changed, by commit: naming 3, shm-scene 2, launcher identity script 18 and hand pass 12,
+   repository rename 10 (strings and doc comments only).
+5. Scrub: portizon, `/box/`, Dyna (word and identifiers), host names and the agent-swarm line are 0 (`scrub.md`).
+6. `arismoko` left: 174 lines, all allowed kinds (below); unexpected: 0.
+7. `cargo check --workspace --all-targets --locked` and the launcher workspace's `cargo check --all-targets`: OK.
+   Compile only; no clippy or tests were run on the Rust changes.
+
+## Resolved toward upstream (the former ASK list)
+
+1. **Repository references** (`rename_repository.py`, then a hand pass): `arismoko/horizon` → `horizon-rust/horizon`
+   in the launcher's `REPO` and README address, the SDK, mixins-tool and prebuilt release URLs, `PREBUILT_REPO`, the
+   book links and its pages address (`horizon-rust.github.io/horizon`), workflow conditions (nightly-build's SDK
+   steps), `nightly.py` and `release_train.py`. Left as they are, by rule:
+   - `arismoko/horizon-machine-sample` (no upstream twin; see pr-body question 7);
+   - references to one issue or pull request (`arismoko/horizon#N`, `.../issues/N`, `.../pull/N`): about 170 lines,
+     mostly design records and doc comments. The same number on horizon-rust/horizon is a different issue, so a
+     rewrite would link to the wrong one;
+   - lines that upstream's own files have word for word (GOVERNANCE.md, CONTRIBUTING.md's "Mod-related pull requests
+     go to arismoko/horizon", docs/layers.md, docs/mod-hotload.md): upstream's text about the fork, for the
+     maintainers to reword at the merge.
+   `arismoko/horizon-mixins` occurs nowhere (the tool comes from this repository's releases; horizon-rust/horizon-mixins
+   exists). Repository switches that selected the fork's *build flow* (the SDK-paired nightly from `daily-green`,
+   `release_train`'s gate jobs, nightly-build's SDK steps) now select it for horizon-rust/horizon, since the CI tiers
+   on this branch need it; pr-body question 1 asks the maintainers. Tests that compared the two repositories now
+   compare horizon-rust/horizon with another one.
+2. **README:** upstream's README; the one kept change is `cargo run --release -p horizon-game` (the game's executable
+   is built by horizon-game here).
+3. **Launcher identity:** `strip_fork_launcher.py` evaluates `cfg!(horizon_fork_launcher)` as off and writes upstream's
+   literals where `launcher/src/identity.rs` stood; the hand pass takes upstream's `build.rs`, `desktop.rs`,
+   `installer.rs` (keeping `horizon_addresses::LAUNCHER_ABOUT` for the address check), `setup_args.rs`,
+   `setup_page.rs`, `titlebar.rs`, design-system and security docs, macOS packaging README; launcher.yml back to
+   upstream's names, matrix, signing and ARM64 steps (kept: the `base` input, test isolation, the capability-marker
+   check, `verify --repository`); deletes the fork icons, release notes, staging and matrix tools, the nightly banner,
+   `fork-release-keys.txt` (release trust is now `release-keys.txt` for horizon-rust/horizon, every other repository
+   none) and their tests; `links.json` loses the fork board link. Native-mod and SDK features untouched.
+4. **Microsoft application id:** nothing to change (above).
+5. **telemetry-server.yml, mod-registry.yml:** upstream's files, keeping two product changes: the package crate's new
+   path, and the pinned Rust (`tools/ci/rustup_install.sh`; `tests/test_rust_pin.py` requires it in every workflow).
+6. **Claim limit:** upstream's claim workflow, `claim_command.py`, its test and CONTRIBUTING text (8 open issues).
+7. **Workflows:** `runner-watch.yml` restored from upstream (its script already matched). `native-hook-stamp.yml`
+   stays deleted: it numbered `tools/native-hook-fragments/*.json`, which no longer exist (hooks are trait-method stubs
+   since 570922b0dc9).
+8. **Dyna and `/box/`:** the persistent prepared-data cache is `HORIZON_PERSISTENT_CACHE`, apt retries
+   `APT_RETRY_TRIES`/`APT_RETRY_PAUSE`; the read-only vanilla copy guarded by `tools/datafix_paths.py` and the
+   row-4 mutants script is `HORIZON_SHARED_SOURCE` (vanilla-data.sh's name, same default) instead of a fixed local
+   path; `tools/refactors/api-pr0/move.py` writes into `.local/`; the two refactor scripts for the removed gate
+   workflow are deleted.
+9. **Machine sample:** `machine-sample.yml`, the daily leg, `check_machine_sample.py` (the pin) and its test,
+   `runner-packages.txt` (only that workflow read it), daily_summary's action-issue mechanism (only the sample used
+   it), `rust_changes.py`'s unused `sample=` output, and the AGENTS, CONTRIBUTING and release-flow lines. The book keeps
+   "An example mod lives at <url>" in its introduction and the recipes page; the modding-book review line no longer
+   says the reviewer runs the sample. Design records under docs/design are left as written.
+- **Also:** the changelog digest (`changelog.yml`, `changelog-test.yml`, `tools/changelog.py`, test, fixture) is
+  removed: it summarised the fork's PRs around its rollups for a branch only the fork's README linked.
+
+Left as they are: 14 lines naming rollups (the hotspots carry tool and README, the sync file-size baseline docs,
+the `rollup-*.txt` ignored-test row files' names); design records under docs/design.
 
 ## Removed, with reasons
 
@@ -65,9 +130,8 @@ names it, transitively; tests of removed tools share their fate).
   labels, mojang), runner scripts upstream uses (runner-env, vanilla-data, linux-runner, checks-runners, runner_watch,
   runner-gc, git-slim), and generic helpers (cargo_jobs, source_mtimes, compiler-cache, apt_retry, with_xvfb).
 - **Brief's KEEP list:** daily.yml and every `#[ignore = "daily"]` row, sdk-publish, prebuilt game and mixins-tool
-  workflows, modding book, the surface gate, fn-replace-check, wasm workflows, all of `tools/refactors/`, the tiers.
-- **Claim limit:** kept (root agreed): upstream already refused past 8 open claims; ours is 5 with exemptions. On the ASK list.
-- **Changelog:** `changelog.yml`/`tools/changelog.py` kept (not in the brief's list); disclosure line neutralised. ASK.
+  workflows, modding book, the surface gate, fn-replace-check, wasm workflows, the tiers, and `tools/refactors/`
+  except the two scripts for the removed gate workflow (step 8 below).
 
 ### Where the fork gate's product checks went
 
@@ -80,102 +144,6 @@ check of `horizon-mod-api`, the SDK host/Windows `cargo check`, `check_warnings.
 runner, `check_file_size.py`, `check_repository_hygiene.py`, `format_scan.py` (pr_ready still runs the last two).
 Upstream's reviewers may want some of these in ci.yml.
 
-## Workflows changed on this branch (for upstream's reviewers)
-
-Upstream workflows the fork had already modified (16 kept, vs the merge base `d1b6cd286ea`): cargo-horizon-mod, ci,
-claim-command, game-build, launcher, mod-registry, nightly-build, nightly, pack-bench, parity-main, parity, perf-wasm,
-pr-labels, release, run-parity, telemetry-server. Kept as ours; this branch changes only:
-
-| Workflow | What this branch changed |
-| --- | --- |
-| ci.yml | verify gains the product checks listed above (ported from the fork's gate) |
-| game-build.yml | dropped the `DYNA_CI_SELF_HOSTED`/`NIGHTLY_*_RUNNER` runner branches and `DYNA_CI_BUILD` data paths; removed the `linux-smoke` job (ran only on our pool); macOS smoke uploads the report again |
-| nightly-build.yml | bookkeeping job's runner: dropped the `NIGHTLY_BOOKKEEPING_RUNNER` branch |
-| release.yml | comments: snapshot is a maintainer's dispatch, gated on `checks`' verify and launcher |
-| cargo-horizon-mod.yml | comment only (no `pr_gate.py`) |
-| others | unchanged |
-
-Fork-only workflows kept and changed: ignored-tests, wasm-mods, hot-paths (data jobs now `[self-hosted, linux,
-horizon-game]`, upstream's label for machines holding the maintainer's Minecraft files, with `runner-env.sh` +
-`vanilla-data.sh` as parity.yml does); wasm-coverage, fn-replace-check, native-dylib-probe, machine-sample (route job
-removed, GitHub's runners); daily.yml (the schedule's self-dispatch no longer limited to arismoko/horizon);
-launcher-windows-check (pr_gate job replaced by the same fork-PR skip cargo-horizon-mod and modding-book use);
-modding-book, sdk-publish (comments). `.github/actionlint.yaml` lists `horizon-parity-main`.
-Tools changed to match: `release_train.py` reads ci.yml's `verify`+`launcher` for snapshots instead of dyna-ci's jobs;
-`rust_changes.py` drops dyna-ci from its trigger set; 13 tests drop or adjust assertions on dyna-ci and the pool.
-
-## Scrub (before = main, after = branch; third_party excluded; `scrub.md` lists every remaining file)
-
-| Term | Before (lines / files) | After |
-| --- | --- | --- |
-| portizon | 11 / 5 | 0 / 0 |
-| /box/ paths | 18 / 9 | 4 / 4 |
-| ses_ / room_ ids | 0 | 0 |
-| hermeslab, ovh-rise5 | 2 / 2 | 0 / 0 |
-| arch as a host | 0 | 0 |
-| Dyna (word) | 74 / 31 | 5 / 3 |
-| dyna identifiers (dyna-ci, DYNA_…) | 246 / 59 | 19 / 7 |
-| agent-swarm disclosure | 6 / 5 | 1 / 1 |
-| rollup | 164 / 36 | 28 / 13 |
-
-Remaining, listed not fixed: `/box/` in `tools/datafix_paths.py`, `tools/test_block_entity_tick_items_mutants.py`
-(code defaults to our vanilla copy), `tests/test_hot_paths.py` (a sample bad path), `tools/refactors/api-pr0/move.py`.
-Dyna: `README.md` fork notice (ASK 1), `tools/ci/vanilla-data.sh` slot-cache mode (`HORIZON_DYNA_CACHE`, its tests,
-`apt_retry.sh`'s `DYNA_CI_APT_*` variables: code, off unless set), `tools/refactors/` (2 scripts). Rollup: the changelog
-tool and its fixture (ASK), `tools/hotspots/carry.py` + README "In a rollup" section, `check_stand_ins.py` docstring,
-`tools/sync` baseline docs and `check_file_size.py`/`docs/layers.md` (sync-PR file-size caps), the
-`tools/ci/ignored-tests/rollup-*.txt` row files (names only), 2 refactor scripts. Process text fixed: AGENTS.md CI tiers,
-CONTRIBUTING (tiers table, the "we carry it in a rollup" bullet, fork parity note), docs/release-flow.md (rollup carry,
-"root" dispatch, dyna-checks), PR template's rollup note, docs/ci-runners.md's "Cheap checks" section, sdk-publish's
-design path, the daily run's and changelog's disclosure lines.
-
-## ASK list (decisions for the owner and upstream; this branch changes none) — 13 items
-
-1. **README fork notice** (first block): "This is arismoko/horizon, a fork…", Modrizon Discord, fork launcher
-   downloads, "maintained by Aria's agent swarm, Dyna". Replace, keep or drop for upstream.
-2. **Hardcoded `arismoko/`**: 345 references in 147 files (`arismoko-refs.txt` has file:count). By kind:
-   launcher `REPO` and `README_URL` (`launcher/src/backend.rs`), update/SDK/mixins-tool release URLs
-   (`crates/horizon-addresses/src/lib.rs`: FORK_LAUNCHER_ABOUT, MIXINS_TOOL_RELEASES, SDK_RELEASES, the releases API),
-   `PREBUILT_REPO` (`crates/horizon-mod-package/src/index/native.rs`), release keys by repo
-   (`crates/horizon-release-sign/src/lib.rs`, `fork-release-keys.txt`), `arismoko/horizon-machine-sample` (7: daily.yml,
-   machine-sample.yml, check_machine_sample.py, daily_summary.py, 3 book pages), book links (`docs/modding/`: 30 in 21
-   files, `book.toml`), issue references `arismoko/horizon#N` in docs/design (132 in 47 files) and Rust doc comments
-   (crates/horizon-mod-vocab 11, horizon-client 8), `github.repository == 'arismoko/horizon'` branches in launcher.yml
-   (10), nightly-build.yml (5), game-build.yml timeout, `tools/ci/nightly.py` (10) and `nightly-arismoko.md`,
-   `tools/release_train.py`, `tools/changelog.py`, tests (43 in 11). `arismoko/horizon-mixins` is not hardcoded
-   (the mixins tool is fetched from this repository's releases).
-3. **Launcher naming as the fork's:** `LAUNCHER_PREFIX horizon-fork-launcher`, "Horizon Fork Launcher (arismoko)",
-   `tools/fork_launcher_identity.py`, `configure_fork_launcher_workflow.py`, `generate_fork_launcher_icons.py`,
-   `packaging/fork-launcher-release-notes.md`, `launcher/src/identity.rs`.
-4. **Microsoft application id:** the launcher reads `vars.HORIZON_MSA_CLIENT_ID` (upstream's variable); the fork builds
-   with upstream's app id by agreement. Confirm upstream keeps that arrangement.
-5. **telemetry-server.yml:** our change disabled its automatic runs ("pending root CI-capacity approval"); restore
-   upstream's triggers or keep dispatch-only.
-6. **mod-registry.yml:** our change dropped upstream's fork-PR guard on `horizon-checks` and renamed the crate path.
-7. **Fork-PR skips:** cargo-horizon-mod, modding-book and launcher-windows-check skip compiling for pull requests
-   from forks (our tier policy); upstream may want them on every PR.
-8. **Snapshot channel and `daily-green`:** release.yml `kind=snapshot`, release_train `--channel`, daily.yml's
-   tag and nightly publish are the fork's build flow; upstream decides whether to adopt it.
-9. **Self-hosted data runner:** ignored-tests, wasm-mods' fixture job and hot-paths now ask for
-   `[self-hosted, linux, horizon-game]` and the prepared data `vanilla-data.sh` makes there; upstream confirms that
-   runner can carry the daily legs (ignored-test shards ran up to 180 min on our pool).
-10. **Secrets and variables a kept workflow needs that upstream lacks:** `vars.CLAIM_LIMIT_EXEMPT` (optional,
-    claim-command.yml); `secrets: inherit` into sdk-publish/release from daily.yml (uses upstream's existing
-    `RELEASE_SIGNING_KEY`/`_NEXT`); `GH_TOKEN` writes for `daily-green`, `perf-history` (hot-paths) and the `changelog`
-    branch (workflow token, `contents: write`). Everything else they read upstream already has (`SELF_HOSTED_CI`,
-    `MAC_RUNNER`, `MACOS_SIGN_IDENTITY`, `RELEASES_PAUSED`, `HORIZON_MSA_CLIENT_ID`, `HORIZON_CURSEFORGE_API_KEY`).
-11. **Claim limit:** upstream refused past 8 open claims; ours refuses past 5 claimed issues without an open PR,
-    exempting OWNER/MEMBER/COLLABORATOR, trusted reviewers and `CLAIM_LIMIT_EXEMPT` (b852d8293bb, dc3216bc2ab).
-12. **`native-hook-stamp.yml` (deleted, not restored):** removed by 570922b0dc9 (2026-11-04, "Declare hooks as
-    attributed trait-method stubs the generator reads with syn"): the hook catalog left the JSON fragments this
-    workflow numbered, so it had nothing to stamp.
-13. **`runner-watch.yml` (absent, not restored):** added upstream in 9dc8b78a8f4 (2026-11-10); the fork's syncs since
-    did not take it (no merge message says why; it watches upstream's self-hosted runners, which the fork did not use).
-    `tools/ci/runner_watch.py` and its test are in the tree.
-
-Also for the owner: the changelog workflow and digest (`changelog.yml`, `tools/changelog.py`: rollup-aware, publishes
-to a `changelog` branch the README links) — keep for upstream or drop.
-
 ## Rerunning after a sync (or any main change)
 
 ```sh
@@ -184,9 +152,14 @@ bash prep.sh                            # rebuilds upstream-prep from origin/mai
 PUSH=1 bash prep.sh                     # same, then force-pushes upstream-prep
 ```
 
-- `prep.sh` recreates the branch from the base, applies `patches/0001…0003` with `git am --3way` (a patch already on the
-  base, such as the naming commit after #4432 merges, is skipped), runs `remove.py` (closure + one commit per category),
-  then `proofs.sh` (writes `proofs.log`, `scrub.md`, `last-removed.json`, `last-kept.json`).
+- `prep.sh` fetches origin and upstream, resets the work tree's branch to the base (keeping its `target/`), applies
+  `patches/0001…0003` with `git am --3way` (a patch already on the base is skipped), runs `remove.py` (closure + one
+  commit per category), `align.py` (the steps above: scripts `strip_fork_launcher.py` and `rename_repository.py`,
+  upstream's files from `upstream/main`, and the hand diffs in `patches/align/*.diff`), then `proofs.sh`.
+  `CARGO_CHECK=1` adds the compile-only cargo checks.
+- An align diff that no longer applies stops `align.py` naming it: fix it in the work tree with
+  `python3 align.py --until <step before>`, edit, then `git add -A && git diff --cached --binary > patches/align/<step>.diff`
+  and `python3 align.py --from <step>` (align.py's docstring).
 - A patch that conflicts stops `git am`: resolve in `../horizon-upstream-prep`, `git am --continue`, run
   `python3 /box/shared/upstream-prep/remove.py && BASE=origin/main bash /box/shared/upstream-prep/proofs.sh`, then refresh
   the patches: `git format-patch -o /box/shared/upstream-prep/patches origin/main..HEAD~5` (the three patch commits).

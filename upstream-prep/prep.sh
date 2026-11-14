@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
-# Build branch upstream-prep: <base> (default origin/main) + the patches in order + one removal commit per category,
-# then the static proofs. Re-runnable: it recreates the branch from the base each time.
+# Build branch upstream-prep: <base> (default origin/main) + the patches in order + one removal commit per category
+# (remove.py) + the steps that turn the fork's identity and choices toward upstream's (align.py, reading
+# upstream/main), then the static proofs. Re-runnable: it recreates the branch from the base each time.
 #
 #   bash prep.sh [base]                 # build in $WORK (default: a worktree beside the checkout), then the proofs
 #   PUSH=1 bash prep.sh                 # and force-push upstream-prep
+#   CARGO_CHECK=1 bash prep.sh          # and a compile-only cargo check of the workspace and the launcher
 #
 # A patch that no longer applies stops `git am` (3-way): resolve it in $WORK, `git am --continue`, then run
-# `python3 remove.py && bash proofs.sh` there, and refresh the patch with `git format-patch` (see report.md).
+# `python3 remove.py && python3 align.py && bash proofs.sh` there, and refresh the patch with `git format-patch`.
+# An align step whose diff no longer applies stops align.py: see align.py's docstring (report.md, "Rerunning").
 # A patch already on the base (the naming commit once it merges into main) is skipped.
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
@@ -15,8 +18,15 @@ base=${1:-origin/main}
 work=${WORK:-$(dirname "$repo")/horizon-upstream-prep}
 
 git -C "$repo" fetch -q origin main
-git -C "$repo" worktree remove --force "$work" 2>/dev/null || true
-git -C "$repo" worktree add -q -B upstream-prep "$work" "$base"
+git -C "$repo" fetch -q upstream main
+# Reuse the work tree when there is one, keeping its target/ (a cargo check stays incremental between runs).
+if [ -d "$work/.git" ] || [ -f "$work/.git" ]; then
+  git -C "$work" am --abort 2>/dev/null || true
+  git -C "$work" checkout -q -f -B upstream-prep "$base"
+  git -C "$work" clean -qfdx -e target -e .local
+else
+  git -C "$repo" worktree add -q -B upstream-prep "$work" "$base"
+fi
 cd "$work"
 for patch in "$here"/patches/*.patch; do
   if git apply --check --reverse "$patch" 2>/dev/null; then
@@ -27,6 +37,7 @@ for patch in "$here"/patches/*.patch; do
   echo "applied: $(basename "$patch")"
 done
 python3 "$here/remove.py"
+python3 "$here/align.py"
 BASE=$base bash "$here/proofs.sh" || { echo "proofs failed: see $here/proofs.log" >&2; exit 1; }
 if [ "${PUSH:-}" = 1 ]; then
   git push --force-with-lease origin upstream-prep

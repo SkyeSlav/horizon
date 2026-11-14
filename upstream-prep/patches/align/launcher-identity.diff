@@ -1,0 +1,2011 @@
+diff --git a/.github/workflows/game-build.yml b/.github/workflows/game-build.yml
+index 3d84945dbe5..22f8d59274b 100644
+--- a/.github/workflows/game-build.yml
++++ b/.github/workflows/game-build.yml
+@@ -178,7 +178,7 @@ jobs:
+             asset: horizon-macos-x64.zip
+     runs-on: ${{ matrix.mac && fromJSON(inputs.trusted && toJSON(vars.MAC_RUNNER) || (vars.SELF_HOSTED_CI != 'off' && '["self-hosted", "macOS", "horizon-nightly"]') || '"macos-15"') || matrix.os }}
+     # The fork's cold client + headless builds need both feature variants; keep upstream's limits unchanged.
+-    timeout-minutes: ${{ github.repository == 'arismoko/horizon' && 60 || (matrix.mac && 60 || 40) }}
++    timeout-minutes: ${{ matrix.mac && 60 || 40 }}
+     env:
+       RUSTFLAGS: ${{ matrix.rustflags }}
+       # The release's version, built in (horizon_core::release): --version, user agents and crash reports
+diff --git a/.github/workflows/launcher.yml b/.github/workflows/launcher.yml
+index 8efea3ba7ec..607088f9e5e 100644
+--- a/.github/workflows/launcher.yml
++++ b/.github/workflows/launcher.yml
+@@ -66,17 +66,12 @@ concurrency:
+ env:
+   # Test runs never reach the telemetry server: no live-count ping, no uploads (docs/telemetry.md).
+   HORIZON_TELEMETRY_URL: "off"
+-  HORIZON_LAUNCHER_REPOSITORY: ${{ github.repository }}
+-  LAUNCHER_PREFIX: ${{ github.repository == 'arismoko/horizon' && 'horizon-fork-launcher' || 'horizon-launcher' }}
+-  LAUNCHER_INSTALL_FOLDER: ${{ github.repository == 'arismoko/horizon' && 'Horizon Fork Launcher (arismoko)' || 'Horizon Launcher' }}
+-  LAUNCHER_APP_BUNDLE: ${{ github.repository == 'arismoko/horizon' && 'Horizon Fork Launcher (arismoko).app' || 'Horizon.app' }}
+-  LAUNCHER_PACKAGING: ${{ github.repository == 'arismoko/horizon' && '../.local/fork-launcher-packaging' || '../packaging' }}
++
+ jobs:
+   decide:
+     runs-on: ubuntu-latest
+     timeout-minutes: 10
+     outputs:
+-      matrix: ${{ steps.matrix.outputs.matrix }}
+       release: ${{ steps.decide.outputs.release }}
+       tag: ${{ steps.decide.outputs.tag }}
+       head: ${{ steps.decide.outputs.head }}
+@@ -86,8 +81,6 @@ jobs:
+       - uses: actions/checkout@v7
+         with:
+           fetch-depth: 0
+-      - id: matrix
+-        run: echo "matrix=$(python3 tools/launcher_build_matrix.py)" >> "$GITHUB_OUTPUT"
+       - id: mode
+         # Off main every run is a dry run (a launcher branch's push only builds).
+         run: echo "dry_run=${{ github.ref != 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.dry_run) }}" >> "$GITHUB_OUTPUT"
+@@ -138,8 +131,42 @@ jobs:
+     continue-on-error: ${{ matrix.name == 'windows-arm64' }}
+     strategy:
+       fail-fast: false
+-      matrix: ${{ fromJSON(needs.decide.outputs.matrix) }}
+-    runs-on: ${{ matrix.mac && (github.repository == 'arismoko/horizon' && 'macos-latest' || vars.MAC_RUNNER || 'ludovics-mac-mini') || matrix.os }}
++      matrix:
++        include:
++          - name: linux
++            os: ubuntu-22.04
++            asset: horizon-launcher-linux-x86_64.tar.gz
++            binary: horizon-launcher
++          - name: macos
++            mac: true
++            asset: horizon-launcher-macos-arm64.zip
++            binary: horizon-launcher
++            mac_arch: arm64
++          - name: macos-x64
++            mac: true
++            target: x86_64-apple-darwin
++            asset: horizon-launcher-macos-x64.zip
++            binary: horizon-launcher
++            mac_arch: x64
++          - name: windows
++            os: windows-latest
++            asset: horizon-launcher-windows-x64.zip
++            binary: horizon-launcher.exe
++            pe_arch: x64
++            setup_asset: horizon-launcher-setup.exe
++            # The C runtime linked in: without it the launcher asks for VCRUNTIME140.dll,
++            # which only the Visual C++ redistributable installs.
++            rustflags: -C target-feature=+crt-static
++          - name: windows-arm64
++            os: windows-11-vs2026-arm
++            target: aarch64-pc-windows-msvc
++            asset: horizon-launcher-windows-arm64.zip
++            binary: horizon-launcher.exe
++            pe_arch: arm64
++            setup_asset: horizon-launcher-setup-arm64.exe
++            # The C runtime linked in, so the standalone ARM64 launcher needs no redistributable.
++            rustflags: -C target-feature=+crt-static
++    runs-on: ${{ matrix.mac && (vars.MAC_RUNNER || 'ludovics-mac-mini') || matrix.os }}
+     # Notarizing the app and then the .dmg can take a few minutes each.
+     timeout-minutes: ${{ matrix.mac && 60 || 40 }}
+     env:
+@@ -207,14 +234,6 @@ jobs:
+       # Every test target (the library, the binary, tests/), on each system the launcher ships for.
+       - run: cargo test --release --locked ${{ matrix.target && format('--target {0}', matrix.target) || '' }} ${LAUNCHER_FEATURES:+--features "$LAUNCHER_FEATURES"}
+       - run: cargo build --release --locked ${{ matrix.target && format('--target {0}', matrix.target) || '' }} ${LAUNCHER_FEATURES:+--features "$LAUNCHER_FEATURES"}
+-      - name: Stage repository-selected packaging and executable
+-        run: |
+-          if [[ "$HORIZON_LAUNCHER_REPOSITORY" == arismoko/horizon ]]; then
+-            python3 ../tools/stage_launcher_packaging.py "$LAUNCHER_PACKAGING" --repository "$HORIZON_LAUNCHER_REPOSITORY"
+-          fi
+-      - name: Name the fork executable
+-        if: github.repository == 'arismoko/horizon'
+-        run: mv "$BIN/horizon-launcher${{ runner.os == 'Windows' && '.exe' || '' }}" "$BIN/${{ matrix.binary }}"
+       - name: Release binary retains the game-holder capability marker
+         run: |
+           python=python3; [[ "$RUNNER_OS" != Windows ]] || python=python
+@@ -230,7 +249,7 @@ jobs:
+           out=$("$BIN/${{ matrix.binary }}" --version)
+           echo "$out"
+           expected="${HORIZON_LAUNCHER_VERSION:-$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)}"
+-          [[ "$out" == "$LAUNCHER_PREFIX $expected" ]] || { echo "::error::expected $LAUNCHER_PREFIX $expected"; exit 1; }
++          [[ "$out" == "horizon-launcher $expected" ]] || { echo "::error::expected horizon-launcher $expected"; exit 1; }
+       - name: Only system libraries
+         run: |
+           file="$BIN/${{ matrix.binary }}"
+@@ -297,9 +316,9 @@ jobs:
+           # folder, and the copy it installs uninstalls itself. HKCU of the runner only.
+           if [[ "$RUNNER_OS" == "Windows" ]]; then
+             setup="$RUNNER_TEMP/setup-smoke"
+-            cp "$launcher" "$RUNNER_TEMP/$LAUNCHER_PREFIX-setup.exe"
+-            "$RUNNER_TEMP/$LAUNCHER_PREFIX-setup.exe" setup --quiet --dir "$setup"
+-            installed="$setup/$LAUNCHER_INSTALL_FOLDER/$LAUNCHER_PREFIX.exe"
++            cp "$launcher" "$RUNNER_TEMP/horizon-launcher-setup.exe"
++            "$RUNNER_TEMP/horizon-launcher-setup.exe" setup --quiet --dir "$setup"
++            installed="$setup/Horizon Launcher/horizon-launcher.exe"
+             [[ -f "$installed" ]] || { echo "::error::the setup copied no launcher"; exit 1; }
+             "$installed" uninstall --quiet
+             [[ ! -f "$installed" ]] || { echo "::error::uninstall left the launcher"; exit 1; }
+@@ -307,7 +326,7 @@ jobs:
+           fi
+           rm -rf "$HORIZON_LAUNCHER_HOME"
+       - name: The signing keychain, unlocked
+-        if: runner.os == 'macOS' && github.repository != 'arismoko/horizon' && vars.MACOS_SIGN_IDENTITY != ''
++        if: runner.os == 'macOS' && vars.MACOS_SIGN_IDENTITY != ''
+         env:
+           MACOS_SIGN_IDENTITY: ${{ vars.MACOS_SIGN_IDENTITY }}
+         run: ../packaging/macos/keychain.sh unlock
+@@ -321,15 +340,15 @@ jobs:
+             # Developer ID): packaging/macos.
+             python3 -m venv "$RUNNER_TEMP/dmg" && "$RUNNER_TEMP/dmg/bin/pip" install --quiet dmgbuild==1.6.5
+             version=${HORIZON_LAUNCHER_VERSION:-$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)}
+-            DMGBUILD="$RUNNER_TEMP/dmg/bin/dmgbuild" "$LAUNCHER_PACKAGING/macos/package.sh" "$BIN/${{ matrix.binary }}" "$version" out ${{ matrix.mac_arch }}
+-            rm -rf "out/$LAUNCHER_APP_BUNDLE"
++            DMGBUILD="$RUNNER_TEMP/dmg/bin/dmgbuild" ../packaging/macos/package.sh "$BIN/${{ matrix.binary }}" "$version" out ${{ matrix.mac_arch }}
++            rm -rf out/Horizon.app
+           else
+             version=${HORIZON_LAUNCHER_VERSION:-$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)}
+             if [[ "$RUNNER_OS" == "Linux" ]]; then
+               # The .tar.gz below is what the launcher updates itself from; the AppImage is what a
+               # player downloads and double-clicks, and it replaces itself instead
+               # (packaging/linux/appimage.sh, launcher/src/backend.rs).
+-              "$LAUNCHER_PACKAGING/linux/appimage.sh" "$BIN/${{ matrix.binary }}" "$version" out
++              ../packaging/linux/appimage.sh "$BIN/${{ matrix.binary }}" "$version" out
+             fi
+             mkdir -p dist
+             cp "$BIN/${{ matrix.binary }}" dist/
+@@ -352,7 +371,7 @@ jobs:
+           path: launcher/out/*
+           retention-days: 3
+       - name: The signing keychain, locked again
+-        if: always() && runner.os == 'macOS' && github.repository != 'arismoko/horizon' && vars.MACOS_SIGN_IDENTITY != ''
++        if: always() && runner.os == 'macOS' && vars.MACOS_SIGN_IDENTITY != ''
+         run: ../packaging/macos/keychain.sh lock
+ 
+   sign:
+@@ -372,7 +391,7 @@ jobs:
+       - uses: actions/download-artifact@v8
+         with:
+           path: dist
+-          pattern: ${{ env.LAUNCHER_PREFIX }}-*
++          pattern: horizon-launcher-*
+           merge-multiple: true
+       - name: Sign the checksums (SHA256SUMS, SHA256SUMS.sig)
+         env:
+@@ -380,7 +399,7 @@ jobs:
+           RELEASE_SIGNING_KEY_NEXT: ${{ secrets.RELEASE_SIGNING_KEY_NEXT }}
+           EPHEMERAL: ${{ needs.decide.outputs.dry_run == 'true' && 'yes' || '' }}
+           TAG: ${{ needs.decide.outputs.tag }}
+-        run: bash tools/ci/sign_release.sh "$TAG" dist/"$LAUNCHER_PREFIX"-*
++        run: bash tools/ci/sign_release.sh "$TAG" dist/horizon-launcher-*
+       - uses: actions/upload-artifact@v7
+         with:
+           name: signature
+@@ -424,11 +443,10 @@ jobs:
+           cargo run --locked --quiet -p horizon-release-sign -- verify --repository "$GITHUB_REPOSITORY" --tag "$TAG" --publishing "${key[@]}" dist
+       # Never marked latest: Horizon's own releases stay the repository's latest.
+       - name: The Windows ARM64 launcher, if it built
+-        if: github.repository != 'arismoko/horizon'
+         # Its build may fail without holding the release (continue-on-error): the release then has no ARM64
+         # files, and ARM64 launchers stay on their version until one has (backend::launcher_update_from).
+         run: |
+-          for file in "$LAUNCHER_PREFIX-windows-arm64.zip" "$LAUNCHER_PREFIX-setup-arm64.exe"; do
++          for file in horizon-launcher-windows-arm64.zip horizon-launcher-setup-arm64.exe; do
+             [[ -f "dist/$file" ]] || echo "::warning::$file is missing: this release goes out without it"
+           done
+       - name: Publish ${{ needs.decide.outputs.tag }}
+@@ -439,7 +457,7 @@ jobs:
+         run: |
+           signature=(); [[ -f dist/SHA256SUMS.sig ]] && signature=(dist/SHA256SUMS.sig)
+           gh release create "$TAG" --target "${{ needs.decide.outputs.head }}" --title "$(cat notes/title.txt)" \
+-            --notes-file notes/body.md --latest=false dist/"$LAUNCHER_PREFIX"-* dist/SHA256SUMS "${signature[@]}"
++            --notes-file notes/body.md --latest=false dist/horizon-launcher-* dist/SHA256SUMS "${signature[@]}"
+       - name: Dry run, the release that would be published
+         if: needs.decide.outputs.dry_run == 'true'
+         run: |
+diff --git a/crates/horizon-addresses/src/lib.rs b/crates/horizon-addresses/src/lib.rs
+index 78db0498fd4..9ef08482a93 100644
+--- a/crates/horizon-addresses/src/lib.rs
++++ b/crates/horizon-addresses/src/lib.rs
+@@ -61,9 +61,6 @@ pub const SHOP: &str = "https://playhorizon.dev/shop";
+ /// The official launcher installer's product home.
+ pub const LAUNCHER_ABOUT: &str = "https://playhorizon.dev";
+ 
+-/// The separately branded arismoko fork launcher installer's product home.
+-pub const FORK_LAUNCHER_ABOUT: &str = "https://github.com/arismoko/horizon";
+-
+ /// Cargo's canonical source identity for the crates.io registry.
+ pub const CARGO_CRATES_IO_SOURCE: &str = "registry+https://github.com/rust-lang/crates.io-index";
+ 
+diff --git a/crates/horizon-release-sign/fork-release-keys.txt b/crates/horizon-release-sign/fork-release-keys.txt
+deleted file mode 100644
+index 1e8eec1dbad..00000000000
+--- a/crates/horizon-release-sign/fork-release-keys.txt
++++ /dev/null
+@@ -1,6 +0,0 @@
+-# arismoko/horizon release verification keys, base64 Ed25519 public keys only.
+-# The first key was added on 2026-11-10 after the nonpublishing dry run was verified.
+-# With no key here, fork release installation fails closed.
+-# Rotation: add the next public key here before enabling RELEASE_SIGNING_KEY_NEXT.
+-# Never put a private key or a test signing key in this file.
+-Iql+MN7pjxis0Xm+fRhjoW0aIwO1tV/gQLonX1tK35o=
+diff --git a/crates/horizon-release-sign/src/lib.rs b/crates/horizon-release-sign/src/lib.rs
+index df6293fa618..28687dde832 100644
+--- a/crates/horizon-release-sign/src/lib.rs
++++ b/crates/horizon-release-sign/src/lib.rs
+@@ -30,7 +30,6 @@ pub const SIGNATURE_V2: &str = "SHA256SUMS.v2.sig";
+ 
+ const KEYS: &str = include_str!("../release-keys.txt");
+ const LEGACY: &str = include_str!("../legacy-releases.txt");
+-const FORK_KEYS: &str = include_str!("../fork-release-keys.txt");
+ 
+ /// An Ed25519 public key.
+ pub type PublicKey = [u8; 32];
+@@ -41,16 +40,15 @@ pub fn trusted_keys() -> Vec<PublicKey> {
+     trusted_keys_for("horizon-rust/horizon")
+ }
+ 
+-/// Repository-scoped release trust. Unknown repositories and an unconfigured fork fail closed.
+-/// The fork's public release keys have one canonical home: `fork-release-keys.txt`.
++/// Repository-scoped release trust: `release-keys.txt` for horizon-rust/horizon. Any other repository has no
++/// trusted keys, so its downloads fail closed.
+ pub fn trusted_keys_for(repository: &str) -> Vec<PublicKey> {
+-    parse_keys(repository_keys(repository, KEYS, FORK_KEYS)).unwrap_or_default()
++    parse_keys(repository_keys(repository, KEYS)).unwrap_or_default()
+ }
+ 
+-fn repository_keys<'a>(repository: &str, upstream: &'a str, fork: &'a str) -> &'a str {
++fn repository_keys<'a>(repository: &str, keys: &'a str) -> &'a str {
+     match repository {
+-        "horizon-rust/horizon" => upstream,
+-        "arismoko/horizon" => fork,
++        "horizon-rust/horizon" => keys,
+         _ => "",
+     }
+ }
+@@ -387,7 +385,7 @@ pub fn legacy_digest(tag: &str, asset: &str) -> Option<&'static str> {
+     legacy_digest_for("horizon-rust/horizon", tag, asset)
+ }
+ 
+-/// Historical pins belong to upstream only. The fork has no unsigned game-release history.
++/// Historical pins belong to horizon-rust/horizon only: no other repository has unsigned game-release history.
+ pub fn legacy_digest_for(repository: &str, tag: &str, asset: &str) -> Option<&'static str> {
+     if repository != "horizon-rust/horizon" {
+         return None;
+@@ -521,54 +519,46 @@ mod tests {
+     #[test]
+     fn repository_trust_is_isolated_and_unknown_repositories_fail_closed() {
+         let (upstream, _) = SigningKey::generate().unwrap();
+-        let (fork, _) = SigningKey::generate().unwrap();
++        let (other, _) = SigningKey::generate().unwrap();
+         let upstream_text = upstream.public_base64();
+-        let fork_text = fork.public_base64();
+-        let keys = |repo| parse_keys(repository_keys(repo, &upstream_text, &fork_text)).unwrap();
++        let keys = |repo| parse_keys(repository_keys(repo, &upstream_text)).unwrap();
+         let sums = sums_file(&[("game.tar.gz".into(), "ab".repeat(32))]);
+         let tag = "nightly-2026-11-10-abcdef0";
+-        for (repository, signer, other) in [
+-            ("horizon-rust/horizon", &upstream, &fork),
+-            ("arismoko/horizon", &fork, &upstream),
+-        ] {
+-            assert!(
+-                verify(
+-                    tag,
+-                    sums.as_bytes(),
+-                    &signer.sign(tag, sums.as_bytes()),
+-                    &keys(repository)
+-                )
+-                .is_ok()
+-            );
+-            assert!(
+-                verify(
+-                    tag,
+-                    sums.as_bytes(),
+-                    &other.sign(tag, sums.as_bytes()),
+-                    &keys(repository)
+-                )
+-                .is_err()
+-            );
+-            assert!(
+-                verify(
+-                    "nightly",
+-                    sums.as_bytes(),
+-                    &signer.sign(tag, sums.as_bytes()),
+-                    &keys(repository)
+-                )
+-                .is_err()
+-            );
+-        }
++        let repository = "horizon-rust/horizon";
++        assert!(
++            verify(
++                tag,
++                sums.as_bytes(),
++                &upstream.sign(tag, sums.as_bytes()),
++                &keys(repository)
++            )
++            .is_ok()
++        );
++        assert!(
++            verify(
++                tag,
++                sums.as_bytes(),
++                &other.sign(tag, sums.as_bytes()),
++                &keys(repository)
++            )
++            .is_err()
++        );
++        assert!(
++            verify(
++                "nightly",
++                sums.as_bytes(),
++                &upstream.sign(tag, sums.as_bytes()),
++                &keys(repository)
++            )
++            .is_err()
++        );
++        assert!(keys("someone/horizon").is_empty());
+         assert!(keys("unknown/horizon").is_empty());
+         assert!(trusted_keys_for("unknown/horizon").is_empty());
+         assert_eq!(
+             trusted_keys_for("horizon-rust/horizon"),
+             parse_keys(KEYS).unwrap()
+         );
+-        assert_eq!(
+-            trusted_keys_for("arismoko/horizon"),
+-            parse_keys(FORK_KEYS).unwrap()
+-        );
+     }
+ 
+     use super::*;
+diff --git a/crates/horizon-release-sign/tests/cli.rs b/crates/horizon-release-sign/tests/cli.rs
+index c499b0f2d7e..d2e2772aad1 100644
+--- a/crates/horizon-release-sign/tests/cli.rs
++++ b/crates/horizon-release-sign/tests/cli.rs
+@@ -264,7 +264,7 @@ fn a_nightly_is_signed_for_its_channel_and_for_its_version() {
+ #[ignore = "daily"]
+ fn publishing_never_bypasses_signatures_for_fork_or_unknown_repositories() {
+     let dir = folder("repository-fail-closed");
+-    for repo in ["arismoko/horizon", "unknown/horizon"] {
++    for repo in ["someone/horizon", "unknown/horizon"] {
+         let output = verify(&dir, &["--repository", repo, "--publishing"]);
+         assert!(
+             !output.status.success(),
+diff --git a/docs/design-system.md b/docs/design-system.md
+index 5fcd1fa92c5..d1001007b8d 100644
+--- a/docs/design-system.md
++++ b/docs/design-system.md
+@@ -180,8 +180,16 @@ than Pixelify. Hover and focus are vanilla's white edge.
+   ships no third-party pictures. Plain Minecraft shows Horizon's own grass block
+   (`tools/launcher_grass_block.py`), Horizon the brand icon (`docs/media/brand/icon.svg`). Sources are named in text ("from Modrinth"): Modrinth's logo is
+   all rights reserved, so it is not shown.
+-- **No ads.** The fork's launcher has no partner banners, sponsor links or upstream Discord links.
+-  This diverges from upstream.
++- **Partner banner**: the one exception to shipping no third-party pictures. Sculk, a server host,
++  sponsors Horizon: its banner (`launcher/assets/sculk-banner.webp`, `launcher/src/partner.rs`) sits
++  under a muted mono "Partner" label at the end of the Servers page and opens Sculk's page in the
++  browser. The sidebar of the other pages shows a card made for its width instead: Sculk's characters
++  and logo cropped from the same banner, and the text drawn by the launcher in its language, so it
++  stays readable; it keeps Sculk's dark card, cyan and rounded corners in both themes, as an ad does,
++  and turns compact (characters beside the text) when the window is too short. After three minutes
++  on screen, over every start and on any page, a "Hide" appears beside the label of the card and of
++  the Servers banner alike; either one hides both for good (`Settings::partner_hidden`). The website shows the
++  banner the same way on Home and the hosting docs, as a `rel="sponsored"` link.
+ - **Pixel art drawn in code.** The stone behind the pages is close shades of the page colour
+   (`TILE_SHADES`), never Minecraft's stone; the landscape is a banded sky, a sun cut in slices like
+   the mark, hills and square trees (a sunset in dark, a dawn in light). The launcher bakes them in
+diff --git a/docs/security.md b/docs/security.md
+index 0b637e66cd4..e333e4d9223 100644
+--- a/docs/security.md
++++ b/docs/security.md
+@@ -67,8 +67,7 @@ and some are waiting for Ludovic:
+   a secret of GitHub's `release` environment, which only real releases from main can use. The job that signs runs
+   nothing from the repository but a short script calling OpenSSL, so no pull request can read the key by changing
+   the code that gets built. Nobody, Ludovic included, ever needs to see it.
+-- **Nightly signatures.** This describes upstream's Nightly channel, not the fork's daily-only prebuilt schedule and publishing policy; this sync enables no new release trigger or keys.
+-  A Nightly carries two signatures over the same `SHA256SUMS`. `SHA256SUMS.sig` is signed
++- **Nightly signatures.** A Nightly carries two signatures over the same `SHA256SUMS`. `SHA256SUMS.sig` is signed
+   for the channel (`horizon release nightly`), for launchers and servers from before this change, which read only
+   that one. `SHA256SUMS.v2.sig` is signed for the Nightly's own version (`horizon release nightly-<date>-<commit>`),
+   which its release title names (`Nightly <date> · <commit>`). Current launchers, `horizon-server update` and
+@@ -79,21 +78,12 @@ and some are waiting for Ludovic:
+   or picked with `--version` any more; they leave GitHub with the 7-day rotation. Until a v2 Nightly exists, a
+   launcher has nothing to update to, so the first Nightly is built right after this merges. A server can still go back
+   to a build it already has with `horizon-server rollback`, which checks nothing it hasn't already checked.
+-  **When the old signature can go:** once support for launchers and servers predating v2 is retired. The fork
+-  collects no telemetry, so it cannot determine this from usage data. Then drop `SHA256SUMS.sig` from nightly-build.yml's
++  **When the old signature can go:** once every launcher and server still updating reads v2. That is, when the
++  telemetry live count shows no launcher (and the server update log no `horizon-server`) older than the first build
++  with this change, or at the latest 60 days after it shipped. Then drop `SHA256SUMS.sig` from nightly-build.yml's
+   publish step and the `--tag nightly` check before it, and remove `NIGHTLY` from horizon-release-sign. Releases (not
+   Nightlies) keep their single `SHA256SUMS.sig`, which is already signed for their tag.
+-  **Fork releases (`arismoko/horizon`):** the launcher chooses keys by repository. Only
+-  `crates/horizon-release-sign/fork-release-keys.txt` authorizes fork downloads; upstream's keys
+-  authorize only `horizon-rust/horizon`, and unknown repositories have no trusted keys. An empty
+-  fork key file refuses every fork release. Upstream's legacy checksum pins never authorize a
+-  fork archive: every fork game or launcher download needs a fork signature. The real private key
+-  exists only as the repository secret `RELEASE_SIGNING_KEY`; dry runs receive no release secrets
+-  and sign with an ephemeral test key instead. To rotate, first ship the next public key in the
+-  same fork key file, then enable `RELEASE_SIGNING_KEY_NEXT` for overlapping signatures before
+-  replacing the primary secret and eventually retiring the old public key. Nightly title,
+-  channel and exact-version signature binding remain unchanged.
+-- **Upstream release machinery needs the council.** The workflows, the release and signing tools, the update-checking code
++- **The release machinery needs the council.** The workflows, the release and signing tools, the update-checking code
+   and the installers are listed in `.github/CODEOWNERS`. Once main's protection requires code owners' reviews, a
+   change to any of them waits for a review from the `horizon-rust/council` team (council poll P35). Everything else still merges as soon as its checks pass.
+ - **Agents get their own, smaller identity** (prepared, switched on by Ludovic). The `horizon-agent` GitHub App
+diff --git a/launcher/README.md b/launcher/README.md
+index 88dcdb7e707..1b6da37170c 100644
+--- a/launcher/README.md
++++ b/launcher/README.md
+@@ -1,42 +1,5 @@
+ # Horizon launcher
+ 
+-## arismoko fork builds
+-
+-**Horizon Fork Launcher (arismoko)** is not the official Horizon launcher. Fork
+-builds start with empty settings and accounts; they do not import official tokens.
+-Their launcher and game data live under `horizon-fork-arismoko/launcher` and
+-`horizon-fork-arismoko/game`. Relocation metadata and the OS keychain service are
+-separate. Explicit home overrides still work for developers.
+-
+-A source-built launcher can install fork builds today. Configured Microsoft
+-sign-in and signed Nightly Play arrive with the fork launcher; no release date is
+-announced. Upstream has authorized use of its Microsoft application ID, supplied
+-through the fork repository's `HORIZON_MSA_CLIENT_ID` variable rather than
+-hard-coded in the fork. Accounts and tokens remain in this fork's separate
+-storage; nothing is imported from the official launcher. A build without a
+-configured ID cannot sign in. Unsigned local developer builds retain the explicit
+-offline single-player switch. Signed builds retain account and ownership checks.
+-
+-Windows builds are **not Authenticode-signed**. Windows may show “Windows protected
+-your PC” or an unknown-publisher warning. Signed checksums do not remove SmartScreen
+-warnings. macOS packages are **ad-hoc signed**, without an Apple Developer ID and
+-**not notarized**. Gatekeeper may block them or say Apple cannot check them for
+-malicious software. No OS trust bypass is implied by a checksum signature.
+-
+-Build identity defaults to `arismoko/horizon`, consistently with the fork's release
+-repository. Set `HORIZON_LAUNCHER_REPOSITORY=horizon-rust/horizon` at build time to
+-retain upstream identity. Other values fail the build. Stage packaging with
+-`python3 tools/stage_launcher_packaging.py OUTPUT --repository REPOSITORY` using
+-the same repository selection. The original packaging templates and icons are
+-left unchanged. The workflow passes `github.repository` to the real build selector
+-and generates the corresponding build matrix. Existing signing, signature
+-verification and publication gates are retained: dry runs use an ephemeral key,
+-while publication uses the fork's existing signing key and still requires separate
+-approval. The workflow must remain disabled until root authorizes a dispatch.
+-Linux x86_64 and Windows x64 are the initial package targets; Windows ARM64 and
+-macOS packages are not produced by this dry-run workflow. Any future macOS job
+-must use GitHub-hosted runners, never the upstream private runner.
+-
+ A small desktop app that installs Horizon builds, prepares them from your own copy of
+ Minecraft, and starts the client or a dedicated server. Built with [GPUI Fast](https://github.com/longbridge/gpui-fast),
+ a fork of Zed's UI framework [GPUI](https://www.gpui.rs) that draws unchanged views from the last frame;
+diff --git a/launcher/build.rs b/launcher/build.rs
+index 5f008cb9ee4..3eaae177456 100644
+--- a/launcher/build.rs
++++ b/launcher/build.rs
+@@ -1,15 +1,6 @@
+ //! Embeds Horizon's icon (`packaging/icons/horizon.ico`) in the Windows executables, as icon
+ //! resource 1: Explorer and the task bar show it, and the window takes it as its icon.
+ fn main() {
+-    println!("cargo:rerun-if-env-changed=HORIZON_LAUNCHER_REPOSITORY");
+-    println!("cargo:rustc-check-cfg=cfg(horizon_fork_launcher)");
+-    let repository =
+-        std::env::var("HORIZON_LAUNCHER_REPOSITORY").unwrap_or_else(|_| "arismoko/horizon".into());
+-    match repository.as_str() {
+-        "arismoko/horizon" => println!("cargo:rustc-cfg=horizon_fork_launcher"),
+-        "horizon-rust/horizon" => {}
+-        _ => panic!("unsupported launcher repository: {repository}"),
+-    }
+     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows")
+         && std::env::var("CARGO_CFG_TARGET_ENV").as_deref() == Ok("msvc")
+     {
+@@ -17,23 +8,12 @@ fn main() {
+         println!("cargo:rustc-link-arg-bins=/DEPENDENTLOADFLAG:0x800");
+     }
+     let dir = std::env::var("CARGO_MANIFEST_DIR").unwrap_or_default();
+-    let icon = if repository == "arismoko/horizon" {
+-        "fork/launcher.ico"
+-    } else {
+-        "horizon.ico"
+-    };
+-    let ico = format!("{dir}/../packaging/icons/{icon}");
++    let ico = format!("{dir}/../packaging/icons/horizon.ico");
+     println!("cargo:rerun-if-changed={ico}");
+     #[cfg(windows)]
+     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
+         let mut resource = winresource::WindowsResource::new();
+         resource.set_icon(&ico);
+-        if repository == "arismoko/horizon" {
+-            resource.set("FileDescription", "Horizon Fork Launcher (arismoko)");
+-            resource.set("ProductName", "Horizon Fork Launcher (arismoko)");
+-            resource.set("InternalName", "horizon-fork-launcher");
+-            resource.set("OriginalFilename", "horizon-fork-launcher.exe");
+-        }
+         if let Err(e) = resource.compile() {
+             panic!("embedding {ico}: {e}");
+         }
+diff --git a/launcher/links.json b/launcher/links.json
+index 706149fcdaf..3882ef8fbe3 100644
+--- a/launcher/links.json
++++ b/launcher/links.json
+@@ -1 +1 @@
+-{"discord": "https://discord.gg/playhorizon", "sponsor": "https://github.com/sponsors/ludovic111", "website": "https://playhorizon.dev", "official_server": "play.playhorizon.dev", "official_server_previous": ["horizon.bunchy7s.dev"], "roadmap": "https://github.com/users/arismoko/projects/1", "docs": "https://arismoko.github.io/horizon/"}
++{"discord": "https://discord.gg/playhorizon", "sponsor": "https://github.com/sponsors/ludovic111", "website": "https://playhorizon.dev", "official_server": "play.playhorizon.dev", "official_server_previous": ["horizon.bunchy7s.dev"], "roadmap": "", "docs": "https://arismoko.github.io/horizon/"}
+diff --git a/launcher/src/backend.rs b/launcher/src/backend.rs
+index 2dab807e08b..eb6bcd07043 100644
+--- a/launcher/src/backend.rs
++++ b/launcher/src/backend.rs
+@@ -830,7 +830,7 @@ pub struct Links {
+     pub discord: String,
+     pub sponsor: String,
+     pub website: String,
+-    /// The fork project board.
++    /// A roadmap page (empty: no button).
+     pub roadmap: String,
+     /// The modding book.
+     pub docs: String,
+@@ -5581,7 +5581,7 @@ pub fn {f}("
+         assert!(launcher_update(&[r(own_tag())]).is_none());
+         assert_eq!(launcher_version(&own_tag()), Some(VERSION));
+         assert_eq!(
+-            parse_version_output(&format!("{}{VERSION}\n", "horizon-launcher ")),
++            parse_version_output(&format!("horizon-launcher {VERSION}\n")),
+             Some(VERSION)
+         );
+     }
+@@ -6811,7 +6811,7 @@ pub fn {f}("
+             let app = dir.join("Horizon.app");
+             fs::create_dir_all(app.join("Contents/MacOS")).unwrap();
+             fs::create_dir_all(app.join("Contents/Resources")).unwrap();
+-            let bin = app.join("Contents/MacOS").join("horizon-launcher");
++            let bin = app.join("Contents/MacOS/horizon-launcher");
+             fs::copy("/usr/bin/true", &bin).unwrap();
+             fs::set_permissions(&bin, fs::Permissions::from_mode(0o755)).unwrap();
+             fs::write(app.join("Contents/Resources/version"), version).unwrap();
+@@ -6820,8 +6820,7 @@ pub fn {f}("
+                 "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<plist version=\"1.0\"><dict>\
+                  <key>CFBundleExecutable</key><string>horizon-launcher</string>\
+                  <key>CFBundleIdentifier</key><string>dev.horizon.test</string>\
+-                 <key>CFBundlePackageType</key><string>APPL</string></dict></plist>\n"
+-                    .replace("horizon-launcher", "horizon-launcher"),
++                 <key>CFBundlePackageType</key><string>APPL</string></dict></plist>\n",
+             )
+             .unwrap();
+             let signed = Command::new("codesign")
+@@ -6847,7 +6846,7 @@ pub fn {f}("
+         replace_bundle(&new, &installed).unwrap();
+         let version = fs::read_to_string(installed.join("Contents/Resources/version")).unwrap();
+         assert_eq!(version, "2.0.0");
+-        let bin = installed.join("Contents/MacOS").join("horizon-launcher");
++        let bin = installed.join("Contents/MacOS/horizon-launcher");
+         assert!(
+             Command::new(&bin).status().unwrap().success(),
+             "still executable"
+diff --git a/launcher/src/desktop.rs b/launcher/src/desktop.rs
+index 5ddc78d5c74..87d279ed207 100644
+--- a/launcher/src/desktop.rs
++++ b/launcher/src/desktop.rs
+@@ -79,7 +79,7 @@ pub(crate) fn quote(path: &Path) -> String {
+ 
+ /// The launcher's entry, starting the binary at `exe`.
+ pub fn launcher_entry(exe: &Path) -> String {
+-    let entry = format!(
++    format!(
+         "[Desktop Entry]\n\
+          Type=Application\n\
+          Name=Horizon\n\
+@@ -94,8 +94,7 @@ pub fn launcher_entry(exe: &Path) -> String {
+         quote(exe),
+         exe.display(),
+         minecraft = horizon_platform::version::VANILLA_VERSION,
+-    );
+-    entry
++    )
+ }
+ 
+ /// Every file this module writes, with its contents, under `data`.
+diff --git a/launcher/src/installer.rs b/launcher/src/installer.rs
+index 67175fe5782..faa2ba27cf4 100644
+--- a/launcher/src/installer.rs
++++ b/launcher/src/installer.rs
+@@ -7,7 +7,7 @@
+ //! launcher's data folder only when asked, the game's folder never.
+ //!
+ //! Nothing here deletes a folder it didn't make: the install folder is always called
+-//! [`APP_NAME`] ([`folder_for`]) and is removed with `remove_dir`, which only takes an empty one.
++//! "Horizon Launcher" ([`folder_for`]) and is removed with `remove_dir`, which only takes an empty one.
+ //!
+ //! Command lines (handled in `main` before the CLI parser, so MCP never sees them):
+ //! `horizon-launcher-setup.exe` (window), `... setup --quiet [--dir <folder>] [--desktop-shortcut]`,
+@@ -24,7 +24,7 @@ use winreg::RegKey;
+ pub const APP_NAME: &str = "Horizon Launcher";
+ const BINARY: &str = "horizon-launcher.exe";
+ const PUBLISHER: &str = "Horizon";
+-const ABOUT_URL: &str = "https://playhorizon.dev";
++const ABOUT_URL: &str = horizon_addresses::LAUNCHER_ABOUT;
+ const UNINSTALL_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\HorizonLauncher";
+ const OWN_KEY: &str = r"Software\Horizon\Launcher";
+ const ASIDE_PREFIX: &str = "horizon-launcher-uninstall-";
+@@ -46,7 +46,7 @@ pub enum Step {
+ 
+ #[derive(Clone, Debug)]
+ pub struct Options {
+-    /// Where the launcher goes (always a folder named for [`APP_NAME`]).
++    /// Where the launcher goes (always a folder called "Horizon Launcher").
+     pub dir: PathBuf,
+     pub desktop: bool,
+     /// Uninstall only: also delete the launcher's data folder.
+@@ -116,7 +116,7 @@ pub fn default_dir() -> PathBuf {
+         .join(APP_NAME)
+ }
+ 
+-/// The install folder for a folder the player picked: always named for [`APP_NAME`], so
++/// The install folder for a folder the player picked: always one called "Horizon Launcher", so
+ /// uninstalling never has to guess what is ours.
+ pub fn folder_for(chosen: &Path) -> PathBuf {
+     if chosen
+@@ -452,9 +452,7 @@ fn builds_are_launchers(builds: &Path, data: &Path, location: Option<&Roots>) ->
+ /// Takes the install away. Returns what could not be removed (a file in use, say).
+ pub fn uninstall(remove_data: bool, progress: impl Fn(Step, f32)) -> Result<Vec<String>, String> {
+     let dir = registered()
+-        .ok_or_else(|| {
+-            crate::i18n::tr("Horizon Launcher is not installed for this account.").to_string()
+-        })?
++        .ok_or("Horizon Launcher is not installed for this account.")?
+         .dir;
+     close_running_launchers(&progress);
+     clean_aside(&dir);
+@@ -646,9 +644,9 @@ mod tests {
+     #[test]
+     fn uninstall_deletes_only_folders_the_launcher_made() {
+         // The default folder, and one `HORIZON_LAUNCHER_HOME` names the same.
+-        let default = Path::new("profile").join("horizon-launcher");
+-        assert!(made_by_launcher(&default, None));
+-        assert!(builds_are_launchers(&default, &default, None));
++        let default = Path::new(r"C:\Users\p\AppData\Roaming\horizon-launcher");
++        assert!(made_by_launcher(default, None));
++        assert!(builds_are_launchers(default, default, None));
+         assert!(!made_by_launcher(Path::new(r"D:\Documents"), None));
+         assert!(!made_by_launcher(Path::new(r"D:\Games\launcher"), None));
+ 
+diff --git a/launcher/src/main.rs b/launcher/src/main.rs
+index a54b90f3bbb..434fde7c4d8 100644
+--- a/launcher/src/main.rs
++++ b/launcher/src/main.rs
+@@ -3063,7 +3063,7 @@ impl Launcher {
+                 .child(
+                     shell::text(theme::night::TITLE, shell::c(n.ink))
+                         .font_family(theme::DISPLAY_FONT)
+-                        .child(tr("Horizon")),
++                        .child("Horizon"),
+                 )
+         });
+         shell::sidebar_plate(&t)
+@@ -5541,7 +5541,7 @@ fn menus() -> Vec<Menu> {
+     vec![
+         Menu {
+             name: "Horizon Launcher".into(),
+-            items: vec![MenuItem::action(tr("Quit Horizon Launcher"), Quit)],
++            items: vec![MenuItem::action("Quit Horizon Launcher", Quit)],
+             disabled: false,
+         },
+         Menu {
+diff --git a/launcher/src/setup_args.rs b/launcher/src/setup_args.rs
+index 0784e5ccbaa..683c1bf1b4b 100644
+--- a/launcher/src/setup_args.rs
++++ b/launcher/src/setup_args.rs
+@@ -133,22 +133,12 @@ mod tests {
+         \"horizon-launcher.exe\",\"4120\",\"Console\",\"1\",\"212,044 K\"\r\n\
+         \"horizon-launcher-setup.exe\",\"77\",\"Console\",\"1\",\"9,000 K\"\r\n";
+ 
+-    fn tasklist() -> String {
+-        TASKLIST.into()
+-    }
+-
+     #[test]
+     fn a_running_launcher_is_found_but_not_this_process() {
+         // The uninstaller is itself `horizon-launcher.exe`: it must not ask itself to quit.
+-        assert_eq!(other_launcher_pids(&tasklist(), 9988), vec![4120]);
+-        assert_eq!(other_launcher_pids(&tasklist(), 1), vec![4120, 9988]);
+-        assert_eq!(other_launcher_pids(&tasklist(), 4120), vec![9988]);
+-    }
+-
+-    #[test]
+-    fn another_identity_is_never_terminated() {
+-        let other = "\"horizon-fork-launcher.exe\",\"42\"";
+-        assert!(other_launcher_pids(other, 1).is_empty());
++        assert_eq!(other_launcher_pids(TASKLIST, 9988), vec![4120]);
++        assert_eq!(other_launcher_pids(TASKLIST, 1), vec![4120, 9988]);
++        assert_eq!(other_launcher_pids(TASKLIST, 4120), vec![9988]);
+     }
+ 
+     #[test]
+diff --git a/launcher/src/setup_page.rs b/launcher/src/setup_page.rs
+index 97213b76867..605c42adcf2 100644
+--- a/launcher/src/setup_page.rs
++++ b/launcher/src/setup_page.rs
+@@ -396,7 +396,7 @@ impl Setup {
+             .flex()
+             .flex_col()
+             .gap(px(18.))
+-            .child(text(night::DISPLAY, c(n.ink)).child(tr("Horizon")))
++            .child(text(night::DISPLAY, c(n.ink)).child("Horizon"))
+             .child(body)
+     }
+ }
+diff --git a/launcher/src/titlebar.rs b/launcher/src/titlebar.rs
+index 9884f7cce15..ede5b77928f 100644
+--- a/launcher/src/titlebar.rs
++++ b/launcher/src/titlebar.rs
+@@ -83,7 +83,7 @@ pub fn render(theme: &Theme, window: &Window) -> Option<Div> {
+         .px(px(12.))
+         .on_mouse_down(MouseButton::Left, |_, window, _| window.start_window_move())
+         .child(mark(16., theme))
+-        .child(blocks::pixel(13., FontWeight::MEDIUM).child(horizon_launcher::i18n::tr("Horizon")));
++        .child(blocks::pixel(13., FontWeight::MEDIUM).child("Horizon"));
+ 
+     let mut bar = div()
+         .relative()
+@@ -428,9 +428,7 @@ mod windows {
+             .px(px(12.))
+             .window_control_area(WindowControlArea::Drag)
+             .child(mark(16., theme))
+-            .child(
+-                blocks::pixel(13., FontWeight::MEDIUM).child(horizon_launcher::i18n::tr("Horizon")),
+-            );
++            .child(blocks::pixel(13., FontWeight::MEDIUM).child("Horizon"));
+         Some(
+             div()
+                 .relative()
+diff --git a/launcher/tests/desktop.rs b/launcher/tests/desktop.rs
+index f204849d8f0..d168cd84730 100644
+--- a/launcher/tests/desktop.rs
++++ b/launcher/tests/desktop.rs
+@@ -34,14 +34,7 @@ fn desktop_entry(home: &Path, wrapper: Option<&str>, args: &[&str]) {
+ fn menu_registration_preserves_the_package_wrapper() {
+     let home = std::env::temp_dir().join(format!("horizon-desktop-wrapper-{}", std::process::id()));
+     let _ = std::fs::remove_dir_all(&home);
+-    let entry = home
+-        .join("data/applications")
+-        .join("horizon-launcher.desktop");
+-    let other = home
+-        .join("data/applications")
+-        .join("io.github.arismoko.horizonfork.launcher.desktop");
+-    std::fs::create_dir_all(other.parent().unwrap()).unwrap();
+-    std::fs::write(&other, "other launcher registration").unwrap();
++    let entry = home.join("data/applications/horizon-launcher.desktop");
+ 
+     // Migrate a registration that pointed at the private executable.
+     desktop_entry(&home, None, &[]);
+@@ -64,9 +57,5 @@ fn menu_registration_preserves_the_package_wrapper() {
+     // An unset or empty override keeps standalone installations working.
+     desktop_entry(&home, Some(""), &[]);
+     assert_eq!(std::fs::read_to_string(&entry).unwrap(), original);
+-    assert_eq!(
+-        std::fs::read_to_string(&other).unwrap(),
+-        "other launcher registration"
+-    );
+     std::fs::remove_dir_all(&home).unwrap();
+ }
+diff --git a/launcher/tests/fixtures-launcher-workflow-upstream.yml b/launcher/tests/fixtures-launcher-workflow-upstream.yml
+deleted file mode 100644
+index 31983480be5..00000000000
+--- a/launcher/tests/fixtures-launcher-workflow-upstream.yml
++++ /dev/null
+@@ -1,428 +0,0 @@
+-name: launcher
+-# Builds the launcher on Linux, macOS, Windows x64 and ARM64, and releases it by itself (docs/release-flow.md): after a
+-# push to main that changes the launcher or a crate it builds in (the paths below),
+-# every 10 minutes (a release waiting for merges to settle goes out) and by hand, tools/release_train.py decides as
+-# for the game.
+-# A release is launcher@X.Y.Z on the release line in .github/release-line.txt (docs/versioning.md); without it
+-# launcher-vX.Y.Z, the patch after the last launcher tag or the next minor when a merged pull request is labelled
+-# feature. The version and the tag are given to the build (HORIZON_LAUNCHER_VERSION, HORIZON_LAUNCHER_TAG): no bump
+-# commits.
+-# Never marked latest. Pushes to launcher branches only build. RELEASES_PAUSED=1 stops releases.
+-# Linux ships two archives of one binary: the .tar.gz the launcher updates itself from, and an
+-# AppImage (packaging/linux/appimage.sh) for players without a distribution package, which replaces
+-# itself instead (launcher/src/backend.rs).
+-# macOS: Apple Silicon, and Intel cross-built for x86_64-apple-darwin on the same runner, its tests and smoke test
+-# under Rosetta 2 (#1161). With the repository variable MACOS_SIGN_IDENTITY set, Horizon.app and the .dmg are signed with
+-# Developer ID, notarized and stapled, from the runner's signing keychain (packaging/macos/README.md);
+-# unset (forks), they are signed ad hoc.
+-# Windows ships each architecture's launcher in its ZIP (what a launcher updates itself from) and as
+-# horizon-launcher-setup.exe or horizon-launcher-setup-arm64.exe, which opens the per-user installer instead of Home
+-# (launcher/src/installer.rs).
+-#   gh workflow run launcher --ref <branch>                    # dry run: builds everything, publishes nothing
+-#   gh workflow run launcher --ref main -f dry_run=false -f force=true
+-
+-on:
+-  push:
+-    branches: [main, launcher, 'launcher-*']
+-    paths:
+-      # Everything the launcher is built and packaged from, as tools/release_train.py's LAUNCHER_PATHS.
+-      - 'launcher/**'
+-      - 'crates/horizon-bench/**'
+-      - 'crates/horizon-friends/**'
+-      - 'crates/horizon-mcp/**'
+-      - 'crates/horizon-mod-package/**'
+-      - 'crates/horizon-port-pack/**'
+-      - 'crates/horizon-prepare/**'
+-      - 'crates/horizon-release-sign/**'
+-      - 'crates/horizon-system/**'
+-      - 'crates/horizon-theme/**'
+-      - 'packaging/linux/**'
+-      - 'packaging/icons/**'
+-      - '.github/workflows/launcher.yml'
+-  schedule:
+-    - cron: '7-59/10 * * * *'
+-  workflow_dispatch:
+-    inputs:
+-      dry_run:
+-        description: Build everything and write the notes, but publish nothing
+-        type: boolean
+-        default: true
+-      force:
+-        description: Release even without launcher changes, before merges settle or while paused
+-        type: boolean
+-        default: false
+-
+-permissions:
+-  contents: read
+-
+-concurrency:
+-  group: launcher-${{ github.ref == 'refs/heads/main' && 'release' || github.ref }}
+-  cancel-in-progress: false
+-
+-env:
+-  # Test runs never reach the telemetry server: no live-count ping, no uploads (docs/telemetry.md).
+-  HORIZON_TELEMETRY_URL: "off"
+-jobs:
+-  decide:
+-    runs-on: ubuntu-latest
+-    timeout-minutes: 10
+-    outputs:
+-      release: ${{ steps.decide.outputs.release }}
+-      tag: ${{ steps.decide.outputs.tag }}
+-      head: ${{ steps.decide.outputs.head }}
+-      version: ${{ steps.decide.outputs.version }}
+-      dry_run: ${{ steps.mode.outputs.dry_run }}
+-    steps:
+-      - uses: actions/checkout@v7
+-        with:
+-          fetch-depth: 0
+-      - id: mode
+-        # Off main every run is a dry run (a launcher branch's push only builds).
+-        run: echo "dry_run=${{ github.ref != 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.dry_run) }}" >> "$GITHUB_OUTPUT"
+-      - id: decide
+-        env:
+-          GH_TOKEN: ${{ github.token }}
+-          RELEASES_PAUSED: ${{ vars.RELEASES_PAUSED }}
+-          # A push or a run off main builds its own commit; otherwise main's newest commit with green checks.
+-          HEAD_SHA: ${{ (github.event_name == 'push' || steps.mode.outputs.dry_run == 'true') && github.sha || '' }}
+-          FORCE: ${{ inputs.force && 'yes' || '' }}
+-        run: |
+-          python3 tools/release_train.py decide --kind launcher ${HEAD_SHA:+--head "$HEAD_SHA"} ${FORCE:+--force} | tee decision.json
+-          echo "### $(jq -r '.reason' decision.json)" >> "$GITHUB_STEP_SUMMARY"
+-          tag=$(jq -r '.tag' decision.json)
+-          version=${tag#launcher-v}
+-          echo "version=${version#launcher@}" >> "$GITHUB_OUTPUT"
+-          # A dry run (and a launcher branch's push) builds whatever the decision.
+-          if [[ "${{ steps.mode.outputs.dry_run }}" == true ]]; then
+-            echo "release=true" >> "$GITHUB_OUTPUT"
+-            echo "head=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+-          fi
+-
+-  build:
+-    needs: decide
+-    if: needs.decide.outputs.release == 'true'
+-    name: build ${{ matrix.name }}
+-    # Windows ARM64 is new: its failure never holds the other platforms' release (the signing job
+-    # needs this job, and a failed entry of it would fail it). The release steps leave the missing
+-    # ARM64 files out with a warning.
+-    continue-on-error: ${{ matrix.name == 'windows-arm64' }}
+-    strategy:
+-      fail-fast: false
+-      matrix:
+-        include:
+-          - name: linux
+-            os: ubuntu-22.04
+-            asset: horizon-launcher-linux-x86_64.tar.gz
+-            binary: horizon-launcher
+-          - name: macos
+-            mac: true
+-            asset: horizon-launcher-macos-arm64.zip
+-            binary: horizon-launcher
+-            mac_arch: arm64
+-          - name: macos-x64
+-            mac: true
+-            target: x86_64-apple-darwin
+-            asset: horizon-launcher-macos-x64.zip
+-            binary: horizon-launcher
+-            mac_arch: x64
+-          - name: windows
+-            os: windows-latest
+-            asset: horizon-launcher-windows-x64.zip
+-            binary: horizon-launcher.exe
+-            pe_arch: x64
+-            setup_asset: horizon-launcher-setup.exe
+-            # The C runtime linked in: without it the launcher asks for VCRUNTIME140.dll,
+-            # which only the Visual C++ redistributable installs.
+-            rustflags: -C target-feature=+crt-static
+-          - name: windows-arm64
+-            os: windows-11-vs2026-arm
+-            target: aarch64-pc-windows-msvc
+-            asset: horizon-launcher-windows-arm64.zip
+-            binary: horizon-launcher.exe
+-            pe_arch: arm64
+-            setup_asset: horizon-launcher-setup-arm64.exe
+-            # The C runtime linked in, so the standalone ARM64 launcher needs no redistributable.
+-            rustflags: -C target-feature=+crt-static
+-    runs-on: ${{ matrix.mac && (vars.MAC_RUNNER || 'ludovics-mac-mini') || matrix.os }}
+-    # Notarizing the app and then the .dmg can take a few minutes each.
+-    timeout-minutes: ${{ matrix.mac && 60 || 40 }}
+-    env:
+-      RUSTFLAGS: ${{ matrix.rustflags }}
+-      # Where cargo puts the launcher: target/release, or target/<target>/release for another target.
+-      BIN: ${{ matrix.target && format('target/{0}/release', matrix.target) || 'target/release' }}
+-      # Horizon's Azure app for Microsoft sign-in (docs/microsoft-account.md): a repository
+-      # variable, not a secret. Unset, the launcher says sign-in is not configured.
+-      HORIZON_MSA_CLIENT_ID: ${{ vars.HORIZON_MSA_CLIENT_ID }}
+-      # The mod browser's CurseForge source (docs/mod-browser.md#curseforge): a repository secret. Unset, the
+-      # launcher searches Modrinth only.
+-      HORIZON_CURSEFORGE_API_KEY: ${{ secrets.HORIZON_CURSEFORGE_API_KEY }}
+-      # The release's version and tag, built in (launcher/src/backend.rs VERSION and own_tag: the tag says which
+-      # line it is on, docs/versioning.md); a launcher branch's build keeps Cargo.toml's.
+-      HORIZON_LAUNCHER_VERSION: ${{ (github.event_name != 'push' || github.ref == 'refs/heads/main') && needs.decide.outputs.version || '' }}
+-      HORIZON_LAUNCHER_TAG: ${{ (github.event_name != 'push' || github.ref == 'refs/heads/main') && needs.decide.outputs.tag || '' }}
+-    defaults:
+-      run:
+-        working-directory: launcher
+-        shell: bash
+-    steps:
+-      - uses: actions/checkout@v7
+-        with:
+-          ref: ${{ needs.decide.outputs.head }}
+-          persist-credentials: false
+-          # Always from a clean checkout, the Mac mini's runner too: its work folder is shared with pull requests'
+-          # parity jobs, and nothing they leave may end up in a launcher release (target/ is rebuilt from scratch).
+-          clean: true
+-      - uses: dtolnay/rust-toolchain@stable
+-        with:
+-          targets: ${{ matrix.target }}
+-      - uses: Swatinem/rust-cache@v2
+-        if: runner.environment == 'github-hosted'
+-        with:
+-          workspaces: launcher
+-          shared-key: launcher-${{ matrix.name }}
+-      - name: Linux libraries GPUI links to
+-        if: runner.os == 'Linux'
+-        run: |
+-          sudo apt-get update
+-          sudo apt-get install -y libxkbcommon-x11-dev libwayland-dev libx11-xcb-dev libfontconfig-dev libvulkan-dev libasound2-dev patchelf
+-      - name: Metal shaders compiled now, or at run time without the Metal toolchain
+-        # GPUI compiles its Metal shaders when it builds; the Mac mini has Xcode without the Metal toolchain
+-        # (xcodebuild -downloadComponent MetalToolchain), so there they are compiled when the launcher starts.
+-        if: runner.os == 'macOS'
+-        run: |
+-          if ! xcrun metal --version > /dev/null 2>&1; then
+-            echo "::notice::No Metal toolchain on this runner: GPUI compiles its shaders at run time"
+-            echo "LAUNCHER_FEATURES=gpui_platform/runtime_shaders" >> "$GITHUB_ENV"
+-          fi
+-      # Every test target (the library, the binary, tests/), on each system the launcher ships for.
+-      - run: cargo test --release --locked ${{ matrix.target && format('--target {0}', matrix.target) || '' }} ${LAUNCHER_FEATURES:+--features "$LAUNCHER_FEATURES"}
+-      - run: cargo build --release --locked ${{ matrix.target && format('--target {0}', matrix.target) || '' }} ${LAUNCHER_FEATURES:+--features "$LAUNCHER_FEATURES"}
+-      - name: Verify Windows executable architecture
+-        if: runner.os == 'Windows'
+-        run: python ../tools/check_pe_arch.py "${{ matrix.pe_arch }}" "$BIN/${{ matrix.binary }}"
+-      - name: Unrelated DLLs cannot intercept launcher or setup startup
+-        if: runner.os == 'Windows'
+-        run: python ../tools/test_launcher_dll_search.py "$BIN/${{ matrix.binary }}"
+-      - name: The version is the release's
+-        run: |
+-          out=$("$BIN/${{ matrix.binary }}" --version)
+-          echo "$out"
+-          expected="${HORIZON_LAUNCHER_VERSION:-$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)}"
+-          [[ "$out" == "horizon-launcher $expected" ]] || { echo "::error::expected horizon-launcher $expected"; exit 1; }
+-      - name: Only system libraries
+-        run: |
+-          file="$BIN/${{ matrix.binary }}"
+-          case "$RUNNER_OS" in
+-            Windows) python ../tools/check_imports.py "$file" ;;
+-            macOS) others=$(otool -L "$file" | tail -n +2 | awk '{print $1}' | grep -v -E '^(/usr/lib/|/System/Library/)' || true)
+-                   [[ -z "$others" ]] || { echo "::error::links $others"; exit 1; } ;;
+-          esac
+-      - name: Smoke test
+-        env:
+-          HORIZON_LAUNCHER_NO_SELF_UPDATE: '1'
+-          HORIZON_GITHUB_TOKEN: ${{ github.token }}
+-        run: |
+-          set -euo pipefail
+-          export HORIZON_LAUNCHER_HOME="${RUNNER_TEMP//\\//}/horizon-launcher-smoke"
+-          export HORIZON_HOME="$HORIZON_LAUNCHER_HOME/game"
+-          rm -rf "$HORIZON_LAUNCHER_HOME"
+-          launcher="$PWD/$BIN/${{ matrix.binary }}"
+-          # GitHub's API rate-limits shared runner addresses now and then: try a few times.
+-          retry() { for i in 1 2 3 4; do "$@" && return 0; sleep $((i * 15)); done; return 1; }
+-          retry "$launcher" versions
+-          "$launcher" links --json
+-          # The Intel Mac launcher can come out before any game build has its asset (#1161): then there is nothing
+-          # to install yet. Only that entry skips, and only on a version list that parsed and had no build here
+-          # (exit 3); a launcher or a script that fails still fails the step. The Windows ARM64 launcher always has
+-          # one: it installs the x64 build where a release has no ARM64 one (backend.rs, GAME_FALLBACK).
+-          if [[ "${{ matrix.name }}" == macos-x64 ]]; then
+-            versions=$(retry "$launcher" --json versions)
+-            no_build='import json, sys; sys.exit(3 if not any(r["available_here"] for r in json.load(sys.stdin)) else 0)'
+-            status=0
+-            python3 -c "$no_build" <<<"$versions" || status=$?
+-            if [[ $status == 3 ]]; then
+-              echo "::warning::No game build has an asset for ${{ matrix.name }} yet: install not tested"
+-              rm -rf "$HORIZON_LAUNCHER_HOME"
+-              exit 0
+-            fi
+-            [[ $status == 0 ]] || exit $status
+-          fi
+-          retry "$launcher" install latest
+-          "$launcher" versions --installed
+-          # `install latest` is the Nightly since #3342 (versions/nightly-<date>-<commit>), a vX.Y.Z before.
+-          clients=("$HORIZON_LAUNCHER_HOME"/versions/*/horizon-client*)
+-          client="${clients[0]}"
+-          echo "installed client: $client"
+-          [[ -f "$client" ]] || { echo "::error::no game installed under versions/"; exit 1; }
+-          # The game's Linux build is the game's to keep portable (release.yml checks it): a
+-          # release linked to a Nix store is a warning here, not a broken launcher.
+-          soft() { if [[ "$RUNNER_OS" == "Linux" ]]; then "$@" || echo "::warning::$* failed"; else "$@"; fi; }
+-          if [[ "$RUNNER_OS" == "Windows" ]]; then
+-            if ! python ../tools/check_pe_arch.py "${{ matrix.pe_arch }}" "$client"; then
+-              # A Nightly without an ARM64 build: the ARM64 launcher installs the x64 one (backend.rs, GAME_FALLBACK).
+-              [[ "${{ matrix.pe_arch }}" == arm64 ]] && python ../tools/check_pe_arch.py x64 "$client" || exit 1
+-              echo "::warning::the latest game has no ARM64 build: the launcher installed the x64 one"
+-            fi
+-            python ../tools/check_imports.py "$client"
+-          elif [[ "$RUNNER_OS" == "Linux" ]]; then
+-            soft python3 ../tools/check_imports.py "$client"
+-          fi
+-          # The client starts: --help prints before any window or GPU is needed.
+-          help() { "$client" --help > "$RUNNER_TEMP/help.txt" 2>&1 && head -3 "$RUNNER_TEMP/help.txt" && grep -q -- '--resources' "$RUNNER_TEMP/help.txt"; }
+-          soft help
+-          # The per-user Windows setup: the same binary under the setup's name installs into a scratch
+-          # folder, and the copy it installs uninstalls itself. HKCU of the runner only.
+-          if [[ "$RUNNER_OS" == "Windows" ]]; then
+-            setup="$RUNNER_TEMP/setup-smoke"
+-            cp "$launcher" "$RUNNER_TEMP/horizon-launcher-setup.exe"
+-            "$RUNNER_TEMP/horizon-launcher-setup.exe" setup --quiet --dir "$setup"
+-            installed="$setup/Horizon Launcher/horizon-launcher.exe"
+-            [[ -f "$installed" ]] || { echo "::error::the setup copied no launcher"; exit 1; }
+-            "$installed" uninstall --quiet
+-            [[ ! -f "$installed" ]] || { echo "::error::uninstall left the launcher"; exit 1; }
+-            rm -rf "$setup"
+-          fi
+-          rm -rf "$HORIZON_LAUNCHER_HOME"
+-      - name: The signing keychain, unlocked
+-        if: runner.os == 'macOS' && vars.MACOS_SIGN_IDENTITY != ''
+-        env:
+-          MACOS_SIGN_IDENTITY: ${{ vars.MACOS_SIGN_IDENTITY }}
+-        run: ../packaging/macos/keychain.sh unlock
+-      - name: Package
+-        env:
+-          MACOS_SIGN_IDENTITY: ${{ vars.MACOS_SIGN_IDENTITY }}
+-        run: |
+-          rm -rf dist out && mkdir -p out
+-          if [[ "$RUNNER_OS" == "macOS" ]]; then
+-            # Horizon.app, zipped (self-update) and in a .dmg (installer), signed (and notarized with
+-            # Developer ID): packaging/macos.
+-            python3 -m venv "$RUNNER_TEMP/dmg" && "$RUNNER_TEMP/dmg/bin/pip" install --quiet dmgbuild==1.6.5
+-            version=${HORIZON_LAUNCHER_VERSION:-$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)}
+-            DMGBUILD="$RUNNER_TEMP/dmg/bin/dmgbuild" ../packaging/macos/package.sh "$BIN/${{ matrix.binary }}" "$version" out ${{ matrix.mac_arch }}
+-            rm -rf out/Horizon.app
+-          else
+-            version=${HORIZON_LAUNCHER_VERSION:-$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)}
+-            if [[ "$RUNNER_OS" == "Linux" ]]; then
+-              # The .tar.gz below is what the launcher updates itself from; the AppImage is what a
+-              # player downloads and double-clicks, and it replaces itself instead
+-              # (packaging/linux/appimage.sh, launcher/src/backend.rs).
+-              ../packaging/linux/appimage.sh "$BIN/${{ matrix.binary }}" "$version" out
+-            fi
+-            mkdir -p dist
+-            cp "$BIN/${{ matrix.binary }}" dist/
+-            if [[ "${{ matrix.asset }}" == *.tar.gz ]]; then
+-              (cd dist && tar czf ../out/${{ matrix.asset }} ${{ matrix.binary }})
+-            else
+-              (cd dist && 7z a ../out/${{ matrix.asset }} ${{ matrix.binary }})
+-            fi
+-          fi
+-          ls -l out
+-      - name: Setup exe (Windows)
+-        # The launcher's binary under another name: started with no arguments it shows the per-user
+-        # installer instead of Home (launcher/src/installer.rs). Its name is what makes it the setup,
+-        # so the ZIP's copy stays the launcher. Both go into the release's signed SHA256SUMS.
+-        if: runner.os == 'Windows'
+-        run: cp "$BIN/${{ matrix.binary }}" "out/${{ matrix.setup_asset }}"
+-      - uses: actions/upload-artifact@v7
+-        with:
+-          name: ${{ matrix.asset }}
+-          path: launcher/out/*
+-          retention-days: 3
+-      - name: The signing keychain, locked again
+-        if: always() && runner.os == 'macOS' && vars.MACOS_SIGN_IDENTITY != ''
+-        run: ../packaging/macos/keychain.sh lock
+-
+-  sign:
+-    needs: [decide, build]
+-    runs-on: ubuntu-latest
+-    timeout-minutes: 10
+-    # The only job that holds the release signing key, a secret of the `release` environment, which only main's real
+-    # releases enter (dry runs sign with a throwaway key). It runs no code from the repository but
+-    # tools/ci/sign_release.sh, which calls only the runner's sha256sum and OpenSSL (docs/release-flow.md).
+-    environment: ${{ needs.decide.outputs.dry_run != 'true' && 'release' || '' }}
+-    steps:
+-      - uses: actions/checkout@v7
+-        with:
+-          sparse-checkout: tools/ci/sign_release.sh
+-          sparse-checkout-cone-mode: false
+-          persist-credentials: false
+-      - uses: actions/download-artifact@v8
+-        with:
+-          path: dist
+-          pattern: horizon-launcher-*
+-          merge-multiple: true
+-      - name: Sign the checksums (SHA256SUMS, SHA256SUMS.sig)
+-        env:
+-          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+-          RELEASE_SIGNING_KEY_NEXT: ${{ secrets.RELEASE_SIGNING_KEY_NEXT }}
+-          EPHEMERAL: ${{ needs.decide.outputs.dry_run == 'true' && 'yes' || '' }}
+-          TAG: ${{ needs.decide.outputs.tag }}
+-        run: bash tools/ci/sign_release.sh "$TAG" dist/horizon-launcher-*
+-      - uses: actions/upload-artifact@v7
+-        with:
+-          name: signature
+-          path: dist/SHA256SUMS*
+-          if-no-files-found: error
+-          retention-days: 3
+-      - uses: actions/upload-artifact@v7
+-        if: needs.decide.outputs.dry_run == 'true'
+-        with:
+-          name: ephemeral.pub
+-          path: dist/ephemeral.pub
+-          retention-days: 3
+-
+-  release:
+-    needs: [decide, build, sign]
+-    runs-on: ubuntu-latest
+-    timeout-minutes: 15
+-    permissions:
+-      contents: write
+-    steps:
+-      - uses: actions/checkout@v7
+-        with:
+-          fetch-depth: 0
+-      - name: Notes
+-        env:
+-          GH_TOKEN: ${{ github.token }}
+-        run: |
+-          python3 tools/release_train.py notes --kind launcher --tag "${{ needs.decide.outputs.tag }}" \
+-            --head "${{ needs.decide.outputs.head }}" --out notes > /dev/null
+-          { echo "## $(cat notes/title.txt)"; echo; cat notes/body.md; } >> "$GITHUB_STEP_SUMMARY"
+-      - uses: actions/download-artifact@v8
+-        with:
+-          path: dist
+-          merge-multiple: true
+-      - name: The signature, checked as launchers check it
+-        env:
+-          TAG: ${{ needs.decide.outputs.tag }}
+-          EPHEMERAL: ${{ needs.decide.outputs.dry_run == 'true' && 'yes' || '' }}
+-        run: |
+-          key=(); [[ -n "$EPHEMERAL" ]] && key=(--key "$(cat dist/ephemeral.pub)")
+-          cargo run --locked --quiet -p horizon-release-sign -- verify --tag "$TAG" --publishing "${key[@]}" dist
+-      # Never marked latest: Horizon's own releases stay the repository's latest.
+-      - name: The Windows ARM64 launcher, if it built
+-        # Its build may fail without holding the release (continue-on-error): the release then has no ARM64
+-        # files, and ARM64 launchers stay on their version until one has (backend::launcher_update_from).
+-        run: |
+-          for file in horizon-launcher-windows-arm64.zip horizon-launcher-setup-arm64.exe; do
+-            [[ -f "dist/$file" ]] || echo "::warning::$file is missing: this release goes out without it"
+-          done
+-      - name: Publish ${{ needs.decide.outputs.tag }}
+-        if: needs.decide.outputs.dry_run != 'true'
+-        env:
+-          GH_TOKEN: ${{ github.token }}
+-          TAG: ${{ needs.decide.outputs.tag }}
+-        run: |
+-          signature=(); [[ -f dist/SHA256SUMS.sig ]] && signature=(dist/SHA256SUMS.sig)
+-          gh release create "$TAG" --target "${{ needs.decide.outputs.head }}" --title "$(cat notes/title.txt)" \
+-            --notes-file notes/body.md --latest=false dist/horizon-launcher-* dist/SHA256SUMS "${signature[@]}"
+-      - name: Dry run, the release that would be published
+-        if: needs.decide.outputs.dry_run == 'true'
+-        run: |
+-          echo "Would publish ${{ needs.decide.outputs.tag }} at ${{ needs.decide.outputs.head }}: $(cat notes/title.txt)"
+-          ls -l dist
+-      - uses: actions/upload-artifact@v7
+-        with:
+-          name: launcher-release-notes
+-          path: notes/
+-          retention-days: 3
+diff --git a/packaging/fork-launcher-release-notes.md b/packaging/fork-launcher-release-notes.md
+deleted file mode 100644
+index 5afcf61ce6f..00000000000
+--- a/packaging/fork-launcher-release-notes.md
++++ /dev/null
+@@ -1,41 +0,0 @@
+-# Horizon Fork Launcher (arismoko)
+-
+-This is the arismoko fork, not the official Horizon launcher. It uses separate
+-settings, game data and account storage and installs and updates only from
+-[arismoko/horizon](https://github.com/arismoko/horizon).
+-
+-Microsoft sign-in is configured using the application ID upstream authorized the
+-fork to use. Signed Nightly builds require a signed-in account that owns Minecraft.
+-Account and token storage remain separate from the official launcher.
+-
+-## Downloads
+-
+-- **Linux x86_64:** download `horizon-fork-launcher-linux-x86_64.AppImage`, make it
+-  executable and run it. The `.tar.gz` archive is also available.
+-- **Windows x64:** download `horizon-fork-launcher-setup.exe`, or extract
+-  `horizon-fork-launcher-windows-x64.zip` and run `horizon-fork-launcher.exe`.
+-  This fork is **not Authenticode-signed**. Expect a SmartScreen or unknown-publisher
+-  warning; signed checksums do not remove Windows warnings.
+-
+-These launcher releases contain Linux x86_64 and Windows x64 packages only.
+-The launcher checks signed updates from this fork automatically.
+-Older launchers build native mods from source against newer Nightlies until they update.
+-
+-## Verify the download
+-
+-Download `SHA256SUMS`, `SHA256SUMS.sig` and all four packages from this release
+-into one folder. The signature binds the checksums to this fork and the exact
+-release tag; comparing a checksum alone does not authenticate the download.
+-
+-With Rust installed, use the verifier from the fork's tagged source checkout:
+-
+-```sh
+-git clone --branch '{tag}' --depth 1 https://github.com/arismoko/horizon.git horizon-fork-source
+-cd horizon-fork-source
+-cargo run --locked -p horizon-release-sign -- verify --repository arismoko/horizon --tag '{tag}' --publishing /absolute/path/to/downloads
+-```
+-
+-The verifier uses the fork's built-in public keys and checks all four packages
+-against the signed manifest. An invalid signature, a wrong release tag, a missing
+-package or a changed package is refused. The launcher performs the corresponding
+-signature and checksum checks automatically for each download.
+diff --git a/packaging/icons/fork/128.png b/packaging/icons/fork/128.png
+deleted file mode 100644
+index 812a63f7c393edb4abe79d410b884b9a2a8feaf8..0000000000000000000000000000000000000000
+GIT binary patch
+literal 0
+HcmV?d00001
+
+literal 433
+zcmeAS@N?(olHy`uVBq!ia0vp^4Is?H1|$#LC7xzrV65<TaSW-L^Y+p~-a`fg431R`
+zWp^zqc){RW)FJym;+FiQcT+0&%zNLz%Qj74fq|ugL4bkDfq{d8k!(%}yThLO3~u*M
+z1eMRO{&r^KeMSZt_``ZY^z>Sr^6Ak~v4o>f!{+Tiy_P|T=fN9Em@=T_8P-Moc=12h
+zuzV^^DNu45(~Pf*VT=Xe*e!k`)H2Mlz%+0>bHNvcy$l8%4!_wQY#1If3h*~nFdSi4
+jkYo7B0CXv>gzkyoJ{WS_{J-dJkV8FP{an^LB{Ts58bWe(
+
+diff --git a/packaging/icons/fork/16.png b/packaging/icons/fork/16.png
+deleted file mode 100644
+index 78e994413231d8737ce79b31a446da623f2422b9..0000000000000000000000000000000000000000
+GIT binary patch
+literal 0
+HcmV?d00001
+
+literal 104
+zcmeAS@N?(olHy`uVBq!ia0vp^0wB!61|;P_|4#%``kpS1Ar*6yKLqCe^XE*HFnwTu
+zxL%`yQ{YjuDMMs~4s*skrjp86Rf!K47hY-j&+s8c!$UPVqXejx!PC{xWt~$(699#N
+BAMF4D
+
+diff --git a/packaging/icons/fork/24.png b/packaging/icons/fork/24.png
+deleted file mode 100644
+index 9b55969dda72c746ad2de27a28e9f4c59ab99574..0000000000000000000000000000000000000000
+GIT binary patch
+literal 0
+HcmV?d00001
+
+literal 135
+zcmeAS@N?(olHy`uVBq!ia0vp^5+KaM1|%Pp+x`Gjex5FlAr*6yKLqCe^Y=bukachc
+ztMd`2lm;D751Ck=na4IT%vQ1c$heUqwr7Qc(p7c~U4^UcFW3aX9Beqsxbb1{b*89C
+jf!uDo5?dGiv}dUEyYl<Pg_l}DlNmf+{an^LB{Ts5m9s9I
+
+diff --git a/packaging/icons/fork/256.png b/packaging/icons/fork/256.png
+deleted file mode 100644
+index bbe8adbf0de9d3f6baf6e08813d1a4036bb5cc7d..0000000000000000000000000000000000000000
+GIT binary patch
+literal 0
+HcmV?d00001
+
+literal 1567
+zcmeAS@N?(olHy`uVBq!ia0y~yU<5K5893O0R7}x|GzJFNXPz#OAr*7p-Z{ATO^ASN
+zV3DHiCZz(81I^mIa>VbQzBDVUG%mXO%h&%uUZ3CppK;c|ir)+mY?&AmM-g%e{I_Jt
+zx6S{%Fef*^_E)UGV8hYs+`F5<zAU$OWe|J6we<Y8<@djeFh=aTe$6&|e%<w8mV}RS
+z(cg0@QT+59!=A7E%<ZOJx_0?@4$!tP2A+H2x2me<udUt|C)jZCw^y|P`^`YRwV4bm
+z;xk{rtljqRW|b=g+k5R?+r8(3E?LiU;6d%uwadTX+?D=Xlu=^O`Ym6-*a6+OSBatd
+z`_ygo?xnw;w>F$5;ln<>mi#_-?W}a2B2>@!scUDO|8aua^IkjJJpV^4)NS{}x8>dY
+zzzwx(-};=pdmf6zoELv{SLI=Sm~Hzum40rEhq<se_4PB}{Q^*5VYBd1J(tyv@?ZJe
+zD_?)vT>Cou`(0lKw(oUM7gs;Nx$o=R-|y5InydGJy14ga&i!B4YRiQi4(^Tr`Ql#1
+zw*1=H`*w34cyMohO-a7Z?d|(Y@84xfD0m-kx66Fq+vxkd-sdqH?D(!Ne^>hax3&3q
+z%gq@j?);wG|E@Rv_qFZscF$(udH45}`}bp5t$jA1i60m*yK0-)rbGPpRyxO485~%7
+z_Y+=Af&-)UH(T_1h-Yt`->7l}hu+<N2d^1JLgyRrwt0{^-JZYUYY#X$u^LHioY5d*
+z+&BN3b3f`=?EVd)v`AOpsd_$!5C7E}1k^?mMhJY<7rLd)<WX&t2`u;-JYD@<);T3K
+F0RUu<VnzS}
+
+diff --git a/packaging/icons/fork/32.png b/packaging/icons/fork/32.png
+deleted file mode 100644
+index 2c04c3c0c261a76ed16c4596faa4e369e6e89350..0000000000000000000000000000000000000000
+GIT binary patch
+literal 0
+HcmV?d00001
+
+literal 160
+zcmeAS@N?(olHy`uVBq!ia0vp^3LwnE1|*BCs=ffJbWaz@kcv6U9|H6K*-w~}c!hB>
+zpG4__70hn33`!RmcPZ6;I`YDG8T)qT0!^1`ho3Seec_wIToCCOBqC76pt#q?vSE_I
+zfmA_HMS~@>4xe2*PA?BBJmByskiEw$0cu!-HPAY*`9dcq@+<*b$>8bg=d#Wzp$Py_
+C05v86
+
+diff --git a/packaging/icons/fork/48.png b/packaging/icons/fork/48.png
+deleted file mode 100644
+index de7eb67c401f86aebdda40ba9be3acc4510e6c3d..0000000000000000000000000000000000000000
+GIT binary patch
+literal 0
+HcmV?d00001
+
+literal 198
+zcmeAS@N?(olHy`uVBq!ia0vp^1|ZDA1|-9oezpUtUQZXtkcv5PF9mWnC<wR)e!o<9
+zE0lZv`Z|?NmZxTA>~a!5Klwtwy|pl2eu0$*E4tHuZA;voz0vdkGiTV^$6nbit*iP#
+zyJ7pI*G#V@IXmjiqw0JQoQc;6T9Y2`pr7z%T|-rX!!?ct$_;%CR!lG8j3w+bU6UoQ
+UKM;<*2Xq*Nr>mdKI;Vst0OY$yeE<Le
+
+diff --git a/packaging/icons/fork/512.png b/packaging/icons/fork/512.png
+deleted file mode 100644
+index 2527a4456918134a32b7b5c9ddeb1ff690187182..0000000000000000000000000000000000000000
+GIT binary patch
+literal 0
+HcmV?d00001
+
+literal 5028
+zcmeI0ZAepL6vvMaX2@0_Dl&_rU=^jCMfnnhB}&PdN(45_re$g9Ht{`t*-D}!jGC}T
+z8u=xI77ny_bHi=Y3tmixOov@>GnmqpJI$BrrrYgl1_|8{eF=*0r+eW!T<-aw^ZOs3
+zb1Nh5I6pix902&KCz4MBgre6_Si?n+xylbdfb|8b$;VDrHc>-e^(i=?W9xn6ir4c;
+z?&LtH=&3YxqVJMyv0p{cPSKzi(uH9Fwfz9<B=m_52LPJyh5%gW0qn^IIJ$!a5WX28
+zqniz3bzz%fAE%izCJsAlONgu`yHa7E?4dtusEu6PI>l0hpNhlC7b^d_(QH{ZL=T_K
+zf#p#){I6H$>ubpG(M5G&F2e1bu%=b$nxeCcEAa0H-1?3^_-`bckyi}ZApX8cTC5zv
+z$oWClL$@&DjLAv3Tdsx_#mL&6pIVgWNj-g-%qljP;utC6a7ME&xp=3<QEtzq%S>ix
+zp-ZDQH*&eQu4-IU)o7tw4S~s0)K2dOj`BD@PhIEL2o_>%h%A}k?s99|AB!!NA~FKP
+zW(8um+=tx5XBZ#_d175PK^}~Owc}##2r(zGsF{~NF^l`OLa)($Ih&z3*#uTsAf2b4
+zBLYsns<DZ>U5!5o+O^5QE$|i=yX2~wL93+ClVZu0pi+;i$l7(P3qiy7PB?buE$x)G
+zwIDy3u_~-Ltoxz1h<H>zuWV?qxhIkipjvoknB$cr0uo<R=@uV`4_mr*&s;(4C#F6t
+zdFt&Wp4~D(;VhIn#Y3g2+5tPYFdertD+~d7u~9T5C@@j2B6`wOwYY^d8ix7tOgc7!
+z*yPn5BFpVMx@_sla(&2j9h=7LYFs%F&&O6VfpF_#U=9&eB4t1V(I#X<4kLRnG9ZnB
+z?1*9@4#BKrBARfIw=p<I4MCpOG62o~ya9PFqw*_eiX6`q&g8P}!7qd7pOs|AgXOqZ
+z*nuXfAvpAYn5GsD)Sr2=fqz7v)999O6S6lvb`8SretvV|^@ZN6FU{x1-$a`sfYg+<
+K<kqC@Yu^C<(a1vp
+
+diff --git a/packaging/icons/fork/64.png b/packaging/icons/fork/64.png
+deleted file mode 100644
+index c11dd4c56c4a13fe91162ccd3572e67d130514df..0000000000000000000000000000000000000000
+GIT binary patch
+literal 0
+HcmV?d00001
+
+literal 268
+zcmeAS@N?(olHy`uVBq!ia0vp^4j|0I1|(Ny7TyC=mpxq^Ln`LHz3j->WFW#2`0i2Z
+zo~i8D*BY{PE#g0HGLw~8_p^H9uDHDK#>Sb9zKmNMmN7&*1T*L^&}<O9AmYHC!L@+Z
+zg!KZ`ET#;Ebi?!Zty@bjZa=q<*WmlT7dM$i5)=<yx_3*UdY-NW<1wb5y44J<5<DBe
+zKHAHaBl~RbLhgbm@d>XT=Fb62^GQ4?%{Mu4D~_>FG9gcN0YkmOgC1NqVQ~oi?1|Bv
+Uk8m%U4D=p@r>mdKI;Vst0N6ZUP5=M^
+
+diff --git a/packaging/icons/fork/launcher.icns b/packaging/icons/fork/launcher.icns
+deleted file mode 100644
+index ea751c2b249adba4f40575ada165fa9f564b1a46..0000000000000000000000000000000000000000
+GIT binary patch
+literal 0
+HcmV?d00001
+
+literal 5044
+zcmeI0ZAepL6vvMaX2@0_Dl&_rU=^jCMfnnhB}&PdN(45_rfI3@HktD!eA!B(B8-}_
+zMH=}fgA@m9TW+{bdcljS(9&Vo+YF{O<xcZ`)9v=8K|=RKUxK3h>ACP69`5r$=l4H6
+zCqG+O46wN)KRYT8tu1%bQciP2!$Sdpn|vnmEI=^&42BJCw9J)%@S&iB<iu0w${Wa`
+z?%E`b%d+*oamO}uNA6`om*BZLc%uKRWNAP}%}!CE=2L|s0M!Ek>I8JemLmX-_k#d#
+zasUqG0G!;z0tnp>kk-S5FuE|saER4N8sdkY)x~(mvO_L2PxewDHRM*dZIf)d&QHb|
+zi5DvWxWQ~$(MJwn%7T?qCj75g=Id+7>(xbc8r`_ZH(^aF(=|k9D9W(!3EcUP+4yfH
+znUR*+Z4moVAXdojMq++Y_1MFYyI^wRo~G+TMNyJA*QX}Ad9s;0PGl$yO3X-zSgg@Z
+zOAgj0a+W&MsS=afRp{2p&Gl@yt-BJ_RMcC@R()VniOT6c&siG7<)~}C8s1`b6`mpS
+zJKP>k`%|HXl!b>u$ShCjk@}E(`1E#ymn+m&;>6J?*f=iKj^K0BvZ{H>GqbQ?%l8`0
+z`I$7e$y{K422wfdIXvKMR@FC<cPp_+t9EVj?+UzyrEaNeX3#3?Ur4g#h)}A>R7CYA
+zRrac3dncUxa+mi?+M19b%vfdCTh_x+U4%cWoR`<NS3MAj?I;&siP8DW83yq$$yAHa
+zhz(nMbS>^x>&K@)%Q@=ZBMbW_e%w_kaS4Z%DBA%Cxi}rO)+_V@slp(b;T4$3Rsl7+
+zP_eXwH5y{{W9d|M9KOw~IYyK^bX3XmiIv)*=^Ex5>$7p~GIWfsV*=sUOT!!@rdUja
+z1fq>khn$h<yF!CB0<trLhBySXj*e*DGu}qy7*#lNQA-0f^YeP-wY18wnJIF-g-|+|
+zWj20kJpZgDYaT4cwERxgLG`Om?}uq>QA7QCFDCGh$a5aO@@;(Pg~yCRnAy*74!pil
+X2b-07?AY6AG6ayEl#<w*ka^=9weZZV
+
+diff --git a/packaging/icons/fork/launcher.ico b/packaging/icons/fork/launcher.ico
+deleted file mode 100644
+index 404ba3a8fc248877c4eb13b906447aa38c0a7894..0000000000000000000000000000000000000000
+GIT binary patch
+literal 0
+HcmV?d00001
+
+literal 1589
+zcmZQzU<5)CU}R8WkY{6H5CgJ11N_{1xum#&OkPh9mmrWV2y+1C8Dff7q%knCKJ#>O
+z45^s&_RhhzZ$boI1B(=8Hz^f(9B9_wl_P%d^rcx*rE$^KU%vkT@%sG!|BSQ#Rs3dn
+zV9UgiIEs)%;J+n9zHR>Bg*mzTwZCHh1sjf5=ic4?^<}xOD}&hkt)=I$Ex-R&gfU{z
+z^=r1#^Xsk$vm|_si~gQNiQ=c<81{VKXKpv;(zVOKbAYyWG4R|Azg1N=e{J=)IKhU4
+zzrCXU-){!mt<7Xm5uf?`W$m_iH>+G3*xqaB+U`9Mbjf;-0}pDKu3i59=C1VDqKp!I
+z)^GXx#SZAMy-Ezt-=}VycQ5_*ytUyh2_N?1wdD7yYiFhF6rp;)PhC6P{ErjVp7+|(
+z=J`Kbp>De$zAf+G2X3fU`_|{&-Sbc!=DhfuyDAUs!))8Psq}MOJj{i)sjr{$?iYai
+z3Y&$8>bb0Tl>f@#UitdV=GxcM-|zY|uzjz4y14rB&3#|j{(h&%&|JO$)5X0XbMF7T
+zR$DIIaBy$@&lmS9w&mBp-nX0cz=M11YfAEMZg1aLdjBp<Lc#lRyItn<-bUZw^*)cu
+zV8?fD`Mc8Rzpc%`TW-!Map(8c{&&6Uzprh7w|h1N&%3{;+`k{gYVEW6O#Hxj*;U)T
+zHXY)(x6(Pb%HY7tyPxn{5*!$%zuBVCLp*!i{6>`<IP~uBJ9y0)5<1^_x6OmZ>Gu2$
+zUwgp8iPcDA<BSFg<G%UNocmF~V)t(VrA4~(PSx`<eE6@<AfPsiFhby)zR)dYCXZ^H
+ROkly!;OXk;vd$@?2>_=MVx#~7
+
+diff --git a/packaging/icons/fork/launcher.svg b/packaging/icons/fork/launcher.svg
+deleted file mode 100644
+index 0413ade90d6..00000000000
+--- a/packaging/icons/fork/launcher.svg
++++ /dev/null
+@@ -1 +0,0 @@
+-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512"><rect width="512" height="512" fill="#4c2383"/><text x="256" y="280" text-anchor="middle" font-family="sans-serif" font-size="130" fill="white">FORK</text></svg>
+diff --git a/packaging/macos/README.md b/packaging/macos/README.md
+index d34be7dee75..19fab4d3cc7 100644
+--- a/packaging/macos/README.md
++++ b/packaging/macos/README.md
+@@ -14,22 +14,6 @@
+   swapped in by renaming, then restarted); a bare `horizon-launcher` binary, as launchers before
+   the app shipped, finds the binary inside the zip and replaces only itself.
+ 
+-## Fork packages
+-
+-The arismoko fork ships Apple Silicon (arm64) only, not Intel. Its staged packaging
+-uses `Horizon Fork Launcher (arismoko).app`, bundle id
+-`io.github.arismoko.horizonfork.launcher`, the fork icon and executable
+-`horizon-fork-launcher`. The volume is named `Horizon Fork Launcher (arismoko)`.
+-The installer is `horizon-fork-launcher-macos-arm64.dmg`; self-update uses
+-`horizon-fork-launcher-macos-arm64.zip` from arismoko/horizon. Settings, accounts
+-and game data use the separate fork namespace.
+-
+-The app is **ad hoc signed, not notarized**. Drag it to Applications. On macOS 14
+-and earlier, right-click the app and choose **Open**, then confirm **Open**. On
+-macOS 15 and later, open it once, then use **System Settings › Privacy & Security ›
+-Open Anyway** and confirm. No Apple signing identity or notarization profile is needed. The upstream signing description below does not
+-apply to these fork packages.
+-
+ ## Signing and notarization
+ 
+ Releases are signed with Ludovic's **Developer ID** ("Developer ID Application: Ludovic Marie
+diff --git a/tests/fixtures/launcher-fork-macos.json b/tests/fixtures/launcher-fork-macos.json
+deleted file mode 100644
+index 223b9c554b3..00000000000
+--- a/tests/fixtures/launcher-fork-macos.json
++++ /dev/null
+@@ -1,7 +0,0 @@
+-{
+-  "name": "macos",
+-  "mac": true,
+-  "asset": "horizon-fork-launcher-macos-arm64.zip",
+-  "binary": "horizon-fork-launcher",
+-  "mac_arch": "arm64"
+-}
+diff --git a/tests/test_launcher_identity_packaging.py b/tests/test_launcher_identity_packaging.py
+deleted file mode 100644
+index bee00246529..00000000000
+--- a/tests/test_launcher_identity_packaging.py
++++ /dev/null
+@@ -1,121 +0,0 @@
+-"""Packaging comparisons against independent pre-change git object fixtures.
+-
+-Fixtures are verbatim da81e38705 objects, not outputs of the staging function.
+-"""
+-import hashlib
+-import importlib.util
+-import json
+-import os
+-import shutil
+-import subprocess
+-import tempfile
+-import unittest
+-from pathlib import Path
+-
+-ROOT = Path(__file__).resolve().parents[1]
+-SPEC = importlib.util.spec_from_file_location('stage', ROOT / 'tools/stage_launcher_packaging.py')
+-STAGE = importlib.util.module_from_spec(SPEC)
+-SPEC.loader.exec_module(STAGE)
+-FIXTURES = ROOT / 'tests/fixtures/launcher-upstream'
+-
+-class PackagingIdentity(unittest.TestCase):
+-    @unittest.skipUnless(shutil.which("rustc"), "requires Rust for real compiled identity metadata")
+-    def test_compiled_namespace_metadata_preserves_upstream_and_isolates_fork(self):
+-        expected = json.loads((FIXTURES / 'identity.json').read_text())
+-        with tempfile.TemporaryDirectory() as temporary:
+-            temporary = Path(temporary)
+-            # Compile the real identity module, not a Python model of its selection.
+-            program = '#[allow(dead_code)] #[path = ' + json.dumps(str(ROOT / 'launcher/src/identity.rs')) + '] mod identity;\nfn main() {\n'
+-            program += ''.join('println!("{}\\t{}", "' + name + '", identity::' + name + ');\n' for name in expected)
+-            program += '}\n'
+-            source = temporary / 'metadata.rs'
+-            source.write_text(program)
+-            outputs = []
+-            addresses = temporary / 'libhorizon_addresses.rlib'
+-            subprocess.run(['rustc', '--edition=2024', '--crate-name=horizon_addresses', '--crate-type=rlib', str(ROOT / 'crates/horizon-addresses/src/lib.rs'), '-o', str(addresses)], check=True)
+-            build_script = temporary / 'build-script'
+-            subprocess.run(['rustc', '--edition=2021', str(ROOT / 'launcher/build.rs'), '-o', str(build_script)], check=True)
+-            for repository in (STAGE.UPSTREAM, STAGE.FORK):
+-                env = dict(os.environ, HORIZON_LAUNCHER_REPOSITORY=repository,
+-                           CARGO_CFG_TARGET_OS='linux', CARGO_CFG_TARGET_ENV='gnu',
+-                           CARGO_MANIFEST_DIR=str(ROOT / 'launcher'))
+-                directives = subprocess.check_output([str(build_script)], env=env, text=True)
+-                flags = []
+-                for line in directives.splitlines():
+-                    if line.startswith('cargo:rustc-cfg='):
+-                        flags += ['--cfg', line.removeprefix('cargo:rustc-cfg=')]
+-                binary = temporary / 'metadata'
+-                subprocess.run(['rustc', '--edition=2021', str(source), '-o', str(binary), '--extern', f'horizon_addresses={addresses}', *flags], check=True)
+-                output = subprocess.check_output([str(binary)], text=True)
+-                outputs.append(dict(line.split('\t', 1) for line in output.splitlines()))
+-            self.assertEqual(outputs[0], expected)
+-            self.assertTrue(all(outputs[0][name] != outputs[1][name] for name in expected))
+-            self.assertEqual(outputs[1]['KEYCHAIN_SERVICE'], 'io.github.arismoko.horizonfork.launcher')
+-            self.assertEqual(outputs[1]['LAUNCHER_FOLDER'], 'horizon-fork-arismoko/launcher')
+-            self.assertEqual(outputs[1]['GAME_FOLDER'], 'horizon-fork-arismoko/game')
+-
+-    def test_real_workflow_repository_input_and_matrix(self):
+-        workflow = (ROOT / '.github/workflows/launcher.yml').read_text()
+-        self.assertIn('HORIZON_LAUNCHER_REPOSITORY: ${{ github.repository }}', workflow)
+-        self.assertIn('--repository "$GITHUB_REPOSITORY" --tag', workflow)
+-        original = (ROOT / 'launcher/tests/fixtures-launcher-workflow-upstream.yml').read_text()
+-        block = original.split('      matrix:\n', 1)[1].split('    runs-on:', 1)[0]
+-        expected = []
+-        for line in block.splitlines():
+-            if line.startswith('          - name: '):
+-                expected.append({'name': line.split(': ', 1)[1]})
+-            elif line.startswith('            ') and not line.strip().startswith('#') and ': ' in line:
+-                key, value = line.strip().split(': ', 1)
+-                expected[-1][key] = True if value == 'true' else value
+-        for repository in (STAGE.UPSTREAM, STAGE.FORK):
+-            output = subprocess.check_output(['python3', str(ROOT / 'tools/launcher_build_matrix.py')],
+-                                            env=dict(os.environ, GITHUB_REPOSITORY=repository), text=True)
+-            entries = json.loads(output)['include']
+-            if repository == STAGE.UPSTREAM:
+-                self.assertEqual(entries, expected)
+-            else:
+-                self.assertEqual([entry['name'] for entry in entries], ['linux', 'macos', 'windows'])
+-                self.assertEqual([entry['asset'] for entry in entries],
+-                                 ['horizon-fork-launcher-linux-x86_64.tar.gz', 'horizon-fork-launcher-macos-arm64.zip', 'horizon-fork-launcher-windows-x64.zip'])
+-                self.assertEqual(entries[1], json.loads(
+-                    (ROOT / 'tests/fixtures/launcher-fork-macos.json').read_text()))
+-                self.assertEqual(entries[2]['setup_asset'], 'horizon-fork-launcher-setup.exe')
+-
+-    def test_upstream_metadata_is_byte_identical_to_base_objects(self):
+-        with tempfile.TemporaryDirectory() as temporary:
+-            destination = Path(temporary) / 'packaging'
+-            STAGE.stage(ROOT / 'packaging', destination, STAGE.UPSTREAM)
+-            for fixture in FIXTURES.glob('packaging_*'):
+-                relative = fixture.name.removeprefix('packaging_').replace('_', '/')
+-                self.assertEqual((destination / relative).read_bytes(), fixture.read_bytes(), relative)
+-            for name, digest in json.loads((FIXTURES / 'icon-sha256.json').read_text()).items():
+-                self.assertEqual(hashlib.sha256((destination / name.removeprefix('packaging/')).read_bytes()).hexdigest(), digest, name)
+-
+-    def test_fork_staging_does_not_modify_source_and_has_distinct_bundle(self):
+-        source = ROOT / 'packaging'
+-        before = {p.relative_to(source): p.read_bytes() for p in source.rglob('*') if p.is_file()}
+-        with tempfile.TemporaryDirectory() as temporary:
+-            destination = Path(temporary) / 'packaging'
+-            STAGE.stage(source, destination, STAGE.FORK)
+-            plist = (destination / 'macos/Info.plist').read_text()
+-            self.assertIn('<string>io.github.arismoko.horizonfork.launcher</string>', plist)
+-            self.assertIn('<string>horizon-fork-launcher</string>', plist)
+-            self.assertNotIn('<string>Horizon</string>', plist)
+-            self.assertEqual((destination / 'icons/horizon.icns').read_bytes(),
+-                             (source / 'icons/fork/launcher.icns').read_bytes())
+-            script = (destination / 'macos/package.sh').read_text()
+-            self.assertIn('identity=-', script)
+-            self.assertIn('zip=horizon-fork-launcher-macos-$arch.zip', script)
+-            self.assertIn('dmg=$out/horizon-fork-launcher-macos-$arch.dmg', script)
+-            self.assertIn('\"Horizon Fork Launcher (arismoko)\" \"$dmg\"', script)
+-            desktop = (destination / 'linux/io.github.arismoko.horizonfork.launcher.desktop').read_text()
+-            self.assertIn('Name=Horizon Fork Launcher (arismoko)\n', desktop)
+-            self.assertIn('Exec=horizon-fork-launcher\n', desktop)
+-            self.assertIn('StartupWMClass=io.github.arismoko.horizonfork.launcher\n', desktop)
+-            for script in ('linux/appimage.sh', 'macos/package.sh'):
+-                subprocess.run(['bash', '-n', str(destination / script)], check=True)
+-            self.assertNotEqual((destination / 'icons/horizon.ico').read_bytes(), (source / 'icons/horizon.ico').read_bytes())
+-        self.assertEqual(before, {p.relative_to(source): p.read_bytes() for p in source.rglob('*') if p.is_file()})
+-
+-if __name__ == '__main__':
+-    unittest.main()
+diff --git a/tests/test_nightly.py b/tests/test_nightly.py
+index 8b41f71b786..e70b86ca501 100644
+--- a/tests/test_nightly.py
++++ b/tests/test_nightly.py
+@@ -68,19 +68,6 @@ class NightlyTests(unittest.TestCase):
+             self.assertTrue(notes().startswith(nightly.train.PLAYERS + "\n\nNightly 2026-10-28 · bbbbbbb: "))
+             self.assertIn(nightly.PLAYERS, notes())
+ 
+-    def test_fork_notes_use_loaded_intro_and_keep_build_details(self):
+-        with mock.patch.object(nightly.train, "REPO", "arismoko/horizon"):
+-            # An older selected checkout may not contain the template. It must already be loaded.
+-            with mock.patch.object(Path, "read_text", side_effect=AssertionError("late template read")):
+-                text = notes(merged=[merged_pr(9, "Fix fork install", [])], issues=["- Known issue"])
+-        self.assertTrue(text.startswith(nightly.FORK_PLAYERS + "\n\n"))
+-        self.assertNotIn(nightly.PLAYERS, text)
+-        self.assertIn("Nightly 2026-10-28 · bbbbbbb: main (mmmmmmm)", text)
+-        self.assertIn("nightly-source/2026-10-28-bbbbbbb", text)
+-        self.assertIn("### Fixed\n- Fix fork install (#9)", text)
+-        self.assertIn("### Known issues\n- Known issue", text)
+-        self.assertTrue(text.endswith(nightly.train.DISCLAIMER + "\n"))
+-
+     def test_other_repositories_keep_the_upstream_intro(self):
+         with mock.patch.object(nightly.train, "REPO", "another/horizon"):
+             self.assertTrue(notes().startswith(nightly.train.PLAYERS + "\n\n"))
+diff --git a/tests/test_nightly_routing.py b/tests/test_nightly_routing.py
+index afe6c57d6cb..b4b5b037d08 100644
+--- a/tests/test_nightly_routing.py
++++ b/tests/test_nightly_routing.py
+@@ -80,10 +80,9 @@ console.log(JSON.stringify(eval(expression)));
+                         self.assertEqual(evaluate(expressions[1], row, trusted), expected)
+ 
+         timeout = re.search(r"^\s*timeout-minutes:\s*\$\{\{(.*?)\}\}", workflow_jobs["build"], re.M).group(1)
+-        for repository, trusted, row in itertools.product(["arismoko/horizon", "horizon-rust/horizon"], [False, True], rows):
+-            with self.subTest(repository=repository, trusted=trusted, entry=row["name"]):
+-                expected = 60 if repository == "arismoko/horizon" or row.get("mac") else 40
+-                self.assertEqual(evaluate(timeout, row, trusted, repository), expected)
++        for trusted, row in itertools.product([False, True], rows):
++            with self.subTest(trusted=trusted, entry=row["name"]):
++                self.assertEqual(evaluate(timeout, row, trusted), 60 if row.get("mac") else 40)
+ 
+     def test_every_shipped_glibc_program_is_checked_by_workflow_owned_tools(self):
+         text = GAME.read_text()
+diff --git a/tests/test_release_train.py b/tests/test_release_train.py
+index afe79393197..226e21f2733 100644
+--- a/tests/test_release_train.py
++++ b/tests/test_release_train.py
+@@ -514,27 +514,6 @@ class ReleaseTrainTests(unittest.TestCase):
+         self.assertNotIn(train.PLAYERS_FOOTER, body)
+         self.assertIn("Your launcher updates itself.", body)
+ 
+-    def test_fork_launcher_notes_use_supported_downloads_and_exact_verifier_tag(self):
+-        import shlex
+-        tag = "launcher@0.3.0"
+-        title, body = train.notes("launcher", tag, [pr(3, "Fix launcher updates")], [],
+-                                 previous="launcher-v0.17.0", repository="arismoko/horizon")
+-        self.assertEqual(title, f"Horizon Fork Launcher (arismoko) {tag}")
+-        self.assertTrue(body.startswith("# Horizon Fork Launcher (arismoko)\n"))
+-        self.assertIn("### Fixed\n- Fix launcher updates (#3)", body)
+-        self.assertNotIn(train.LAUNCHER_FOOTER, body)
+-        self.assertNotIn("macOS", body)
+-        self.assertNotIn("numbered with the game", body)
+-        command = next(line for line in body.splitlines() if line.startswith("cargo run "))
+-        self.assertEqual(shlex.split(command), [
+-            "cargo", "run", "--locked", "-p", "horizon-release-sign", "--", "verify",
+-            "--repository", "arismoko/horizon", "--tag", tag, "--publishing",
+-            "/absolute/path/to/downloads",
+-        ])
+-        clone = next(line for line in body.splitlines() if line.startswith("git clone "))
+-        self.assertEqual(shlex.split(clone)[3], tag)
+-        self.assertNotIn("{tag}", body)
+-
+     def test_a_game_release_opens_with_the_way_to_the_launcher(self):
+         # GitHub's latest is a game release: whoever lands on it is sent to the launcher first (#1647).
+         _, body = train.notes("game", "v0.2.50", [pr(1)], ["- Sound cuts out after an hour."])
+diff --git a/tools/ci/nightly-arismoko.md b/tools/ci/nightly-arismoko.md
+deleted file mode 100644
+index 740cb2e354c..00000000000
+--- a/tools/ci/nightly-arismoko.md
++++ /dev/null
+@@ -1,11 +0,0 @@
+-## Nightly from arismoko/horizon
+-
+-This is the modding fork at [arismoko/horizon](https://github.com/arismoko/horizon), not an official upstream Horizon release. Use the [fork launcher for Linux x86_64, Windows x64 or macOS arm64 (Apple Silicon only)](https://github.com/arismoko/horizon/releases?q=launcher%40&expanded=true) to install these signed game builds. The official Horizon launcher does not install them.
+-
+-The fork launcher has separate settings, game data, accounts and updates. Microsoft sign-in is configured using upstream's application with permission; signed Nightly Play requires an account that owns Minecraft. Windows launcher packages are not Authenticode-signed: expect SmartScreen or unknown-publisher warnings. macOS launcher packages are ad hoc signed, not notarized: on macOS 14 and earlier, right-click the app and choose Open, then confirm Open; on macOS 15 and later, open it once, then use System Settings › Privacy & Security › Open Anyway and confirm.
+-
+-The game archives below are not launcher installers. They include CI-tested game builds, a dedicated Linux server and the exact source pin for native mods. Compiled SDKs are separate `prebuilt-<full source SHA>` releases and must match the installed game's source revision; the source archive is not a compiled SDK.
+-
+-For client development without sign-in, [build an unsigned developer base from source](https://github.com/arismoko/horizon/blob/main/docs/modding/src/how-to/native-mods/07-local-developer-builds.md) and opt into single-player-only Play with `HORIZON_LAUNCHER_DEVELOPER_OFFLINE=1`. This does not enable signed Nightly Play or account features.
+-
+-Report bugs to this fork with the exact Nightly date and commit. You need your own copy of Minecraft: Java Edition.
+diff --git a/tools/ci/nightly.py b/tools/ci/nightly.py
+index a49daa412ea..beb959850e9 100644
+--- a/tools/ci/nightly.py
++++ b/tools/ci/nightly.py
+@@ -58,8 +58,6 @@ else:  # run as tools/ci/nightly.py: its folder is on the path
+ DATED = re.compile(r"^nightly-(\d{4}-\d{2}-\d{2})$")
+ TITLE_DATE = re.compile(r"Nightly (\d{4}-\d{2}-\d{2})")
+ SOURCE_TAG = "nightly-source/"
+-# Load from the trusted workflow checkout before pick() switches to a possibly older green tree.
+-FORK_PLAYERS = Path(__file__).with_name("nightly-arismoko.md").read_text().strip()
+ 
+ 
+ @dataclass
+@@ -114,12 +112,8 @@ def notes(today: str, chosen: Ref, main: Ref, picked: list[dict], left_out: list
+     fixed = [pr for pr in shown if "feature" not in pr["labels"]]
+     built = f"main ({main.sha[:7]})" + (f" with {len(picked)} pull requests merged in" if picked else "")
+     # The banner first: people who land on the Nightly ran its game zip for the launcher (a player, 2026-10-30).
+-    fork = train.REPO == "arismoko/horizon"
+-    parts = [FORK_PLAYERS if fork else train.PLAYERS,
+-             f"Nightly {today} · {chosen.sha[:7]}: {built}, built from `{chosen.name}` ({chosen.sha}).",
+-             source_line(today, chosen.sha)]
+-    if not fork:
+-        parts.append(PLAYERS)
++    parts = [train.PLAYERS, f"Nightly {today} · {chosen.sha[:7]}: {built}, built from `{chosen.name}` ({chosen.sha}).",
++             source_line(today, chosen.sha), PLAYERS]
+     if not shown and not picked:
+         parts.append("Nothing new for players on main since the previous Nightly.")
+     if new:
+diff --git a/tools/configure_fork_launcher_workflow.py b/tools/configure_fork_launcher_workflow.py
+deleted file mode 100644
+index 5343442816b..00000000000
+--- a/tools/configure_fork_launcher_workflow.py
++++ /dev/null
+@@ -1,49 +0,0 @@
+-#!/usr/bin/env python3
+-"""Mechanical repository-selection adaptation of the original launcher workflow."""
+-from pathlib import Path
+-p = Path('.github/workflows/launcher.yml')
+-s = p.read_text()
+-start = s.index('      matrix:\n')
+-end = s.index('    runs-on:', start)
+-s = s[:start] + '      matrix: ${{ fromJSON(needs.decide.outputs.matrix) }}\n' + s[end:]
+-s = s.replace('  HORIZON_TELEMETRY_URL: "off"', '''  HORIZON_TELEMETRY_URL: "off"
+-  HORIZON_LAUNCHER_REPOSITORY: ${{ github.repository }}
+-  LAUNCHER_PREFIX: ${{ github.repository == 'arismoko/horizon' && 'horizon-fork-launcher' || 'horizon-launcher' }}
+-  LAUNCHER_INSTALL_FOLDER: ${{ github.repository == 'arismoko/horizon' && 'Horizon Fork Launcher (arismoko)' || 'Horizon Launcher' }}
+-  LAUNCHER_PACKAGING: ${{ github.repository == 'arismoko/horizon' && '../.local/fork-launcher-packaging' || '../packaging' }}''')
+-s = s.replace('      release: ${{ steps.decide.outputs.release }}', '      matrix: ${{ steps.matrix.outputs.matrix }}\n      release: ${{ steps.decide.outputs.release }}')
+-s = s.replace('      - id: mode', '      - id: matrix\n        run: echo "matrix=$(python3 tools/launcher_build_matrix.py)" >> "$GITHUB_OUTPUT"\n      - id: mode', 1)
+-s = s.replace("(vars.MAC_RUNNER || 'ludovics-mac-mini')", "(github.repository == 'arismoko/horizon' && 'macos-latest' || vars.MAC_RUNNER || 'ludovics-mac-mini')")
+-anchor = '      - name: Only system libraries'
+-# Rename only the fork artifact; upstream Cargo and packaging names remain identical.
+-step = '''      - name: Stage repository-selected packaging and executable
+-        run: |
+-          if [[ "$HORIZON_LAUNCHER_REPOSITORY" == arismoko/horizon ]]; then
+-            python3 ../tools/stage_launcher_packaging.py "$LAUNCHER_PACKAGING" --repository "$HORIZON_LAUNCHER_REPOSITORY"
+-          fi
+-'''
+-# The DLL and version smoke need the final executable name, so stage before them.
+-pos = s.index('      - name:', s.index('      - run: cargo build'))
+-s = s[:pos] + step + '''      - name: Name the fork executable
+-        if: github.repository == 'arismoko/horizon'
+-        run: mv "$BIN/horizon-launcher${{ runner.os == 'Windows' && '.exe' || '' }}" "$BIN/${{ matrix.binary }}"
+-''' + s[pos:]
+-s = s.replace('"horizon-launcher $expected"', '"$LAUNCHER_PREFIX $expected"').replace('::error::expected horizon-launcher $expected', '::error::expected $LAUNCHER_PREFIX $expected')
+-s = s.replace('$RUNNER_TEMP/horizon-launcher-setup.exe', '$RUNNER_TEMP/$LAUNCHER_PREFIX-setup.exe')
+-s = s.replace('$setup/Horizon Launcher/horizon-launcher.exe', '$setup/$LAUNCHER_INSTALL_FOLDER/$LAUNCHER_PREFIX.exe')
+-s = s.replace('../packaging/macos/package.sh', '"$LAUNCHER_PACKAGING/macos/package.sh"').replace('../packaging/linux/appimage.sh', '"$LAUNCHER_PACKAGING/linux/appimage.sh"')
+-s = s.replace('pattern: horizon-launcher-*', 'pattern: "*launcher-*"')
+-s = s.replace('dist/horizon-launcher-*', 'dist/"$LAUNCHER_PREFIX"-*')
+-s = s.replace('for file in horizon-launcher-windows-arm64.zip horizon-launcher-setup-arm64.exe;', 'for file in "$LAUNCHER_PREFIX-windows-arm64.zip" "$LAUNCHER_PREFIX-setup-arm64.exe";')
+-# Every launcher invocation, including tests, gets isolated OS integration locations.
+-s = s.replace('      # Every test target', '''      - name: Isolate launcher OS integration
+-        run: |
+-          for name in HORIZON_HOME HORIZON_LAUNCHER_HOME XDG_DATA_HOME XDG_CONFIG_HOME HORIZON_LAUNCHER_TRASH HORIZON_LAUNCHER_CLIPBOARD HORIZON_LAUNCHER_DESKTOP; do
+-            path="${RUNNER_TEMP//\\\\//}/launcher-isolation/$name"
+-            mkdir -p "$path"
+-            echo "$name=$path" >> "$GITHUB_ENV"
+-          done
+-          echo "HORIZON_LAUNCHER_NO_SELF_UPDATE=1" >> "$GITHUB_ENV"
+-          echo "HORIZON_NO_AUDIO=1" >> "$GITHUB_ENV"
+-      # Every test target''')
+-p.write_text(s)
+diff --git a/tools/fork_launcher_identity.py b/tools/fork_launcher_identity.py
+deleted file mode 100644
+index f4407e5502c..00000000000
+--- a/tools/fork_launcher_identity.py
++++ /dev/null
+@@ -1,35 +0,0 @@
+-#!/usr/bin/env python3
+-"""Mechanical extraction of launcher identity literals. Run once from repository root."""
+-from pathlib import Path
+-
+-REPLACEMENTS = {
+-    'account.rs': {'"dev.playhorizon.launcher"': 'crate::identity::KEYCHAIN_SERVICE'},
+-    'data_location.rs': {'"horizon-launcher-location"': 'crate::identity::LOCATION_FOLDER'},
+-    'mac_update.rs': {'"horizon-launcher"': 'crate::identity::EXECUTABLE'},
+-    'installer.rs': {
+-        '"Horizon Launcher"': 'crate::identity::DISPLAY_NAME',
+-        '"horizon-launcher.exe"': 'crate::identity::WINDOWS_EXECUTABLE',
+-        '"Horizon"': 'crate::identity::PUBLISHER',
+-        '"https://playhorizon.dev"': 'crate::identity::ABOUT_URL',
+-        'r"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\HorizonLauncher"': 'crate::identity::UNINSTALL_KEY',
+-        'r"Software\\Horizon\\Launcher"': 'crate::identity::INSTALL_KEY',
+-        '"horizon-launcher-uninstall-"': 'crate::identity::UNINSTALL_PREFIX',
+-        '"horizon-launcher-setup"': 'crate::identity::SETUP_PREFIX',
+-        '"IMAGENAME eq horizon-launcher.exe"': 'crate::identity::PROCESS_FILTER',
+-        '"horizon-launcher.exe."': 'crate::identity::WINDOWS_EXECUTABLE_PREFIX',
+-        '"horizon-launcher"': 'crate::identity::EXECUTABLE',
+-        'r"Software\\Horizon"': 'crate::identity::REGISTRY_PARENT',
+-    },
+-}
+-for name, replacements in REPLACEMENTS.items():
+-    path = Path('launcher/src') / name
+-    text = path.read_text()
+-    # Test fixtures are independent inputs, not implementation literals.
+-    boundary = text.find('#[cfg(test)]')
+-    if boundary < 0:
+-        boundary = len(text)
+-    code, tests = text[:boundary], text[boundary:]
+-    for old, new in replacements.items():
+-        assert old in code, (name, old)
+-        code = code.replace(old, new)
+-    path.write_text(code + tests)
+diff --git a/tools/generate_fork_launcher_icons.py b/tools/generate_fork_launcher_icons.py
+deleted file mode 100644
+index 37bdaf9bc75..00000000000
+--- a/tools/generate_fork_launcher_icons.py
++++ /dev/null
+@@ -1,35 +0,0 @@
+-#!/usr/bin/env python3
+-"""Generate the deliberately distinct FORK launcher badge without external dependencies."""
+-import struct
+-import zlib
+-from pathlib import Path
+-
+-ROOT = Path(__file__).resolve().parents[1] / 'packaging/icons/fork'
+-GLYPHS = ['111101101111101101101', '111101101101101101111',
+-          '111101101111110101101', '101101110100110101101']
+-
+-def png(size):
+-    scale = size / 26
+-    left, top = (size - 23 * scale) // 2, (size - 7 * scale) // 2
+-    rows = bytearray()
+-    for y in range(size):
+-        rows.append(0)
+-        for x in range(size):
+-            gx, gy = int((x - left) // scale), int((y - top) // scale)
+-            on = (0 <= gx < 23 and 0 <= gy < 7 and gx % 6 < 3
+-                  and GLYPHS[gx // 6][gy * 3 + gx % 6] == '1')
+-            rows.extend((255, 255, 255, 255) if on else (76, 35, 131, 255))
+-    def chunk(kind, data):
+-        return struct.pack('>I', len(data)) + kind + data + struct.pack('>I', zlib.crc32(kind + data))
+-    return (b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', size, size, 8, 6, 0, 0, 0))
+-            + chunk(b'IDAT', zlib.compress(bytes(rows))) + chunk(b'IEND', b''))
+-
+-ROOT.mkdir(parents=True, exist_ok=True)
+-for size in (16, 24, 32, 48, 64, 128, 256, 512):
+-    (ROOT / f'{size}.png').write_bytes(png(size))
+-image = png(256)
+-(ROOT / 'launcher.ico').write_bytes(struct.pack('<HHH', 0, 1, 1) + struct.pack('<BBBBHHII', 0, 0, 0, 0, 1, 32, len(image), 22) + image)
+-image = png(512)
+-body = b'ic09' + struct.pack('>I', len(image) + 8) + image
+-(ROOT / 'launcher.icns').write_bytes(b'icns' + struct.pack('>I', len(body) + 8) + body)
+-(ROOT / 'launcher.svg').write_text('<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512"><rect width="512" height="512" fill="#4c2383"/><text x="256" y="280" text-anchor="middle" font-family="sans-serif" font-size="130" fill="white">FORK</text></svg>\n')
+diff --git a/tools/launcher_build_matrix.py b/tools/launcher_build_matrix.py
+deleted file mode 100644
+index 4622b5ff372..00000000000
+--- a/tools/launcher_build_matrix.py
++++ /dev/null
+@@ -1,27 +0,0 @@
+-#!/usr/bin/env python3
+-"""Repository-selected launcher build matrix; upstream entries retain their metadata."""
+-import json
+-import os
+-
+-PLATFORMS = [
+-    dict(name='linux', os='ubuntu-22.04', asset='horizon-launcher-linux-x86_64.tar.gz', binary='horizon-launcher'),
+-    dict(name='macos', mac=True, asset='horizon-launcher-macos-arm64.zip', binary='horizon-launcher', mac_arch='arm64'),
+-    dict(name='macos-x64', mac=True, target='x86_64-apple-darwin', asset='horizon-launcher-macos-x64.zip', binary='horizon-launcher', mac_arch='x64'),
+-    dict(name='windows', os='windows-latest', asset='horizon-launcher-windows-x64.zip', binary='horizon-launcher.exe', pe_arch='x64', setup_asset='horizon-launcher-setup.exe', rustflags='-C target-feature=+crt-static'),
+-    dict(name='windows-arm64', os='windows-11-vs2026-arm', target='aarch64-pc-windows-msvc', asset='horizon-launcher-windows-arm64.zip', binary='horizon-launcher.exe', pe_arch='arm64', setup_asset='horizon-launcher-setup-arm64.exe', rustflags='-C target-feature=+crt-static'),
+-]
+-
+-def matrix(repository):
+-    if repository not in ('arismoko/horizon', 'horizon-rust/horizon'):
+-        raise ValueError(f'Unsupported launcher repository: {repository}')
+-    entries = [dict(entry) for entry in PLATFORMS]
+-    if repository == 'arismoko/horizon':
+-        entries = [entry for entry in entries if entry['name'] in ('linux', 'macos', 'windows')]
+-        for entry in entries:
+-            for key in ('asset', 'binary', 'setup_asset'):
+-                if key in entry:
+-                    entry[key] = entry[key].replace('horizon-launcher', 'horizon-fork-launcher')
+-    return {'include': entries}
+-
+-if __name__ == '__main__':
+-    print(json.dumps(matrix(os.environ.get('GITHUB_REPOSITORY', 'arismoko/horizon')), separators=(',', ':')))
+diff --git a/tools/release_train.py b/tools/release_train.py
+index 3b237e2c571..8ea335fb16f 100644
+--- a/tools/release_train.py
++++ b/tools/release_train.py
+@@ -425,7 +425,7 @@ def line_intro(kind, version, previous):
+             f"`horizon-server update --version {version}`.")
+ 
+ 
+-def notes(kind, version, prs, issues, previous=None, repository="horizon-rust/horizon"):
++def notes(kind, version, prs, issues, previous=None):
+     """(title, body) of a release. previous: the release before it, for a line's first release."""
+     shown = [pr for pr in prs if pr["paths"] and "skip-release" not in pr["labels"]]
+     new = [pr for pr in shown if "feature" in pr["labels"]]
+@@ -434,12 +434,8 @@ def notes(kind, version, prs, issues, previous=None, repository="horizon-rust/ho
+         title = f"Horizon {version.removeprefix(GAME_PREFIX)}" + (f": {summary(new, fixed)}" if shown else "")
+     else:
+         title = f"Horizon launcher {version.removeprefix(OLD_LAUNCHER_PREFIX).removeprefix(LAUNCHER_PREFIX)}"
+-    fork_launcher = kind == "launcher" and repository == "arismoko/horizon"
+-    intro = None if fork_launcher else line_intro(kind, version, previous)
++    intro = line_intro(kind, version, previous)
+     parts = [PLAYERS] if kind == "game" else []
+-    if fork_launcher:
+-        title = f"Horizon Fork Launcher (arismoko) {version}"
+-        parts.append((ROOT / "packaging/fork-launcher-release-notes.md").read_text().replace("{tag}", version).strip())
+     if intro:
+         parts.append(intro)
+     if not shown:
+@@ -453,7 +449,7 @@ def notes(kind, version, prs, issues, previous=None, repository="horizon-rust/ho
+     contributors = sorted({pr["author"] for pr in shown if pr["author"] and pr["author"] != MAINTAINER})
+     if contributors:
+         parts.append("### Contributors\nThanks to " + ", ".join(f"@{name}" for name in contributors) + ".")
+-    if kind == "launcher" and not fork_launcher:
++    if kind == "launcher":
+         parts.append(LAUNCHER_FOOTER)
+     if kind == "game":
+         parts.append(PLAYERS_FOOTER)
+@@ -707,7 +703,7 @@ def main():
+     if args.command == "notes":
+         version = args.tag or "unreleased"
+         previous = last["tag_name"] if last and last["tag_name"] != version else None
+-        title, body = notes(args.kind, version, prs, known_issues(), previous=previous, repository=REPO)
++        title, body = notes(args.kind, version, prs, known_issues(), previous=previous)
+         if args.out:
+             args.out.mkdir(parents=True, exist_ok=True)
+             (args.out / "title.txt").write_text(title + "\n")
+diff --git a/tools/stage_launcher_packaging.py b/tools/stage_launcher_packaging.py
+deleted file mode 100644
+index ad5a0ca7f6b..00000000000
+--- a/tools/stage_launcher_packaging.py
++++ /dev/null
+@@ -1,54 +0,0 @@
+-#!/usr/bin/env python3
+-"""Stage repository-specific launcher packaging without modifying upstream templates.
+-
+-The returned directory contains the existing packaging scripts and their private inputs.
+-Run linux/appimage.sh or macos/package.sh from that directory as usual.
+-"""
+-import argparse
+-import shutil
+-from pathlib import Path
+-
+-UPSTREAM = 'horizon-rust/horizon'
+-FORK = 'arismoko/horizon'
+-
+-def stage(source: Path, destination: Path, repository: str):
+-    if repository not in (UPSTREAM, FORK):
+-        raise ValueError(f'Unsupported launcher repository: {repository}')
+-    shutil.copytree(source, destination)
+-    if repository == UPSTREAM:
+-        return
+-    replacements = {
+-        'horizon-launcher': 'horizon-fork-launcher',
+-        'horizon-fork-launcher.desktop': 'io.github.arismoko.horizonfork.launcher.desktop',
+-        'dev.horizon.launcher': 'io.github.arismoko.horizonfork.launcher',
+-        'Horizon.app': 'Horizon Fork Launcher (arismoko).app',
+-        '<string>Horizon</string>': '<string>Horizon Fork Launcher (arismoko)</string>',
+-        'Name=Horizon\n': 'Name=Horizon Fork Launcher (arismoko)\n',
+-        'StartupWMClass=horizon-fork-launcher': 'StartupWMClass=io.github.arismoko.horizonfork.launcher',
+-    }
+-    for name in ('linux/appimage.sh', 'linux/horizon-launcher.desktop', 'macos/package.sh', 'macos/Info.plist'):
+-        path = destination / name
+-        text = path.read_text()
+-        for old, new in replacements.items():
+-            text = text.replace(old, new)
+-        if name == 'macos/package.sh':
+-            # Spaces in the fork's bundle name must remain one shell argument.
+-            text = text.replace('app=$out/Horizon Fork Launcher (arismoko).app', 'app="$out/Horizon Fork Launcher (arismoko).app"')
+-            text = text.replace('--keepParent Horizon Fork Launcher (arismoko).app', '--keepParent "Horizon Fork Launcher (arismoko).app"')
+-            text = text.replace('identity=${MACOS_SIGN_IDENTITY:--}', 'identity=-')
+-            text = text.replace('"title": "Horizon"', '"title": "Horizon Fork Launcher (arismoko)"')
+-            text = text.replace('"$out/dmg.json" Horizon "$dmg"', '"$out/dmg.json" "Horizon Fork Launcher (arismoko)" "$dmg"')
+-        path.write_text(text)
+-    (destination / 'linux/horizon-launcher.desktop').rename(destination / 'linux/io.github.arismoko.horizonfork.launcher.desktop')
+-    shutil.copyfile(source / 'icons/fork/launcher.ico', destination / 'icons/horizon.ico')
+-    shutil.copyfile(source / 'icons/fork/launcher.icns', destination / 'icons/horizon.icns')
+-    for size in (16, 24, 32, 48, 64, 128, 256, 512):
+-        shutil.copyfile(source / f'icons/fork/{size}.png', destination / f'icons/hicolor/{size}x{size}/apps/horizon.png')
+-    shutil.copyfile(source / 'icons/fork/launcher.svg', destination / 'icons/hicolor/scalable/apps/horizon.svg')
+-
+-if __name__ == '__main__':
+-    parser = argparse.ArgumentParser(description=__doc__)
+-    parser.add_argument('destination', type=Path)
+-    parser.add_argument('--repository', default=FORK, choices=(UPSTREAM, FORK))
+-    args = parser.parse_args()
+-    stage(Path(__file__).resolve().parents[1] / 'packaging', args.destination, args.repository)
