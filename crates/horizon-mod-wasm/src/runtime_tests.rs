@@ -1740,6 +1740,7 @@ fn refusal_during_writeback_leaves_the_record_unchanged() {
 }
 
 #[test]
+#[ignore = "daily"]
 fn deep_guest_stack_and_overflow_attribution() {
     capture_logs();
     crate::test_stack::on_guest_stack(|| {

@@ -1312,6 +1312,7 @@ mod tests {
     /// level differs in the per-chunk reference map, however the levels are
     /// stored (grid, map, tiles) and wherever the tickets are.
     #[test]
+    #[ignore = "daily"]
     fn changes_are_the_chunks_whose_reference_level_differs() {
         let mut seed = 0x9e37_79b9_7f4a_7c15u64;
         let mut next = |n: i32| {

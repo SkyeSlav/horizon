@@ -1430,6 +1430,7 @@ mod tests {
     /// A line checked again from the sample it failed at, after more
     /// sections were reached, ends where checking it from its corner does.
     #[test]
+    #[ignore = "daily"]
     fn a_line_checked_again_resumes_where_it_failed() {
         let mut seed = 0x2545_f491_u64;
         let mut next = || {
@@ -1828,6 +1829,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "daily"]
     fn edit_queue_stays_bounded_without_searches() {
         let mut o = Occlusion::new(0, 4);
         let total = (1usize << 16) + 5000;

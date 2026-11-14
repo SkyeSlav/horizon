@@ -42,8 +42,8 @@ horizon-client-lib lan::viewed_levels::tests::a_viewed_sound_reaches_a_viewer_ho
 horizon-client-lib lan::viewed_levels::tests::with_no_viewer_no_copy_is_built lib daily network
 horizon-client-lib lan::waypoints::tests::moves_by_receiver_match_the_loop lib daily slow
 horizon-client-lib launch::tests::launch_refuses_a_socket_path_too_long bin:horizon-ctl daily child-process
-horizon-client-lib mobs::villager_client_visual_tests::villager_client_partial_hat_cache_refreshes lib daily resources
 horizon-client-lib mobs::villager_brain::mob_map_tests::hostile_sensor_matches_registered_ids_and_world_snapshot lib daily resources
+horizon-client-lib mobs::villager_client_visual_tests::villager_client_partial_hat_cache_refreshes lib daily resources
 horizon-client-lib mobs::world::missing_data_report_tests::missing_mob_data_reports_one_counted_skip_per_test lib daily child-process
 horizon-client-lib mod_content::tests::registered_conditions_tests::failed_condition_build_removes_generated_staging lib daily resources
 horizon-client-lib mod_content::tests::registered_conditions_tests::registered_conditions_select_content_root_tags_and_structure_modifiers lib daily resources
@@ -57,6 +57,7 @@ horizon-client-lib multiplayer::tests::icon_arrows_join_and_move_servers lib dai
 horizon-client-lib net::tests::a_server_that_stops_answering_times_out lib daily network
 horizon-client-lib net::tests::direct_login_preserves_hostname_and_negotiates_brand lib daily network
 horizon-client-lib net::tests::lan_login_continues_after_authentication_failure lib daily slow
+horizon-client-lib no_resources::tests::the_buttons_are_where_they_are_drawn lib daily slow
 horizon-client-lib pregen::tests::sweeps_every_chunk_of_the_area_once lib daily slow
 horizon-client-lib realms::client::tests::a_configuration_update_posts_the_vanilla_dto lib daily network
 horizon-client-lib realms::client::tests::a_distance_update_puts_its_value_into_the_path lib daily network
@@ -85,6 +86,7 @@ horizon-client-lib server_packs::download::tests::the_queue_logs_each_download l
 horizon-client-lib server_perf::tests::sampled::a_sampled_capture_reads_back_with_the_entity_shares_of_the_work lib daily slow
 horizon-client-lib structure_blocks::tests::declared_structure_entities_keep_template_payload_not_template_type lib daily child-process
 horizon-client-lib telemetry::tests::benchmark_reports_need_their_own_consent_and_go_dated_to_the_day lib daily child-process
+horizon-client-lib ticket_levels::tests::changes_are_the_chunks_whose_reference_level_differs lib daily slow
 horizon-client-lib ticket_levels::tests::grid_matches_the_map lib daily slow
 horizon-client-lib ticket_levels::tiled_tests::tiles_match_scalar_levels_with_overlaps_and_portals lib daily slow
 horizon-client-lib title::tests::f5_reloads_the_server_list lib daily network

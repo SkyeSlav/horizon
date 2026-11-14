@@ -167,6 +167,7 @@ fn cases() -> Vec<(&'static str, Padded)> {
 }
 
 #[test]
+#[ignore = "daily"]
 fn visibility_matches_reference() {
     let info = [info(false), info(true), info(false), info(true)];
     for (name, pad) in cases() {

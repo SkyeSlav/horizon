@@ -1359,6 +1359,7 @@ mod tests {
     /// Searches shared between threads give the positions of one thread
     /// running them in order, set by set.
     #[test]
+    #[ignore = "daily"]
     fn ring_work_shared_between_threads_matches_serial_search() {
         let preferred: BTreeSet<BiomeId> = (0..20).map(|b| BiomeId(b * 3)).collect();
         let biomes = |quarts: &[[i32; 3]]| -> Vec<BiomeId> {

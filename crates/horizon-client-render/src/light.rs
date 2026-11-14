@@ -1885,6 +1885,7 @@ pub(crate) mod tests {
         }
     }
     #[test]
+    #[ignore = "daily"]
     fn random_border_relights_match_full_relight() {
         // Edits around every border of chunk (0, 0), at the top and bottom of
         // the world, in batches; a held clone of the chunk must not change.
@@ -2797,6 +2798,7 @@ pub(crate) mod tests {
     }
 
     #[test]
+    #[ignore = "daily"]
     fn light_chunk_matches_old_algorithm() {
         let t = tables();
         let layout = ColumnLayout::VANILLA;

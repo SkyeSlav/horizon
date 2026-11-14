@@ -3792,6 +3792,7 @@ mod tests {
         assert_eq!(texel_at(&atlas, *rect, 15, 15), [0, 0, 255, 255]);
     }
     #[test]
+    #[ignore = "daily"]
     fn packed_pixels_come_back_the_same() {
         let root = animated_root();
         let mut atlas = HudAtlas::build(
@@ -3962,6 +3963,7 @@ mod tests {
         assert_eq!((none.u0, none.v0), (missing.u0, missing.v0));
     }
     #[test]
+    #[ignore = "daily"]
     fn a_root_single_sprite_strip_taller_than_the_atlas_packs_one_frame() {
         let root = animated_root();
         let atlases = root.join("assets/minecraft/atlases");
@@ -4184,6 +4186,7 @@ mod tests {
         assert!(atlas.sprites.contains_key(&layer.unwrap()));
     }
     #[test]
+    #[ignore = "daily"]
     fn named_cit_textures_pack_once_and_bad_ones_are_skipped() {
         let root = cit_root(
             "mixed",

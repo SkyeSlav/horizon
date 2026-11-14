@@ -91,6 +91,7 @@ mod tests {
     /// chunk gives, at every margin streaming asks (and those past the map's reach), after the
     /// forced chunks change too.
     #[test]
+    #[ignore = "daily"]
     fn the_distances_answer_as_the_scan() {
         let mut seed = 0x2545_F491_4F6C_DD1Du64;
         let mut cover = None;

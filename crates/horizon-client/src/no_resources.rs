@@ -326,6 +326,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "daily"]
     fn the_buttons_are_where_they_are_drawn() {
         let screen = screen(Some(GET));
         for size in [[1280, 720], [800, 600], [2560, 1440]] {

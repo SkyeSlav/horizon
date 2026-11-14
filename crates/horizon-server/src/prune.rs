@@ -1108,6 +1108,7 @@ pub(crate) mod tests {
     }
 
     #[test]
+    #[ignore = "daily"]
     fn interrupted_region_transactions_recover_before_another_prune() {
         // Three backups, three staged files, journal, three replacements/deletions and commit.
         for stop in 1..=11 {

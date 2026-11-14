@@ -581,6 +581,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "daily"]
     fn reviewer_whitespace_spends_raw_aggregate_budget() {
         let root = root("raw-budget");
         for i in 0..256 {

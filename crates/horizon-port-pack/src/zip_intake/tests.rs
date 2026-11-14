@@ -57,6 +57,7 @@ fn refuses_a_declared_oversized_central_directory() {
 }
 
 #[test]
+#[ignore = "daily"]
 fn zero_length_entries_consume_the_entry_budget() {
     let archive = pack(MAX_ENTRIES + 1, false);
     let error = open(Cursor::new(archive)).unwrap_err().to_string();
@@ -64,6 +65,7 @@ fn zero_length_entries_consume_the_entry_budget() {
 }
 
 #[test]
+#[ignore = "daily"]
 fn accepts_large_zip32_and_zip64_modpack_shapes() {
     for entries in [20_000, 65_536] {
         let archive = pack(entries, true);
@@ -119,6 +121,7 @@ fn refuses_records_past_the_declared_count_or_directory() {
 }
 
 #[test]
+#[ignore = "daily"]
 fn keeps_offsets_for_prefixed_archives() {
     for entries in [0, 65_536] {
         let mut prefixed = b"prefix bytes".to_vec();

@@ -6,7 +6,10 @@ horizon-client-render chunk::tests::cloning_during_a_height_refresh_keeps_the_ne
 horizon-client-render chunk::tests::motion_blocking_follows_writes lib daily slow
 horizon-client-render chunk::tests::world_surface_follows_writes lib daily slow
 horizon-client-render core_shader::glsl_fixups::tests::thousands_of_calls_are_left_as_they_were lib daily slow
+horizon-client-render gfx::animate::tests::rounding_matches_f32_mix_but_for_exact_halves lib daily slow
 horizon-client-render gfx::inter_stage_tests::no_pipeline_exceeds_the_weakest_gpus_inter_stage_limit lib daily slow
+horizon-client-render gfx::occlusion::tests::a_line_checked_again_resumes_where_it_failed lib daily slow
+horizon-client-render gfx::occlusion::tests::edit_queue_stays_bounded_without_searches lib daily slow
 horizon-client-render gfx::occlusion::tests::same_sections_as_vanilla lib daily slow
 horizon-client-render gfx::occlusion::tests::vertical_clamping_only_adds_overdraw lib daily slow
 horizon-client-render gfx::pack_timing::tests::stages_split_a_render_pass_in_a_plain_frame_and_kept_frames_hold_them lib daily slow
@@ -24,7 +27,14 @@ horizon-client-render gfx::tests::fading_sections_go_to_the_cpu_and_come_back li
 horizon-client-render gfx::tests::shaders_translate_to_hlsl_for_directx_12_and_glsl_for_opengl lib daily slow
 horizon-client-render graphics_ui::tests::hdr_sliders_step_through_every_value_they_can_be_set_to lib daily slow
 horizon-client-render hud::pictures::tests::realms_pictures_do_not_enlarge_the_startup_atlas lib daily slow
+horizon-client-render hud::tests::a_root_single_sprite_strip_taller_than_the_atlas_packs_one_frame lib daily slow
+horizon-client-render hud::tests::named_cit_textures_pack_once_and_bad_ones_are_skipped lib daily slow
+horizon-client-render hud::tests::packed_pixels_come_back_the_same lib daily slow
 horizon-client-render light::tests::a_tall_column_relights_as_its_full_light_and_keys_its_sections lib daily slow
+horizon-client-render light::tests::light_chunk_matches_old_algorithm lib daily slow
+horizon-client-render light::tests::random_border_relights_match_full_relight lib daily slow
+horizon-client-render lod::tests::incremental_selection_matches_plan_select_after_every_sample lib daily slow
+horizon-client-render mesher::visibility_tests::visibility_matches_reference lib daily slow
 horizon-client-render pack_screen::click_sound_tests::the_browsers_search_button_submits_what_was_typed lib daily network
 horizon-client-render packs::tests::a_pack_that_unpacks_past_its_budget_fails_and_leaves_nothing lib daily slow
 horizon-client-render perf_capture::tests::a_converted_profile_written_to_a_file_reads_back_through_the_queries lib daily slow
@@ -42,4 +52,5 @@ horizon-client-render skins::tests::profiles_resolve_through_the_services lib da
 horizon-client-render split_ui::tests::locale_switch_and_pack_overrides_keep_the_same_draft lib daily child-process
 horizon-client-render streaming::cover_tests::the_buckets_answer_as_the_scan lib daily slow
 horizon-client-render streaming::cover_tests::the_grid_answers_as_the_scan lib daily slow
+horizon-client-render streaming::forced_cover::tests::the_distances_answer_as_the_scan lib daily slow
 horizon-client-render sunrise_fan::tests::angular_sector_matches_all_triangle_search test:sunrise_shader daily slow

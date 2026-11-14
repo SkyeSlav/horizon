@@ -649,6 +649,7 @@ fn follow(path: &str, cursor: Option<u64>, env: &Env) -> FollowReply {
 }
 
 #[test]
+#[ignore = "daily"]
 fn perf_follow_never_repeats_or_skips_an_event_of_a_growing_file() {
     let dir = TempDir::new("mcp-follow");
     let path = dir.path().join("live.hzperf");

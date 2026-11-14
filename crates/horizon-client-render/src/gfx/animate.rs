@@ -822,6 +822,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "daily"]
     fn rounding_matches_f32_mix_but_for_exact_halves() {
         // The CPU blend this replaced: f32 mix, then rounded. They differ
         // only where the exact mix is a half, which f32 rounded either way.

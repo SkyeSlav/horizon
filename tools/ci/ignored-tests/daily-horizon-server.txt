@@ -28,6 +28,7 @@ horizon-server mcp::tests::protocol_and_tool_contracts_match_goldens lib daily c
 horizon-server mcp::tests::the_protocol_answers_without_a_server lib daily child-process
 horizon-server panel::tests::login_links_name_an_address_a_browser_can_open lib daily network
 horizon-server panel::tests::sign_in_with_a_link lib daily network
+horizon-server prune::tests::interrupted_region_transactions_recover_before_another_prune lib daily slow
 horizon-server query::tests::a_listener_on_a_real_socket_answers_the_handshake_and_both_stats lib daily network
 horizon-server rcon::tests::a_command_goes_to_the_game_as_an_rcon_request_that_says_what_the_console_says lib daily network
 horizon-server rcon::tests::a_connection_that_does_not_log_in_is_closed lib daily network

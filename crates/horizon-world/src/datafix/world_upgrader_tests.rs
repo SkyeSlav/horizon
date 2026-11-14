@@ -398,6 +398,7 @@ fn expected_counts(erase: bool, recreate: bool) -> (i32, i32) {
 /// The output of a many-threaded run equals the one-thread run byte for byte,
 /// and both give vanilla's counts and end at full progress.
 #[test]
+#[ignore = "daily"]
 fn parallel_output_is_byte_identical_to_one_thread() {
     for (erase, recreate) in [(false, false), (true, false), (false, true)] {
         let source = multi_region_world("par-src");

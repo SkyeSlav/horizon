@@ -5474,6 +5474,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "daily"]
     fn incremental_selection_matches_plan_select_after_every_sample() {
         let mut lod = Lod::scheduler_for_test();
         let column = Column::from_surface(Some(Surface {

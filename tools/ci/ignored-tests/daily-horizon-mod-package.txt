@@ -45,3 +45,4 @@ horizon-mod-package runtime_leases::tests::shared_readers_exclude_cleanup_but_no
 horizon-mod-package runtime_leases::tests::unit_removal_excludes_new_installs_and_games_through_atomic_detachment lib daily child-process
 horizon-mod-package runtime_leases::tests::unit_removal_refuses_a_redirected_final_component lib daily child-process
 horizon-mod-package runtime_leases::tests::unsupported_volume_refuses_registry_and_tree_without_creating_entries lib daily child-process
+horizon-mod-package sdk::tests::unpack::damaged_archives_end_in_a_refusal_never_a_panic lib daily slow

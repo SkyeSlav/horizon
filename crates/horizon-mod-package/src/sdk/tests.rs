@@ -923,6 +923,7 @@ mod unpack {
     }
 
     #[test]
+    #[ignore = "daily"]
     fn damaged_archives_end_in_a_refusal_never_a_panic() {
         // Truncations at every length, then bit flips at positions from a fixed-seed generator.
         let mut variants: Vec<Vec<u8>> =
