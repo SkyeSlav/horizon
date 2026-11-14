@@ -941,11 +941,17 @@ mod unpack {
         // Split over the machine's threads: the unit tier keeps each test under 2 s.
         let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
         let chunk = variants.len().div_ceil(threads);
+        let mut variants = variants.into_iter();
         std::thread::scope(|scope| {
-            for (part, variants) in variants.chunks(chunk).enumerate() {
+            for part in 0..threads {
+                // Move the byte buffers: extract owns a 'static reader, but need not clone them.
+                let variants: Vec<_> = variants.by_ref().take(chunk).collect();
+                if variants.is_empty() {
+                    break;
+                }
                 let folder = folder.path();
                 scope.spawn(move || {
-                    for (n, bytes) in variants.iter().enumerate() {
+                    for (n, bytes) in variants.into_iter().enumerate() {
                         let into = folder.join(format!("{part}-{n}"));
                         std::fs::create_dir(&into).unwrap();
                         // Ok when the flip landed where nothing checks it; otherwise a refusal.
