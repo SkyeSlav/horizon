@@ -1422,7 +1422,7 @@ impl ArgType {
                     .map(char::len_utf8)
                     .sum();
                 match (run > 0)
-                    .then(|| super::selector::java_uuid(&rest[..run]))
+                    .then(|| horizon_core::text::parse_java_uuid(&rest[..run]))
                     .flatten()
                 {
                     Some(_) => {

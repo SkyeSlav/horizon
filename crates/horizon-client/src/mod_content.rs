@@ -2231,7 +2231,7 @@ impl<'a> Plan<'a> {
         let Tag::Compound(c) = tag else {
             return;
         };
-        for (key, value) in c.iter_mut() {
+        c.for_each_mut(|key, value| {
             match (key.to_string_lossy().as_str(), value) {
                 ("states", Tag::List(list)) if list.len() == self.states => {
                     for b in &self.blocks {
@@ -2287,7 +2287,7 @@ impl<'a> Plan<'a> {
                 (_, inner @ Tag::Compound(_)) => self.nbt(inner),
                 _ => {}
             }
-        }
+        });
     }
 }
 
