@@ -1,0 +1,352 @@
+From 16956fddb496dd2f989bf8417293cc6121b92e39 Mon Sep 17 00:00:00 2001
+From: arismoko <19542195+arismoko@users.noreply.github.com>
+Date: Sat, 14 Nov 2026 17:23:33 +0000
+Subject: [PATCH 2/3] Docs and comments: drop the fork's own process and names
+
+Contributor docs, the PR template and comments no longer describe the fork's rollups, its gate or its agents;
+the daily run's issues and the changelog digest carry a neutral disclosure line.
+---
+ .github/pull_request_template.md             |  3 ---
+ .github/workflows/sdk-publish.yml            |  2 +-
+ AGENTS.md                                    |  4 ++--
+ CONTRIBUTING.md                              | 12 ++++--------
+ docs/design/mod-api/farmers-delight-hooks.md |  2 +-
+ docs/design/mod-api/server-read-tier.md      |  6 +++---
+ docs/design/mod-api/snapshot-participants.md |  2 +-
+ docs/design/wasm-group-faults.md             |  2 +-
+ docs/parity-workflow.md                      |  3 +--
+ docs/release-flow.md                         | 11 +++++------
+ tests/test_ci_rust_changes.py                |  2 +-
+ tests/test_nightly_routing.py                |  4 ++--
+ tools/changelog.py                           |  2 +-
+ tools/ci/cargo_jobs.py                       |  2 +-
+ tools/ci/daily_summary.py                    |  2 +-
+ tools/ci/nightly.py                          |  4 ++--
+ tools/ci/rust_changes.py                     |  2 +-
+ tools/ci/surface.toml                        |  2 +-
+ tools/ci/test_prepared_cache.py              |  2 +-
+ 19 files changed, 30 insertions(+), 39 deletions(-)
+
+diff --git a/.github/pull_request_template.md b/.github/pull_request_template.md
+index 9ac8118ec00..92de7222451 100644
+--- a/.github/pull_request_template.md
++++ b/.github/pull_request_template.md
+@@ -42,6 +42,3 @@ Tried in game: <what you did and saw, or "no: <why>", or "n/a">
+ ## Screenshots
+ 
+ <!-- For anything players see: before and after. Delete this section otherwise. -->
+-
+-<!-- On this fork we never push to your branch: small fixes are carried in our own commits on top of yours in a
+-     rollup, and your pull request shows as merged. See CONTRIBUTING.md. -->
+diff --git a/.github/workflows/sdk-publish.yml b/.github/workflows/sdk-publish.yml
+index 2ba4611f6c2..cf4de15ca42 100644
+--- a/.github/workflows/sdk-publish.yml
++++ b/.github/workflows/sdk-publish.yml
+@@ -1,5 +1,5 @@
+ name: sdk publish
+-# The mod SDK's one publish step (docs/release-flow.md "Mod SDK"; design: /box/shared/sdk-lead/design.md §3): the
++# The mod SDK's one publish step (docs/release-flow.md "Mod SDK"; design: the SDK design §3): the
+ # release `sdk-<sha>` from the packing legs of prebuilt-game-build.yml in the caller's run (their `sdk-leg-*`
+ # artifacts). Only `publish` may write; the jobs that read the legs' output have `contents: read`. Called by the daily run
+ # after a green summary (daily.yml, sdk-publish) and by prebuilt-game.yml's hand dispatch.
+diff --git a/AGENTS.md b/AGENTS.md
+index 7ab63069408..df156d55974 100644
+--- a/AGENTS.md
++++ b/AGENTS.md
+@@ -33,8 +33,8 @@ Feature → files → harness for the most-changed areas: [docs/architecture.md]
+ - One concern per PR, at whatever size it needs; no line limit on the fork. Labels: `feature` (players get something new), `skip-release` (they see no
+   change), none for a fix. Agents never add `release-now`: the maintainer decides it. Merges reach players through the
+   nightly, published by the daily run when every leg is green ([docs/release-flow.md](docs/release-flow.md#daily-run)).
+-- **CI tiers** ([CONTRIBUTING.md](CONTRIBUTING.md#ci-tiers)): every PR push runs `format` and `verify-static`; rollups,
+-  syncs and main pushes add `lint`, `verify` (unit tests only) and `launcher`; the ignored-test shards, the wasm
++- **CI tiers** ([CONTRIBUTING.md](CONTRIBUTING.md#ci-tiers)): every PR push and main push runs `checks`
++  (`verify`: format, lint and unit tests only; `launcher`); the ignored-test shards, the wasm
+   fixture, `fn-replace-check`, the SDK build and its linkage probe and the machine-sample build run once a day (`daily.yml`). A new test that needs prepared
+   resources, boots the game, starts a child process, uses the network or a compiled wasm fixture, or takes 2 s or
+   more is `#[ignore]`d with a row in `tools/ci/ignored-tests/`; say in the PR when you could not run it. A daily red
+diff --git a/CONTRIBUTING.md b/CONTRIBUTING.md
+index 3dbdeba91ea..e95ffebf49d 100644
+--- a/CONTRIBUTING.md
++++ b/CONTRIBUTING.md
+@@ -121,20 +121,19 @@ It exits non-zero when something fails.
+ 
+ ### CI tiers
+ 
+-CI is split by how long a test takes and what it needs. Main and rollups run only quick checks and unit tests;
++CI is split by how long a test takes and what it needs. Pull requests and main run only quick checks and unit tests;
+ every test that boots the game runs once a day. Existing tests that need prepared resources, a child process or the
+ network and are still in `verify` are being moved by the next change of #4022.
+ 
+ | Tier | Runs on | What |
+ | --- | --- | --- |
+-| Push | every pull request push | `format`, `verify-static` |
+-| Gate | rollup and sync pull requests, pushes to main | `lint`, `verify` (unit tests only), `verify-static`, `launcher` |
++| Push | every pull request push, pushes to main | `checks`: `verify` (format, lint, unit tests only, the test-tier and mod API surface checks), `launcher` |
+ | Daily | once a day on main's head | every test that boots the game or needs prepared resources, the wasm fixture, `fn-replace-check`, the SDK build and its linkage probe, the machine sample built against the mod API |
+ 
+ **A unit test** uses no prepared resources, boots no game, starts no child process, uses no network and no compiled
+ wasm fixture, and finishes in under 2 seconds. Any other test is a daily test: it carries `#[ignore]` and a row in
+ `tools/ci/ignored-tests/` (the format is in that folder's README). `verify` fails a unit test that takes over 5
+-seconds and `verify-static` one that boots the game; existing tests over 2 seconds and those that boot the game are
++seconds and one that boots the game; existing tests over 2 seconds and those that boot the game are
+ already daily tests, and the existing ones that need resources or a child process are being moved over.
+ In Linux `verify`, test binaries run normally under an inet guard: opening, binding or connecting an IPv4/IPv6
+ socket or calling libc name-resolution APIs (`getaddrinfo`, `gethostbyname`/`gethostbyname2`/`gethostbyaddr`, their reentrant
+@@ -194,9 +193,6 @@ it (edited on every push, never repeated): talk to its author in the thread befo
+   needs. There's no line limit; split by concern, never by size, and don't bundle unrelated changes.
+ - **Fill in the template**: what and why, the vanilla reference, the pr_ready block, screenshots for anything you
+   can see.
+-- **We never push to your branch on this fork.** When something small is left (a lint, a rebase, a nit) we carry
+-  it in our own commits on top of yours in a rollup, and your pull request shows as merged with your commits
+-  intact; only design questions come back to you. You don't need to tick "Allow edits by maintainers".
+ - **Keep your branch yours.** You can push to it as you like. If you want to bring it up to date, `git merge
+   origin/main` is the safe way; a rebase or force-push is fine too, since nothing of ours lives on your branch.
+ - **Tick its kind** in the template: `parity` (Horizon now does what vanilla does), `bug` (a crash or breakage),
+@@ -230,7 +226,7 @@ starts from a spec:
+ 
+ ## Parity checks on forks
+ 
+-A pull request from a fork gets the push tier ([CI tiers](#ci-tiers)); the gate runs when a rollup carries it. The
++A pull request from a fork gets the push tier ([CI tiers](#ci-tiers)). The
+ `parity` check runs the affected
+ harnesses on a maintainer's machine, which holds the game files, so it never runs a fork's code on its own: a
+ maintainer reads your change, then adds the `run-parity` label, which runs it once on your current commit. After
+diff --git a/docs/design/mod-api/farmers-delight-hooks.md b/docs/design/mod-api/farmers-delight-hooks.md
+index d94e553bfd6..8f4ac92ee2a 100644
+--- a/docs/design/mod-api/farmers-delight-hooks.md
++++ b/docs/design/mod-api/farmers-delight-hooks.md
+@@ -1,6 +1,6 @@
+ # Farmer's Delight's calls against existing hooks
+ 
+-The open rows of the Portizon map of Farmer's Delight's mixins (#1027; the full 34-point table is
++The open rows of the map of Farmer's Delight's mixins (#1027; the full 34-point table is
+ reservedbytes' comment on that issue), each exercised against the hook Horizon already has. Each
+ row names what Farmer's Delight's injection does at its vanilla method, the hook's contract and the
+ test that runs it. No Farmer's Delight-specific hook is proposed. The three contract mismatches the
+diff --git a/docs/design/mod-api/server-read-tier.md b/docs/design/mod-api/server-read-tier.md
+index 573d0cc2cbc..be2df4a6617 100644
+--- a/docs/design/mod-api/server-read-tier.md
++++ b/docs/design/mod-api/server-read-tier.md
+@@ -52,9 +52,9 @@ handle count and the total; no build required):
+ python3 -c 'exec("import subprocess,re,collections\nc=collections.Counter()\nfor p in subprocess.check_output(['"'"'git'"'"','"'"'ls-tree'"'"','"'"'-r'"'"','"'"'--name-only'"'"','"'"'arismoko/main'"'"','"'"'--'"'"','"'"'crates/horizon-mod-vocab/src/host'"'"'],text=True).splitlines():\n s=subprocess.check_output(['"'"'git'"'"','"'"'show'"'"','"'"'arismoko/main:'"'"'+p],text=True)\n for t in re.finditer(r'"'"'pub trait \\w*Backend\\s*\\{(.*?)\\n\\}'"'"',s,re.S):\n  for m in re.finditer(r'"'"'/// Side: (server|both|client)\\.(.*?)(?=/// Side:|\\Z)'"'"',t[1],re.S):\n   f=re.search(r'"'"'fn\\s+(\\w+)\\s*\\(\\s*&self\\s*,\\s*\\w+\\s*:\\s*(\\w+)'"'"',m[2])\n   if f and m[1]=='"'"'server'"'"' and f[2].endswith(('"'"'Ref'"'"','"'"'Key'"'"')) and f[1].startswith(re.sub(r'"'"'(?<!^)(?=[A-Z])'"'"','"'"'_'"'"',re.sub(r'"'"'(Ref|Key)$'"'"','"'"''"'"',f[2])).lower()+'"'"'_'"'"'): c[f[2]]+=1\nprint(dict(sorted(c.items())));print(sum(c.values()))\n")'
+ ```
+ 
+-This gives 255, versus Dyna's reported 252 across the same 18 handles.
+-LevelRef 48 and EntityRef 53 agree; DisplayRef is 24 here versus Dyna's 23.
+-The other two differences cannot be attributed without Dyna's full inventory
++This gives 255, versus the earlier inventory's 252 across the same 18 handles.
++LevelRef 48 and EntityRef 53 agree; DisplayRef is 24 here versus the earlier inventory's 23.
++The other two differences cannot be attributed without that inventory in full
+ and revision. The command pins the counting rule to the fetched ref rather than
+ assuming those totals agree. The earlier 204 undercount used semicolons as
+ method boundaries; semicolons inside documentation truncated the side label.
+diff --git a/docs/design/mod-api/snapshot-participants.md b/docs/design/mod-api/snapshot-participants.md
+index 772b9378bbf..fc44acab3be 100644
+--- a/docs/design/mod-api/snapshot-participants.md
++++ b/docs/design/mod-api/snapshot-participants.md
+@@ -71,6 +71,6 @@ Filed stages: **none**. First verify public 26.3 ordering and approve the narrow
+ 
+ ## Open questions
+ 
+-- **Can Portizon's providers use runtime-owned values?** Recommend this as the first contract; arbitrary guest state remains refused. Require a representative translated provider before claiming the arbitrary-state request fulfilled. If translation requires live fields, commission the runtime design before claiming #999 implemented.
++- **Can a converted mod's providers use runtime-owned values?** Recommend this as the first contract; arbitrary guest state remains refused. Require a representative translated provider before claiming the arbitrary-state request fulfilled. If translation requires live fields, commission the runtime design before claiming #999 implemented.
+ - **What exact ordering does NeoForge 26.3 promise?** Recommend obtaining public SnapshotJournal/TransactionContext documentation and encoding its release/root-notice trace as independent fixtures before code. Current proposed ordering is not certified equivalent.
+ - **Which budgets are acceptable?** Recommend the mod-only limits above with explicit registration/runtime errors and no reduction of vanilla capacity; approve using real translated provider sizes.
+diff --git a/docs/design/wasm-group-faults.md b/docs/design/wasm-group-faults.md
+index 91c9329198a..e07ed732aa0 100644
+--- a/docs/design/wasm-group-faults.md
++++ b/docs/design/wasm-group-faults.md
+@@ -197,7 +197,7 @@ The trap gives no proof that it avoided all of these. So, after a fault:
+ 
+ ## What to measure and test
+ 
+-All measurements run on the same frozen main, with the same scene as #1780's runs: `tools/shm-scene`, 1,000
++All measurements run on the same frozen main, with the same scene as #1780's runs: a local bench scene, 1,000
+ `machine_sample:machine`, a flat dedicated world, 15 s warmup and 20 s report, three repetitions, with the CPU named.
+ 
+ | Measurement | Compared | Acceptance |
+diff --git a/docs/parity-workflow.md b/docs/parity-workflow.md
+index 7a0343f77b1..77f85b7b67b 100644
+--- a/docs/parity-workflow.md
++++ b/docs/parity-workflow.md
+@@ -25,8 +25,7 @@ runtimes, launch servers and generate worlds. Metadata for cold Linux 1.8.9 alon
+ 8,320,755 bytes for the server jar plus 235,129,362 bytes for the pinned legacy runtime:
+ 243,450,117 bytes before JSON metadata and generated worlds. Other versions/runtimes add
+ more; cached payload can be zero. No runtime measurement is available for this repair.
+-The fork's active Dyna gate does not currently run datafix; upstream-style source selection
+-is not proof of active fork CI coverage. Fork issue #3027 tracks the separate coverage decision.
++Fork issue #3027 tracks whether CI runs datafix.
+ 
+ ## Running the vanilla harnesses
+ 
+diff --git a/docs/release-flow.md b/docs/release-flow.md
+index dbc9fd5b10c..def47228223 100644
+--- a/docs/release-flow.md
++++ b/docs/release-flow.md
+@@ -138,8 +138,7 @@ request doesn't wait for them.
+    "don't merge" from anyone holds it).
+ 
+ Never merge your own pull request: another Team member reviews and merges it. Never push to, force-push or rebase a
+-contributor's branch. On this fork small fixes go in our own commits on top of theirs in a rollup, their commits stay
+-intact, and their pull request shows as merged.
++contributor's branch.
+ 
+ **A risky pull request gets the `needs-proof` label** and waits for an agent's local proof (both single-player
+ paths, `lan_e2e`, a screenshot for anything visible) before it merges. Risky means any of:
+@@ -206,18 +205,18 @@ Three kinds of game build (CI tiers, owner 2026-11-13):
+ 
+ | Build | Who starts it | What it needs | Published as |
+ |---|---|---|---|
+-| [Snapshot](#snapshot) | root, by dispatching `release.yml -f kind=snapshot -f dry_run=false` on main | the gate (`lint`, `verify`, `verify-static`, `launcher`) green on that commit | pre-release `snapshot-<date>-<short>`; no launcher offers it |
++| [Snapshot](#snapshot) | a maintainer, by dispatching `release.yml -f kind=snapshot -f dry_run=false` on main | the gate (`checks`' `verify` and `launcher`) green on that commit | pre-release `snapshot-<date>-<short>`; no launcher offers it |
+ | Nightly | the [daily run](#daily-run), when every leg is green | `daily-green` on that commit, with its SDK | pre-release `nightly`, every launcher's update |
+ | Release (`v*`) | by hand, from a Nightly | | the release |
+ 
+ ### Snapshot
+ 
+ A snapshot is how a change to packages or platform legs is tested after it merges: none of those jobs runs on a pull
+-request. Root dispatches `release.yml` with `kind=snapshot` on main, for main's head or `-f commit=<sha>` of a
++request. A maintainer dispatches `release.yml` with `kind=snapshot` on main, for main's head or `-f commit=<sha>` of a
+ commit on main. In order:
+ 
+ 1. `decide` (`tools/release_train.py decide --channel snapshot`) refuses a commit that is not on main, or whose
+-   newest dyna-checks main-push run did not pass every gate job (a pending job is not passed). Nothing else holds
++   newest `checks` main-push run did not pass every gate job (a pending job is not passed). Nothing else holds
+    it: no daily tests, no `daily-green`, no batch rules, no daily cap, no pause, no release-blocker.
+ 2. `snapshot-sdk` builds the commit's prebuilt SDK on every OS (`prebuilt-game-build.yml`; skipped when
+    `sdk-<sha>` already exists) and `snapshot-sdk-publish` signs and publishes it as `sdk-<sha>` from this run's
+@@ -265,7 +264,7 @@ summary (`tools/ci/daily_summary.py`) reads each leg's result and its sanitised
+ 
+ Only a run on `main` with `dry_run` false moves the tag, files issues or publishes; any other run prints what it
+ would do. A Nightly ships only the commit `daily-green` points to, with its SDK (`release.yml`, `nightly build`).
+-A [snapshot](#snapshot) (`release.yml -f kind=snapshot`) needs only dyna-checks' gate on its commit of main.
++A [snapshot](#snapshot) (`release.yml -f kind=snapshot`) needs only the `checks` gate on its commit of main.
+ 
+ ```mermaid
+ flowchart LR
+diff --git a/tests/test_ci_rust_changes.py b/tests/test_ci_rust_changes.py
+index de382fdfe59..abfa17b02c7 100644
+--- a/tests/test_ci_rust_changes.py
++++ b/tests/test_ci_rust_changes.py
+@@ -99,7 +99,7 @@ class RustChangesTests(unittest.TestCase):
+             self.assertTrue(selected["rust_required"])
+             self.assertTrue(selected["launcher_required"])
+             self.assertTrue(selected["tooling_required"])
+-        # The machine sample is a daily leg: a mod API change selects nothing extra in dyna-checks.
++        # The machine sample is a daily leg: a mod API change selects nothing extra in the checks.
+         self.assertFalse(selections([("M", "crates/horizon-mod-api/README.md")])["rust_required"])
+ 
+     def test_git_status_and_cli_selections_for_actual_documentation_changes(self):
+diff --git a/tests/test_nightly_routing.py b/tests/test_nightly_routing.py
+index 2eddefa2e10..afe6c57d6cb 100644
+--- a/tests/test_nightly_routing.py
++++ b/tests/test_nightly_routing.py
+@@ -115,12 +115,12 @@ console.log(JSON.stringify(eval(expression)));
+         with tempfile.TemporaryDirectory() as folder:
+             root = Path(folder)
+             python = root / "python3"
+-            python.write_text("#!/bin/sh\necho 'no green dyna-checks main base'\nexit 23\n")
++            python.write_text("#!/bin/sh\necho 'no green checks main base'\nexit 23\n")
+             python.chmod(0o755)
+             summary = root / "summary"
+             result = subprocess.run(["bash", "-c", shell], cwd=root, env={**os.environ, "FORCE": "", "KIND": "nightly", "GITHUB_STEP_SUMMARY": str(summary), "PATH": str(root) + os.pathsep + os.environ["PATH"]}, text=True, capture_output=True)
+             self.assertEqual(result.returncode, 23)
+-            self.assertIn("no green dyna-checks main base", summary.read_text())
++            self.assertIn("no green checks main base", summary.read_text())
+             self.assertNotIn("nightly-notes.md", result.stderr)
+ 
+     @unittest.skipUnless(shutil.which("bash"), "The runner guard executes in Bash")
+diff --git a/tools/changelog.py b/tools/changelog.py
+index e5b00b02543..7db31226726 100644
+--- a/tools/changelog.py
++++ b/tools/changelog.py
+@@ -204,7 +204,7 @@ def render(data, now, days=30, cap=12):
+             tag = release["tag_name"]
+             suffix = ' (tool pre-release)' if release.get('prerelease') else ''
+             add(release["published_at"], "Releases", f"[{escaped(release['name'] or tag)}]({WEB}/releases/tag/{quote(tag, safe='')}){suffix}", release["id"])
+-    lines = ["> 🤖 Generated by Aria's agent swarm, Dyna, not by Aria.", "",
++    lines = ["> 🤖 Generated by the changelog workflow.", "",
+              "# Changelog", "", f"Generated {now.strftime('%Y-%m-%d %H:%M UTC')}. Last {days} UTC calendar days.", "",
+              "Public repository activity, not a curated release promise. CI/build and bot PRs without labels, and skip-release PRs are omitted. Rollups expand their membership tables. Issue labels and open status reflect generation time.", ""]
+     for day in sorted(groups, reverse=True):
+diff --git a/tools/ci/cargo_jobs.py b/tools/ci/cargo_jobs.py
+index e16b152ca12..796d8574504 100644
+--- a/tools/ci/cargo_jobs.py
++++ b/tools/ci/cargo_jobs.py
+@@ -1,4 +1,4 @@
+-"""Print how many crates a Dyna runner builds at once: its CPU quota, bounded by its memory.
++"""Print how many crates a self-hosted runner builds at once: its CPU quota, bounded by its memory.
+ 
+ The runner's cgroup (v2, or v1) holds its CPU quota and memory limit. Each concurrent rustc may need
+ `--job-mib` of memory. Four stays the floor: the fixed cap these runners used before.
+diff --git a/tools/ci/daily_summary.py b/tools/ci/daily_summary.py
+index 301ed3d1955..3c92530413b 100644
+--- a/tools/ci/daily_summary.py
++++ b/tools/ci/daily_summary.py
+@@ -44,7 +44,7 @@ TAG = "daily-green"
+ LABEL = "bug"
+ PREFIX = "Daily: "
+ UNFINISHED = " did not complete"
+-DISCLOSURE = "> 🤖 Filed by Aria's agent swarm, Dyna, not by Aria."
++DISCLOSURE = "> 🤖 Filed by the daily run."
+ # daily.yml's leg jobs (each a called workflow), and the called workflows' own routing jobs, which test nothing.
+ LEGS = ("shards", "wasm-mods", "fn-replace-check", "linkage", "windows-runtime-leases", "machine-sample", "sdk")
+ # Legs whose red is an action for someone, not a break: their one issue is titled as the action, and says what to do.
+diff --git a/tools/ci/nightly.py b/tools/ci/nightly.py
+index 1cdbc228358..a49daa412ea 100644
+--- a/tools/ci/nightly.py
++++ b/tools/ci/nightly.py
+@@ -19,7 +19,7 @@
+ 
+ A nightly builds main plus the pull requests the trusted reviewers picked (the set: tools/ci/nightly_set.py), merged
+ in their order and pushed as nightly/build-<date>-<n>; with no set, main alone. Main is its newest commit where
+-this repository's checks passed (`dyna-checks` on the fork, `checks` and `parity-main` upstream), as for a release
++this repository's checks passed (`checks` and `parity-main`), as for a release
+ (release_train.green_main_head), or NIGHTLY_BASE when the caller gives that commit. It is published as the
+ `nightly` pre-release; the previous one stays a week as nightly-<date>.
+ On arismoko/horizon only, the base is the commit `daily-green` points to (the newest daily run that passed every
+@@ -349,7 +349,7 @@ def require_sdk(sha: str) -> None:
+ 
+ def green_base(repo: str, issue: str) -> Ref:
+     """NIGHTLY_BASE, else a green main commit from this repository's checks
+-    (dyna-checks on the fork, checks plus parity-main upstream), never an untested fallback."""
++    (checks plus parity-main), never an untested fallback."""
+     explicit = os.environ.get("NIGHTLY_BASE", "").strip()
+     fork = repo == "arismoko/horizon"
+     if explicit:
+diff --git a/tools/ci/rust_changes.py b/tools/ci/rust_changes.py
+index 10a0114b726..9c2009618bd 100644
+--- a/tools/ci/rust_changes.py
++++ b/tools/ci/rust_changes.py
+@@ -89,7 +89,7 @@ if __name__ == "__main__":
+     parser.add_argument("head")
+     mode = parser.add_mutually_exclusive_group()
+     mode.add_argument("--launcher", action="store_true", help="answer for the launcher instead")
+-    mode.add_argument("--all", action="store_true", help="emit centralized dyna-checks selections")
++    mode.add_argument("--all", action="store_true", help="emit the Rust, launcher and tooling selections at once")
+     args = parser.parse_args()
+     changes = changed_entries(args.base, args.head)
+     paths = [path for _, path in changes]
+diff --git a/tools/ci/surface.toml b/tools/ci/surface.toml
+index 6927b9df3b8..f4034f5066b 100644
+--- a/tools/ci/surface.toml
++++ b/tools/ci/surface.toml
+@@ -1,4 +1,4 @@
+-# The mod API surface report in dyna-checks verify (tools/ci/surface_report.py).
++# The mod API surface report in the checks' verify (tools/ci/surface_report.py).
+ [surface]
+ # Off: the report never fails the job, except for a change note that names an id that did not change.
+ # On: a breaking change that no new note in crates/horizon-mod-vocab/changes/ names fails it too.
+diff --git a/tools/ci/test_prepared_cache.py b/tools/ci/test_prepared_cache.py
+index 4f04307e672..dd4bc9ec741 100644
+--- a/tools/ci/test_prepared_cache.py
++++ b/tools/ci/test_prepared_cache.py
+@@ -1,4 +1,4 @@
+-"""The Dyna preparation cache reuses keys and recovers its lock after a killed job."""
++"""The slot preparation cache (HORIZON_DYNA_CACHE) reuses keys and recovers its lock after a killed job."""
+ import os
+ from pathlib import Path
+ import signal
+-- 
+2.39.5
+

@@ -1,0 +1,1637 @@
+From 92f29eccb4a2c1384b59aac6fa8b53af20f0be3a Mon Sep 17 00:00:00 2001
+From: arismoko <19542195+arismoko@users.noreply.github.com>
+Date: Sat, 14 Nov 2026 17:21:38 +0000
+Subject: [PATCH 1/3] CI: run the kept workflows without the fork's runner pool
+ and gate
+
+The daily legs and the hot-path trend no longer route through the fork's runner pool: jobs that need the prepared
+vanilla data run on the horizon-game Linux runner (as ci.yml's vanilla-parity), the others on GitHub's runners.
+The checks that only the fork's gate ran (the test tiers, the export-list and stand-in guards, the mod API surface
+report) move into ci.yml's verify, and tools and tests that named the gate name ci.yml.
+---
+ .github/actionlint.yaml                      |  3 +-
+ .github/workflows/cargo-horizon-mod.yml      |  2 +-
+ .github/workflows/ci.yml                     | 52 +++++++++++
+ .github/workflows/daily.yml                  |  6 +-
+ .github/workflows/fn-replace-check.yml       | 28 ++----
+ .github/workflows/game-build.yml             | 94 ++------------------
+ .github/workflows/hot-paths.yml              | 41 ++-------
+ .github/workflows/ignored-tests.yml          | 39 ++------
+ .github/workflows/launcher-windows-check.yml | 24 +----
+ .github/workflows/machine-sample.yml         | 40 +--------
+ .github/workflows/modding-book.yml           |  2 +-
+ .github/workflows/native-dylib-probe.yml     | 23 +----
+ .github/workflows/nightly-build.yml          |  2 +-
+ .github/workflows/release.yml                |  6 +-
+ .github/workflows/wasm-coverage.yml          | 48 +---------
+ .github/workflows/wasm-mods.yml              | 19 ++--
+ docs/ci-runners.md                           | 14 ---
+ docs/layering/mod-host-map.md                |  2 +-
+ tests/test_ci_cargo_jobs.py                  | 30 +------
+ tests/test_ci_concurrency.py                 | 33 -------
+ tests/test_ci_failure_visibility.py          | 20 -----
+ tests/test_ci_runners.py                     | 18 +---
+ tests/test_ci_rust_changes.py                |  4 +-
+ tests/test_ci_source_mtimes.py               | 20 -----
+ tests/test_client_ci_stopgap.py              | 22 -----
+ tests/test_ignored_test_completion.py        |  4 -
+ tests/test_nightly.py                        |  7 +-
+ tests/test_nightly_routing.py                | 28 ++----
+ tests/test_release_train.py                  | 14 +--
+ tests/test_repository_hygiene.py             |  8 +-
+ tests/test_snapshot.py                       |  1 -
+ tools/ci/ignored_shards.py                   |  4 +-
+ tools/ci/runner-packages.txt                 |  8 +-
+ tools/ci/rust_changes.py                     |  7 +-
+ tools/hotspots/README.md                     | 44 +--------
+ tools/pr_ready.py                            |  2 +-
+ tools/release_train.py                       | 14 +--
+ tools/sync/README.md                         | 14 +--
+ 38 files changed, 163 insertions(+), 584 deletions(-)
+
+diff --git a/.github/actionlint.yaml b/.github/actionlint.yaml
+index 816852b9097..cee6d13c42f 100644
+--- a/.github/actionlint.yaml
++++ b/.github/actionlint.yaml
+@@ -1,4 +1,5 @@
+ self-hosted-runner:
+   # The Mac mini's runner (ludovics-mac-mini), which holds the maintainer's own Minecraft files.
+   # windows-11-vs2026-arm is GitHub's Windows ARM64 image (2026-08), newer than actionlint's label list.
+-  labels: [horizon-game, ludovics-mac-mini, windows-11-vs2026-arm]
++  # horizon-parity-main: the Mac mini runner of parity-main.yml.
++  labels: [horizon-game, horizon-parity-main, ludovics-mac-mini, windows-11-vs2026-arm]
+diff --git a/.github/workflows/cargo-horizon-mod.yml b/.github/workflows/cargo-horizon-mod.yml
+index 5549e3e1461..0fe5b9773b9 100644
+--- a/.github/workflows/cargo-horizon-mod.yml
++++ b/.github/workflows/cargo-horizon-mod.yml
+@@ -32,7 +32,7 @@ jobs:
+         run: echo "platforms=$(python3 -c 'import json, os, tools.horizon_mod_binstall as m; print(json.dumps([p for p in m.PLATFORMS if os.environ["EVENT_NAME"] != "pull_request" or p["run"]]))')" >> "$GITHUB_OUTPUT"
+   build:
+     needs: plan
+-    # A contributor's pull request (its head in a fork) skips what compiles; a reviewer dispatches it (tools/ci/pr_gate.py).
++    # A contributor's pull request (its head in a fork) skips what compiles; a maintainer dispatches it.
+     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+     name: build ${{ matrix.target }}
+     strategy:
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index c55a28f1d85..5250fd9ca3a 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -95,6 +95,41 @@ jobs:
+         run: python3 tools/check_mod_vocabulary_state.py
+       - name: Test offline research tooling
+         run: python -m unittest discover -s tests -v
++      - name: Test prepared-data tooling
++        run: python3 -m unittest discover -s tools/ci -p 'test_prepared_*.py' -v
++      # The test tiers (CONTRIBUTING.md "CI tiers"): one file per topic in tools/ci/ignored-tests/, and a test that boots
++      # the game, starts a child process or reruns its own executable is #[ignore = "daily"] with a row there.
++      - name: Ignored-test policy files read cleanly
++        run: python3 tools/ci/check_ignored_test_rows.py
++      - name: Game-boot tests are daily tests
++        run: python3 tools/ci/check_game_boot_tests.py
++      - name: Process-starting tests are daily tests
++        run: python3 tools/ci/check_process_tests.py
++      - name: Test reruns select ignored tests too
++        run: python3 tools/ci/reexec_include_ignored.py --check
++      # tools/hotspots/README.md: export brace lists stay short, the dispatch-test and wire-loopback stand-ins keep up
++      # with the API they mirror, and the wire_loopback root gains no module line and no test.
++      - name: Export lists stay short
++        run: python3 tools/hotspots/check_lists.py
++      - name: Test stand-ins keep up with the API
++        run: python3 tools/hotspots/check_stand_ins.py
++      - name: wire_loopback root does not grow
++        env:
++          BASE_SHA: ${{ github.event.pull_request.base.sha }}
++        run: python3 tools/hotspots/check_wire_loopback.py ${BASE_SHA:+--base "$BASE_SHA" --pull-request-merge}
++      # The mod-host map's tables (docs/layering/mod-host-map.md), built on main's pushes instead of committed.
++      - name: Build the mod-host map tables
++        id: mod_host_map
++        if: github.event_name == 'push'
++        run: python3 tools/layering/scan_engine_mod_edges.py --map target/layering/mod-host-map-tables.md
++      - name: Upload the mod-host map tables
++        if: github.event_name == 'push' && steps.mod_host_map.outcome == 'success'
++        continue-on-error: true
++        uses: actions/upload-artifact@v4
++        with:
++          name: mod-host-map
++          path: target/layering/mod-host-map-tables.md
++          if-no-files-found: error
+       - name: Install Rust toolchain and the ALSA and udev headers the client links against
+         if: steps.rust.outputs.required != 'false'
+         env:
+@@ -140,6 +175,23 @@ jobs:
+           # recompiling the workspace with a different dependency graph.
+           cargo +stable test --workspace --lib --bins --tests mod_content::tests:: -- --ignored
+           cargo +stable test --workspace --doc
++      # The mod API surface gate (docs/modding/src/reference/sdk/02-surface.md): what a pull request changes in what
++      # mods can name, in the job summary. It fails for a stale or unreadable new change note and, with
++      # tools/ci/surface.toml's gate on, for a breaking change no new note declares (tools/ci/surface_report.py).
++      - name: Build the source stage generator
++        if: steps.rust.outputs.required != 'false'
++        run: |
++          cargo +stable build --locked -p horizon-mod-api-gen --bin horizon-stage
++          echo "HORIZON_STAGE_TOOL=$PWD/target/debug/horizon-stage" >> "$GITHUB_ENV"
++      - name: Report the mod API surface change
++        if: steps.rust.outputs.required != 'false' && github.event_name == 'pull_request'
++        env:
++          EVENT: ${{ github.event_name }}
++          GH_TOKEN: ${{ github.token }}
++        run: python3 tools/ci/surface_report.py
++      - name: Validate prebuilt source stage and listed slots
++        if: steps.rust.outputs.required != 'false'
++        run: python3 tools/ci/test_stage_catalog.py -v
+   # The launcher is its own workspace (launcher/Cargo.toml), so verify's cargo runs never build it. A pull request that
+   # changes it or a crate it builds is checked here, and so is every push to main: two pull requests can each pass
+   # alone and break it together (#2059 and the registry ratings did, 2026-10-26).
+diff --git a/.github/workflows/daily.yml b/.github/workflows/daily.yml
+index 73112760942..9291871eb71 100644
+--- a/.github/workflows/daily.yml
++++ b/.github/workflows/daily.yml
+@@ -1,7 +1,7 @@
+ name: daily
+ run-name: daily ${{ inputs.commit || github.sha }}${{ github.event_name == 'workflow_dispatch' && (inputs.dry_run || github.ref != 'refs/heads/main') && ' (dry run)' || '' }}
+ # The daily tier (CI tiers, owner 2026-11-13; docs/release-flow.md "Daily run"): every in-game test, once a day on
+-# main's head and by root's dispatch. Its legs are the workflows that used to run on main pushes, called unchanged:
++# main's head and by a maintainer's dispatch. Its legs are the workflows that used to run on main pushes, called unchanged:
+ # the ignored-tests data shards, the wasm fixture and guest stacks, fn-replace-check and the native linkage probe,
+ # plus the launcher's Windows runtime-lease tests (launcher-windows-check.yml), the machine sample built against this
+ # API (machine-sample.yml) and the prebuilt SDK of the commit (prebuilt-game-build.yml), which the nightly needs.
+@@ -39,9 +39,9 @@ env:
+   # Test runs never reach the telemetry server: no live-count ping, no uploads (docs/telemetry.md).
+   HORIZON_TELEMETRY_URL: "off"
+ jobs:
+-  # Dyna runners accept dispatches, not scheduled events (as dyna-checks' nightly-dispatch).
++  # The schedule only dispatches the real run, so every run has the dispatch's inputs.
+   schedule-dispatch:
+-    if: github.repository == 'arismoko/horizon' && github.event_name == 'schedule'
++    if: github.event_name == 'schedule'
+     runs-on: ubuntu-latest
+     timeout-minutes: 5
+     permissions:
+diff --git a/.github/workflows/fn-replace-check.yml b/.github/workflows/fn-replace-check.yml
+index e06af0572a6..608dc2953b4 100644
+--- a/.github/workflows/fn-replace-check.yml
++++ b/.github/workflows/fn-replace-check.yml
+@@ -6,7 +6,7 @@ name: fn-replace-check
+ # fails here and not on a player's machine (#1102). Build and link only: no game runs and no vanilla
+ # data is read. Checked by the daily run and by dispatch, never on pull requests or main pushes.
+ on:
+-  # The daily run (daily.yml) calls it with the commit to check; root dispatches it on a branch that changes
++  # The daily run (daily.yml) calls it with the commit to check; a maintainer dispatches it on a branch that changes
+   # what it builds.
+   workflow_call:
+     inputs:
+@@ -24,33 +24,18 @@ concurrency:
+   group: fn-replace-check-${{ inputs.commit && github.run_id || github.ref == 'refs/heads/main' && github.run_id || github.ref }}
+   cancel-in-progress: ${{ inputs.commit == '' && github.ref != 'refs/heads/main' }}
+ env:
+-  # sccache (shared per Dyna host) cannot cache incremental compiles, so every Rust job builds non-incremental.
++  # sccache cannot cache incremental compiles, so every Rust job builds non-incremental.
+   CARGO_INCREMENTAL: 0
+ jobs:
+-  route:
+-    runs-on: ubuntu-latest
+-    outputs:
+-      self_hosted: ${{ steps.runner.outputs.self_hosted }}
+-    steps:
+-      - uses: actions/checkout@v4
+-      - id: runner
+-        env:
+-          ENABLED: ${{ vars.DYNA_CI_SELF_HOSTED }}
+-          LEASE: ${{ vars.DYNA_CI_POOL_UNTIL }}
+-          # Only dispatches (the daily run's included) run this workflow, from this repository.
+-          SAME_REPO: true
+-          EVENT: ${{ github.event_name }}
+-        run: bash tools/ci/dyna_ci_runner.sh >> "$GITHUB_OUTPUT"
+   fn-replace-check:
+-    needs: route
+-    runs-on: ${{ needs.route.outputs.self_hosted == 'true' && 'dyna-large' || 'ubuntu-latest' }}
++    runs-on: ubuntu-latest
+     timeout-minutes: 180
+     steps:
+       - uses: actions/checkout@v4
+         with:
+           ref: ${{ inputs.commit }}
+       # GitHub's 16 GB runner is short of memory for the game's release build with more than two crates at once.
+-      # A Dyna runner builds as many as its CPU quota allows within its memory, 4 GiB per release rustc
++      # A self-hosted runner builds as many as its CPU quota allows within its memory, 4 GiB per release rustc
+       # (tools/ci/cargo_jobs.py). CARGO_BUILD_JOBS, not a flag: it must also reach the launcher's mod builds.
+       - name: Choose build parallelism
+         run: |
+@@ -70,9 +55,6 @@ jobs:
+         run: |
+           sudo fallocate -l 8G /mnt/swapfile && sudo chmod 600 /mnt/swapfile && sudo mkswap /mnt/swapfile && sudo swapon /mnt/swapfile
+           free -g
+-      - name: Self-hosted image headers or rootless fallback
+-        if: runner.environment == 'self-hosted'
+-        run: bash tools/ci/dyna_ci_deps.sh
+       - name: Install the launcher's pinned Rust and the headers the launcher and the game link against
+         run: |
+           if [ "$RUNNER_ENVIRONMENT" = github-hosted ]; then
+@@ -88,7 +70,7 @@ jobs:
+           pinned=$(cat tools/ci/rust-version)
+           rustup toolchain install "$pinned" --profile minimal
+           echo "RUSTUP_TOOLCHAIN=$pinned" >> "$GITHUB_ENV"
+-      # On a Dyna runner RUNNER_TEMP is a small tmpfs and the build volume is shared: the SDK and the
++      # On a self-hosted runner RUNNER_TEMP may be a small tmpfs and the build volume is shared: the SDK and the
+       # check's scratch go in a private folder on the build volume, removed when the job ends.
+       - name: Allocate private scratch
+         run: |
+diff --git a/.github/workflows/game-build.yml b/.github/workflows/game-build.yml
+index 4ffdc7e78fb..3d84945dbe5 100644
+--- a/.github/workflows/game-build.yml
++++ b/.github/workflows/game-build.yml
+@@ -4,8 +4,7 @@ name: game build
+ # Silicon, and Intel cross-built there for x86_64-apple-darwin and checked under Rosetta 2 (#1161). Called by
+ # release.yml (the releases) and nightly-build.yml (the opt-in Nightly), always from main's copy of this file: the
+ # caller's commit, never the one being built. It holds no secrets: signing the checksums is the callers' own job,
+-# which never runs what this one built. Linux artifacts always build on Ubuntu 22.04; optional Dyna runners
+-# compile portable Java exporter classes and smoke the downloaded hosted Linux artifact with private data.
++# which never runs what this one built. Linux artifacts always build on Ubuntu 22.04.
+ # See docs/release-flow.md.
+ on:
+   workflow_call:
+@@ -57,7 +56,7 @@ jobs:
+     # runs pull requests' parity jobs, so a nightly never waits behind their queue), never the release runner
+     # (MAC_RUNNER: ludovics-mac-mini-release) nor parity-main's.
+     # toJSON keeps an empty trusted runner as an invalid empty label, never a Nightly fallback.
+-    runs-on: ${{ fromJSON(inputs.trusted && toJSON(vars.MAC_RUNNER) || (vars.DYNA_CI_SELF_HOSTED == 'true' && vars.NIGHTLY_EXPORTERS_RUNNER) || (vars.SELF_HOSTED_CI != 'off' && '["self-hosted", "macOS", "horizon-nightly"]') || '"ubuntu-latest"') }}
++    runs-on: ${{ fromJSON(inputs.trusted && toJSON(vars.MAC_RUNNER) || (vars.SELF_HOSTED_CI != 'off' && '["self-hosted", "macOS", "horizon-nightly"]') || '"ubuntu-latest"') }}
+     # Three full preparations (two isolated, one batched) besides the compile.
+     timeout-minutes: 60
+     steps:
+@@ -85,8 +84,7 @@ jobs:
+           distribution: temurin
+           java-version: '25'
+       - if: runner.environment == 'self-hosted'
+-        run: |
+-          if [[ -z "${DYNA_CI_BUILD:-}" ]]; then bash tools/ci/runner-env.sh; fi
++        run: bash tools/ci/runner-env.sh
+         env:
+           HORIZON_NO_SCCACHE: ${{ inputs.trusted && '1' || '' }}
+       - name: Build the shared wasm standard library
+@@ -99,12 +97,7 @@ jobs:
+           path: horizon-wasm-std.wasm
+           if-no-files-found: error
+       - name: Private exporter inputs
+-        run: |
+-          if [[ -n "${DYNA_CI_BUILD:-}" ]]; then
+-            HORIZON_DYNA_CACHE=true HORIZON_PREPARED_CACHE="$DYNA_CI_BUILD/vanilla" HORIZON_SHARED_SOURCE=/cache/horizon-local bash tools/ci/vanilla-data.sh
+-          else
+-            bash tools/ci/vanilla-data.sh
+-          fi
++        run: bash tools/ci/vanilla-data.sh
+       - name: Compile and validate original exporters against the pinned jars
+         shell: bash
+         run: |
+@@ -183,7 +176,7 @@ jobs:
+             target: x86_64-apple-darwin
+             dir: horizon-macos-x64
+             asset: horizon-macos-x64.zip
+-    runs-on: ${{ matrix.mac && fromJSON(inputs.trusted && toJSON(vars.MAC_RUNNER) || (vars.DYNA_CI_SELF_HOSTED == 'true' && vars.NIGHTLY_MAC_RUNNER) || (vars.SELF_HOSTED_CI != 'off' && '["self-hosted", "macOS", "horizon-nightly"]') || '"macos-15"') || matrix.os }}
++    runs-on: ${{ matrix.mac && fromJSON(inputs.trusted && toJSON(vars.MAC_RUNNER) || (vars.SELF_HOSTED_CI != 'off' && '["self-hosted", "macOS", "horizon-nightly"]') || '"macos-15"') || matrix.os }}
+     # The fork's cold client + headless builds need both feature variants; keep upstream's limits unchanged.
+     timeout-minutes: ${{ github.repository == 'arismoko/horizon' && 60 || (matrix.mac && 60 || 40) }}
+     env:
+@@ -363,23 +356,16 @@ jobs:
+         if: runner.environment == 'self-hosted'
+         env:
+           HORIZON_NO_SCCACHE: ${{ inputs.trusted && '1' || '' }}
+-        run: |
+-          if [[ -z "${DYNA_CI_BUILD:-}" ]]; then bash tools/ci/runner-env.sh; fi
++        run: bash tools/ci/runner-env.sh
+       - name: Resources prepared from the runner's own Minecraft
+         if: runner.environment == 'self-hosted'
+-        run: |
+-          if [[ -n "${DYNA_CI_BUILD:-}" ]]; then
+-            HORIZON_DYNA_CACHE=true HORIZON_PREPARED_CACHE="$DYNA_CI_BUILD/vanilla" HORIZON_SHARED_SOURCE=/cache/horizon-local bash tools/ci/vanilla-data.sh
+-          else
+-            bash tools/ci/vanilla-data.sh
+-          fi
++        run: bash tools/ci/vanilla-data.sh
+       - name: The game runs (offscreen, a new world, 1500 frames)
+         if: runner.environment == 'self-hosted'
+         run: bash .workflow-tools/tools/ci/game_smoke.sh
+-      # The separate Linux artifact smoke supplies the report when Dyna is enabled;
+-      # otherwise Apple Silicon supplies it. Intel still passes its own smoke run.
++      # Apple Silicon supplies the report. Intel still passes its own smoke run.
+       - uses: actions/upload-artifact@v7
+-        if: runner.environment == 'self-hosted' && matrix.name == 'macos' && (inputs.trusted || vars.DYNA_CI_SELF_HOSTED != 'true' || vars.NIGHTLY_LINUX_RUNNER == '')
++        if: runner.environment == 'self-hosted' && matrix.name == 'macos'
+         with:
+           name: smoke-test.json
+           path: ${{ runner.temp }}/smoke-test.json
+@@ -467,65 +453,3 @@ jobs:
+       - name: The signing keychain, locked again
+         if: always() && runner.os == 'macOS' && vars.MACOS_SIGN_IDENTITY != '' && inputs.developer_id
+         run: packaging/macos/keychain.sh lock
+-
+-  linux-smoke:
+-    name: smoke hosted Linux artifact
+-    needs: [runner-configuration, build]
+-    if: ${{ !inputs.trusted && vars.DYNA_CI_SELF_HOSTED == 'true' && vars.NIGHTLY_LINUX_RUNNER != '' }}
+-    # Dyna supplies private resources, never the libc used to compile shipped binaries.
+-    runs-on: ${{ fromJSON(vars.NIGHTLY_LINUX_RUNNER || '"ubuntu-latest"') }}
+-    timeout-minutes: 20
+-    defaults:
+-      run:
+-        shell: bash
+-    steps:
+-      - uses: actions/checkout@v7
+-        with:
+-          ref: ${{ inputs.ref }}
+-          persist-credentials: false
+-          clean: true
+-      - name: Workflow-owned smoke tools
+-        uses: actions/checkout@v7
+-        with:
+-          ref: ${{ github.workflow_sha }}
+-          path: .workflow-tools
+-          persist-credentials: false
+-          sparse-checkout-cone-mode: false
+-          sparse-checkout: |
+-            tools/ci/game_smoke.sh
+-            tools/ci/rust-version
+-            tools/ci/with_xvfb.py
+-      - name: The pinned Rust (tools/ci/rust-version)
+-        id: rust
+-        shell: bash
+-        run: echo "version=$(cat "$GITHUB_WORKSPACE/.workflow-tools/tools/ci/rust-version")" >> "$GITHUB_OUTPUT"
+-      - uses: dtolnay/rust-toolchain@master
+-        with:
+-          toolchain: ${{ steps.rust.outputs.version }}
+-      - uses: actions/setup-java@v4
+-        with:
+-          distribution: temurin
+-          java-version: '25'
+-      - uses: actions/download-artifact@v8
+-        with:
+-          name: horizon-linux-x86_64.tar.gz
+-          path: ${{ runner.temp }}/hosted-linux
+-      - name: Unpack the hosted-built game, unchanged
+-        run: |
+-          tar xzf "$RUNNER_TEMP/hosted-linux/horizon-linux-x86_64.tar.gz" -C "$RUNNER_TEMP/hosted-linux"
+-          echo "BIN=$RUNNER_TEMP/hosted-linux/horizon-linux-x86_64" >> "$GITHUB_ENV"
+-      - name: Private resources from the Dyna runner
+-        run: |
+-          : "${DYNA_CI_BUILD:?Linux smoke requires a Dyna private-data runner}"
+-          mkdir -p exporters
+-          cp -a "$BIN/exporters/." exporters/
+-          HORIZON_DYNA_CACHE=true HORIZON_PREPARED_CACHE="$DYNA_CI_BUILD/vanilla" HORIZON_SHARED_SOURCE=/cache/horizon-local bash tools/ci/vanilla-data.sh
+-      - name: The hosted artifact draws a world under Xvfb
+-        run: bash .workflow-tools/tools/ci/game_smoke.sh
+-      - uses: actions/upload-artifact@v7
+-        with:
+-          name: smoke-test.json
+-          path: ${{ runner.temp }}/smoke-test.json
+-          if-no-files-found: error
+-          retention-days: 3
+-
+diff --git a/.github/workflows/hot-paths.yml b/.github/workflows/hot-paths.yml
+index 86b6c123765..f7351d74afd 100644
+--- a/.github/workflows/hot-paths.yml
++++ b/.github/workflows/hot-paths.yml
+@@ -27,28 +27,10 @@ env:
+   CARGO_INCREMENTAL: 0
+   HORIZON_TELEMETRY_URL: "off"
+ jobs:
+-  route:
+-    runs-on: ubuntu-latest
+-    outputs:
+-      self_hosted: ${{ steps.runner.outputs.self_hosted }}
+-    steps:
+-      - uses: actions/checkout@v4
+-      - id: runner
+-        env:
+-          ENABLED: ${{ vars.DYNA_CI_SELF_HOSTED }}
+-          LEASE: ${{ vars.DYNA_CI_POOL_UNTIL }}
+-          # Only the schedule and dispatches run this workflow, both from this repository; the schedule is
+-          # routed as a dispatch is.
+-          SAME_REPO: true
+-          EVENT: workflow_dispatch
+-        run: bash tools/ci/dyna_ci_runner.sh >> "$GITHUB_OUTPUT"
+-
+   measure:
+-    needs: route
+-    # The workloads need the prepared vanilla data, which only Dyna's runners hold: with the pool off this run
+-    # measures nothing and says so, and the trend has a gap.
+-    if: needs.route.outputs.self_hosted == 'true'
+-    runs-on: dyna-medium
++    # The workloads need the prepared vanilla data: a self-hosted Linux runner holding the maintainer's own
++    # Minecraft files (label horizon-game, as ci.yml's vanilla-parity).
++    runs-on: [self-hosted, linux, horizon-game]
+     timeout-minutes: 150
+     steps:
+       - uses: actions/checkout@v4
+@@ -56,8 +38,6 @@ jobs:
+           ref: ${{ inputs.commit || github.sha }}
+       - name: Choose build parallelism
+         run: echo "CARGO_BUILD_JOBS=$(python3 tools/ci/cargo_jobs.py --job-mib 4096)" | tee -a "$GITHUB_ENV"
+-      - name: Self-hosted image headers or rootless fallback
+-        run: bash tools/ci/dyna_ci_deps.sh
+       - name: The pinned Rust (tools/ci/rust-version)
+         id: rust
+         run: echo "version=$(cat tools/ci/rust-version)" >> "$GITHUB_OUTPUT"
+@@ -76,15 +56,10 @@ jobs:
+       # Every build and test in this job runs at the runner's size, not the host's (tools/ci/cargo_jobs.py).
+       - name: Cap build parallelism to the runner
+         run: python3 tools/ci/cargo_jobs.py --job-mib 3072 --cap
++      - name: Tools from the runner
++        run: bash tools/ci/runner-env.sh
+       - name: Prepare checkout-keyed vanilla data
+-        run: |
+-          for dir in minecraft datagen horizon-client tools; do
+-            if [ ! -d "/cache/horizon-local/$dir" ]; then
+-              echo "::error::prepared data unavailable on this runner: $dir"
+-              exit 1
+-            fi
+-          done
+-          HORIZON_DYNA_CACHE=true HORIZON_PREPARED_CACHE="$DYNA_CI_BUILD/vanilla" HORIZON_SHARED_SOURCE=/cache/horizon-local bash tools/ci/vanilla-data.sh
++        run: bash tools/ci/vanilla-data.sh
+       # The profile players get, on the server build (no audio, no controllers). horizon-hot-paths-game is
+       # horizon-game's entry, with one native listener mod it installs only for the hook workload.
+       - name: Build the release game
+@@ -93,13 +68,13 @@ jobs:
+         run: |
+           set -euo pipefail
+           target="${CARGO_TARGET_DIR:-$PWD/target}"
+-          # RUNNER_TEMP is a small tmpfs on a Dyna runner: scratch goes on the build volume, removed at the end.
++          # RUNNER_TEMP may be a small tmpfs on a self-hosted runner: scratch goes on the build volume, removed at the end.
+           scratch=$(mktemp -d "$target/hot-paths.XXXXXX")
+           trap 'rm -rf "$scratch"' EXIT
+           command -v valgrind > /dev/null || echo "::warning::no valgrind on this runner: instructions and allocations are not measured"
+           python3 tools/hot_paths.py measure --game "$target/release/horizon-hot-paths-game" \
+             --resources "$PWD/.local/horizon-client/26.3" --work "$scratch" \
+-            --commit "$(git rev-parse HEAD)" --host dyna-medium --run "$GITHUB_RUN_ID.$GITHUB_RUN_ATTEMPT" \
++            --commit "$(git rev-parse HEAD)" --host "$RUNNER_NAME" --run "$GITHUB_RUN_ID.$GITHUB_RUN_ATTEMPT" \
+             --out "$RUNNER_TEMP/hot-paths.json" | tee -a "$GITHUB_STEP_SUMMARY"
+       - uses: actions/upload-artifact@v4
+         with:
+diff --git a/.github/workflows/ignored-tests.yml b/.github/workflows/ignored-tests.yml
+index 95e0ea3435c..0de0e9a3515 100644
+--- a/.github/workflows/ignored-tests.yml
++++ b/.github/workflows/ignored-tests.yml
+@@ -15,42 +15,33 @@ permissions:
+ env:
+   # Test runs never reach the telemetry server: no live-count ping, no uploads (docs/telemetry.md).
+   HORIZON_TELEMETRY_URL: "off"
+-  # sccache (shared per Dyna host) cannot cache incremental compiles, so every Rust job builds non-incremental.
++  # sccache cannot cache incremental compiles, so every Rust job builds non-incremental.
+   CARGO_INCREMENTAL: 0
+ jobs:
+   plan:
+     runs-on: ubuntu-latest
+     timeout-minutes: 5
+     outputs:
+-      self_hosted: ${{ steps.runner.outputs.self_hosted }}
+       matrix: ${{ steps.matrix.outputs.matrix }}
+     steps:
+       - uses: actions/checkout@v4
+         with:
+           persist-credentials: false
+           ref: ${{ inputs.commit }}
+-      - id: runner
+-        env:
+-          ENABLED: ${{ vars.DYNA_CI_SELF_HOSTED }}
+-          LEASE: ${{ vars.DYNA_CI_POOL_UNTIL }}
+-          # Only dispatches (the daily run's included) run this workflow, from this repository.
+-          SAME_REPO: true
+-          EVENT: ${{ github.event_name }}
+-        run: bash tools/ci/dyna_ci_runner.sh >> "$GITHUB_OUTPUT"
+       - name: The ignored-tests shard matrix
+         id: matrix
+         run: python3 tools/ci/ignored_shards.py --matrix --all >> "$GITHUB_OUTPUT"
+-  # Dyna's large runner holds the prepared vanilla data. Every shard runs, with one package per shard (the plan
++  # A self-hosted Linux runner holding the maintainer's own Minecraft files (label horizon-game, as ci.yml's
++  # vanilla-parity) runs them with the prepared vanilla data. Every shard runs, with one package per shard (the plan
+   # lives in tools/ci/ignored_shards.py). tools/ci/ignored_tests.py fails on a new failure and on a known one that
+   # passes, and prints only test names and results: the data is Mojang's.
+   ignored-tests-shards:
+     needs: plan
+-    if: needs.plan.outputs.self_hosted == 'true'
+     strategy:
+       fail-fast: false
+       matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+     # Owner-approved stopgap: #2944 removes this when the legs run under 15 minutes.
+-    runs-on: ${{ (matrix.shard == 'horizon-client#1of2' || matrix.shard == 'horizon-client#2of2') && 'dyna-xlarge' || 'dyna-large' }}
++    runs-on: [self-hosted, linux, horizon-game]
+     # Temporary: #2944 brings client data legs under 15 minutes and restores the 60-minute cap.
+     # Interim: 180 so the client legs finish and report at all (the 2026-11-13 dry run's #1of2 was killed at 90 with
+     # 61 tests past 60 s). Cutting the slow client tests (#4022's next change) brings it back down.
+@@ -63,14 +54,10 @@ jobs:
+           persist-credentials: false
+           # The daily run's commit; empty (this event's commit) on a dispatch of this workflow.
+           ref: ${{ inputs.commit }}
+-      - name: Check Dyna dependencies (install fallback without root)
+-        run: bash tools/ci/dyna_ci_deps.sh
+       - name: Install Rust toolchain
+-        run: |
+-          if [ ! -x "$CARGO_HOME/bin/rustup" ]; then
+-            curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs | sh -s -- -y --no-modify-path --profile minimal
+-          fi
+-          bash tools/ci/rustup_install.sh --profile minimal
++        run: bash tools/ci/rustup_install.sh --profile minimal
++      - name: Tools from the runner
++        run: bash tools/ci/runner-env.sh
+       - uses: actions/setup-java@v4
+         with:
+           distribution: temurin
+@@ -90,17 +77,7 @@ jobs:
+       # Missing data fails the leg.
+       - name: Prepare checkout-keyed vanilla data
+         id: data
+-        env:
+-          EVENT: ${{ github.event_name }}
+-        run: |
+-          for dir in minecraft datagen horizon-client tools; do
+-            if [ ! -d "/cache/horizon-local/$dir" ]; then
+-              echo "prepared data unavailable on this runner"
+-              echo "Prepared data unavailable: $dir ($EVENT)" >> "$GITHUB_STEP_SUMMARY"
+-              exit 1
+-            fi
+-          done
+-          HORIZON_DYNA_CACHE=true HORIZON_PREPARED_CACHE="$DYNA_CI_BUILD/vanilla" HORIZON_SHARED_SOURCE=/cache/horizon-local bash tools/ci/vanilla-data.sh
++        run: bash tools/ci/vanilla-data.sh
+       - name: Retain typed preparation diagnostics only
+         if: failure() && steps.data.outcome == 'failure'
+         uses: actions/upload-artifact@v4
+diff --git a/.github/workflows/launcher-windows-check.yml b/.github/workflows/launcher-windows-check.yml
+index 6e7c4f15f20..21555a3ebb4 100644
+--- a/.github/workflows/launcher-windows-check.yml
++++ b/.github/workflows/launcher-windows-check.yml
+@@ -44,28 +44,10 @@ concurrency:
+   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+ 
+ jobs:
+-  gate:
+-    runs-on: ubuntu-latest
+-    outputs:
+-      heavy: ${{ steps.gate.outputs.heavy }}
+-    steps:
+-      - uses: actions/checkout@v7
+-        with:
+-          persist-credentials: false
+-      - name: Heavy checks for this event
+-        id: gate
+-        env:
+-          EVENT: ${{ github.event_name }}
+-          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+-          PR_LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+-          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+-        run: python3 tools/ci/pr_gate.py >> "$GITHUB_OUTPUT"
+-
+   test:
+-    # Only same-repository rollups and syncs compile on PR events; main and dispatch stay unchanged. The daily run's
+-    # call runs runtime-leases only.
+-    needs: gate
+-    if: inputs.commit == '' && needs.gate.outputs.heavy == 'true'
++    # A contributor's pull request (its head in a fork) skips what compiles; main and dispatch stay unchanged. The
++    # daily run's call runs runtime-leases only.
++    if: inputs.commit == '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+     runs-on: windows-latest
+     timeout-minutes: 40
+     defaults:
+diff --git a/.github/workflows/machine-sample.yml b/.github/workflows/machine-sample.yml
+index 272d61f3973..70942aa78c2 100644
+--- a/.github/workflows/machine-sample.yml
++++ b/.github/workflows/machine-sample.yml
+@@ -3,7 +3,7 @@ name: machine sample
+ # The machine sample (arismoko/horizon-machine-sample at tools/ci/check_machine_sample.py's pin) compiled against
+ # this commit's mod API. Run by the daily run (daily.yml) and by dispatch, never on pull requests or main pushes: an
+ # approved API change never reddens the gate because another repository must follow (owner, 2026-11-13). Its steps
+-# are what dyna-checks' lint job ran before it: the same routing, toolchain and command.
++# are what the lint job ran before it: the same toolchain and command.
+ on:
+   workflow_call:
+     inputs:
+@@ -25,51 +25,17 @@ env:
+   CARGO_INCREMENTAL: 0
+ 
+ jobs:
+-  route:
+-    runs-on: ubuntu-latest
+-    timeout-minutes: 5
+-    outputs:
+-      self_hosted: ${{ steps.runner.outputs.self_hosted }}
+-    steps:
+-      - uses: actions/checkout@v4
+-        with:
+-          persist-credentials: false
+-      - id: runner
+-        env:
+-          ENABLED: ${{ vars.DYNA_CI_SELF_HOSTED }}
+-          LEASE: ${{ vars.DYNA_CI_POOL_UNTIL }}
+-          SAME_REPO: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+-          EVENT: ${{ github.event_name }}
+-        run: bash tools/ci/dyna_ci_runner.sh >> "$GITHUB_OUTPUT"
+   build:
+-    needs: route
+-    # Dyna's large runner, as lint used, when the pool is up; GitHub's otherwise.
+-    runs-on: ${{ needs.route.outputs.self_hosted == 'true' && 'dyna-large' || 'ubuntu-latest' }}
++    runs-on: ubuntu-latest
+     timeout-minutes: 45
+-    env:
+-      RUNNER_KIND: ${{ needs.route.outputs.self_hosted == 'true' && 'dyna' || 'github' }}
+     steps:
+       - uses: actions/checkout@v4
+         with:
+           persist-credentials: false
+           ref: ${{ inputs.commit || github.sha }}
+-      - name: Check Dyna dependencies (install fallback without root)
+-        if: env.RUNNER_KIND == 'dyna'
+-        run: bash tools/ci/dyna_ci_deps.sh
+       - name: Install Rust toolchain and the runner image's packages
+-        env:
+-          HOSTED: ${{ env.RUNNER_KIND == 'github' }}
+         run: |
+-          if [ "$HOSTED" = true ]; then
+-            sudo apt-get update && sudo apt-get install -y --no-install-recommends $(grep -v '^#' tools/ci/runner-packages.txt)
+-          else
+-            if [ ! -x "$CARGO_HOME/bin/rustup" ]; then
+-              curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs | sh -s -- -y --no-modify-path --profile minimal
+-            fi
+-            export PATH="$CARGO_HOME/bin:$PATH"
+-            # Ordinary rustc invocations through the shared compiler cache, as in lint.
+-            echo "RUSTC_WRAPPER=$GITHUB_WORKSPACE/tools/ci/compiler-cache.sh" >> "$GITHUB_ENV"
+-          fi
++          sudo apt-get update && sudo apt-get install -y --no-install-recommends $(grep -v '^#' tools/ci/runner-packages.txt)
+           bash tools/ci/rustup_install.sh --profile minimal --component rustfmt --component clippy --target wasm32-unknown-unknown
+       # The build runs at the runner's size, not the host's (tools/ci/cargo_jobs.py), as lint's did.
+       - name: Cap build parallelism to the runner
+diff --git a/.github/workflows/modding-book.yml b/.github/workflows/modding-book.yml
+index 44262414e5c..acd587044a9 100644
+--- a/.github/workflows/modding-book.yml
++++ b/.github/workflows/modding-book.yml
+@@ -11,7 +11,7 @@ on:
+   workflow_dispatch:
+ jobs:
+   book:
+-    # A contributor's pull request (its head in a fork) skips what compiles; a reviewer dispatches it (tools/ci/pr_gate.py).
++    # A contributor's pull request (its head in a fork) skips what compiles; a maintainer dispatches it.
+     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+     runs-on: ubuntu-latest
+     steps:
+diff --git a/.github/workflows/native-dylib-probe.yml b/.github/workflows/native-dylib-probe.yml
+index 57c71c5d85d..0848973ac4e 100644
+--- a/.github/workflows/native-dylib-probe.yml
++++ b/.github/workflows/native-dylib-probe.yml
+@@ -19,25 +19,9 @@ concurrency:
+   cancel-in-progress: false
+ 
+ jobs:
+-  route:
+-    runs-on: ubuntu-latest
+-    outputs:
+-      self_hosted: ${{ steps.runner.outputs.self_hosted }}
+-    steps:
+-      - uses: actions/checkout@v4
+-        with:
+-          persist-credentials: false
+-      - id: runner
+-        env:
+-          ENABLED: ${{ vars.DYNA_CI_SELF_HOSTED }}
+-          LEASE: ${{ vars.DYNA_CI_POOL_UNTIL }}
+-          SAME_REPO: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+-          EVENT: ${{ github.event_name }}
+-        run: bash tools/ci/dyna_ci_runner.sh >> "$GITHUB_OUTPUT"
+   linkage:
+     permissions:
+       contents: read
+-    needs: route
+     name: linkage ${{ matrix.target }}
+     strategy:
+       fail-fast: false
+@@ -48,7 +32,7 @@ jobs:
+           # Match the launcher's actual compiler host, not Windows MSVC.
+           - os: windows-latest
+             target: x86_64-pc-windows-gnu
+-    runs-on: ${{ matrix.os == 'ubuntu-22.04' && needs.route.outputs.self_hosted == 'true' && 'dyna-large' || matrix.os }}
++    runs-on: ${{ matrix.os }}
+     timeout-minutes: 90
+     defaults:
+       run:
+@@ -57,15 +41,12 @@ jobs:
+       CARGO_INCREMENTAL: '0'
+       SDK_OUT: prebuilt
+       PROBE_OUT: target/native-dylib-probe
+-      PROBE_PYTHON: ${{ matrix.os == 'ubuntu-22.04' && needs.route.outputs.self_hosted == 'true' && 'python3' || 'python' }}
++      PROBE_PYTHON: python
+     steps:
+       - uses: actions/checkout@v4
+         with:
+           persist-credentials: false
+           ref: ${{ inputs.commit || github.sha }}
+-      - name: Self-hosted image headers or rootless fallback
+-        if: runner.environment == 'self-hosted' && runner.os == 'Linux'
+-        run: bash tools/ci/dyna_ci_deps.sh
+       - name: Record exact head and select the launcher's pinned compiler
+         id: rust
+         run: |
+diff --git a/.github/workflows/nightly-build.yml b/.github/workflows/nightly-build.yml
+index fc4dddd3eb8..b3c2b7224ef 100644
+--- a/.github/workflows/nightly-build.yml
++++ b/.github/workflows/nightly-build.yml
+@@ -398,7 +398,7 @@ jobs:
+     needs: [pick, build, sign, publish]
+     if: always() && inputs.issue != '' && needs.pick.result == 'success'
+     # One comment, no checkout and no secret: one of our small runners (label horizon-light, docs/ci-runners.md).
+-    runs-on: ${{ (vars.DYNA_CI_SELF_HOSTED == 'true' && vars.NIGHTLY_BOOKKEEPING_RUNNER && fromJSON(vars.NIGHTLY_BOOKKEEPING_RUNNER)) || (vars.SELF_HOSTED_CI != 'off' && fromJSON('["self-hosted", "linux", "horizon-light"]')) || 'ubuntu-latest' }}
++    runs-on: ${{ vars.SELF_HOSTED_CI != 'off' && fromJSON('["self-hosted", "linux", "horizon-light"]') || 'ubuntu-latest' }}
+     timeout-minutes: 5
+     permissions:
+       issues: write
+diff --git a/.github/workflows/release.yml b/.github/workflows/release.yml
+index 923d1175636..f44c69c05a6 100644
+--- a/.github/workflows/release.yml
++++ b/.github/workflows/release.yml
+@@ -3,8 +3,8 @@ name: release
+ # - nightly: the daily run (daily.yml) calls this when every leg is green, with that commit, and then publishes
+ #   whenever a player-facing pull request merged since the published Nightly (no batch-size or age rule); by hand it
+ #   defaults to `daily-green` and keeps the batch rules. It refuses any commit but the one `daily-green` points to.
+-# - snapshot: root's dispatch on main, for main's head or an explicit commit of main; it needs only dyna-checks' gate
+-#   (lint, verify, verify-static, launcher) passed on that exact commit (pending is not passed). It builds that
++# - snapshot: a maintainer's dispatch on main, for main's head or an explicit commit of main; it needs only the checks
++#   workflow's gate (verify, launcher) passed on that exact commit (pending is not passed). It builds that
+ #   commit's SDK (prebuilt-game-build.yml), publishes it as sdk-<sha> (sdk-publish.yml, skipped when it exists),
+ #   then starts `nightly build` with kind=snapshot, which builds, signs and publishes the game as the pre-release
+ #   snapshot-<date>-<short> on its own tag: never the `nightly` tag or channel, never `daily-green`, no daily tests.
+@@ -62,7 +62,7 @@ permissions:
+   contents: read
+   # The open release-blocker issues (decide).
+   issues: read
+-  # dyna-checks' gate jobs and the nightly build runs (decide).
++  # The checks workflow's gate jobs and the nightly build runs (decide).
+   actions: read
+ concurrency:
+   # One release at a time. A dry run publishes nothing, so it can't race a real release: it gets a group of its own.
+diff --git a/.github/workflows/wasm-coverage.yml b/.github/workflows/wasm-coverage.yml
+index 5710372a264..18f19320c28 100644
+--- a/.github/workflows/wasm-coverage.yml
++++ b/.github/workflows/wasm-coverage.yml
+@@ -1,18 +1,12 @@
+ name: wasm-coverage
+ # The full internals coverage (#1659): every crossable real internal has a compiling host binding and guest
+ # binding, generated from the real catalog and checked in one universal crate each. It alone takes about an
+-# hour on the OVH runners, so it runs once a day and on dispatch instead of on every main push (wasm-mods keeps
++# hour on a large runner, so it runs once a day and on dispatch instead of on every main push (wasm-mods keeps
+ # the fast checks). A red run is a main break. Same shape as the daily prebuilt game.
+ on:
+   schedule:
+     - cron: '0 6 * * *'
+   workflow_dispatch:
+-    inputs:
+-      runner:
+-        description: Runner for coverage verification
+-        type: choice
+-        default: auto
+-        options: [auto, ubuntu-latest, dyna-large]
+ permissions:
+   contents: read
+   actions: read
+@@ -20,50 +14,16 @@ concurrency:
+   group: wasm-coverage
+   cancel-in-progress: false
+ env:
+-  # sccache (shared per Dyna host) cannot cache incremental compiles, so every Rust job builds non-incremental.
++  # sccache cannot cache incremental compiles, so every Rust job builds non-incremental.
+   CARGO_INCREMENTAL: 0
+ jobs:
+-  # The same runner choice dyna-checks makes: Dyna's large runner while the pool is up, else GitHub's.
+-  runner:
+-    runs-on: ubuntu-latest
+-    timeout-minutes: 5
+-    outputs:
+-      self_hosted: ${{ steps.runner.outputs.self_hosted }}
+-    steps:
+-      - uses: actions/checkout@v4
+-      # The pool's switch and lease are read live: `vars` is fixed when the run is created, and a main run
+-      # that waits in the concurrency group would otherwise see a lease that expired while it waited.
+-      # A fork's pull request gets no token to read them and stays on GitHub's runners.
+-      - id: runner
+-        env:
+-          GH_TOKEN: ${{ github.token }}
+-          # The run's snapshot, used when the live read is refused (the workflow token may lack Variables access).
+-          VARS_ENABLED: ${{ vars.DYNA_CI_SELF_HOSTED }}
+-          VARS_LEASE: ${{ vars.DYNA_CI_POOL_UNTIL }}
+-          EVENT: ${{ github.event_name }}
+-          SAME_REPO: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+-        run: |
+-          if [ "$SAME_REPO" = true ]; then
+-            ENABLED=$(gh api "repos/$GITHUB_REPOSITORY/actions/variables/DYNA_CI_SELF_HOSTED" -q .value 2>/dev/null || true)
+-            LEASE=$(gh api "repos/$GITHUB_REPOSITORY/actions/variables/DYNA_CI_POOL_UNTIL" -q .value 2>/dev/null || true)
+-          fi
+-          # A refused read prints GitHub's error JSON: keep only a well-formed answer, else use the snapshot.
+-          case "${LEASE:-}" in '' | *[!0-9]*) LEASE= ;; esac
+-          case "${ENABLED:-}" in true | false) ;; *) ENABLED= ;; esac
+-          echo "pool lease: live=${LEASE:-unreadable} snapshot=${VARS_LEASE:-none}"
+-          ENABLED=${ENABLED:-$VARS_ENABLED} LEASE=${LEASE:-$VARS_LEASE} bash tools/ci/dyna_ci_runner.sh >> "$GITHUB_OUTPUT"
+-
+   wasm-coverage:
+-    needs: runner
+-    runs-on: ${{ inputs.runner != '' && inputs.runner != 'auto' && inputs.runner || (needs.runner.outputs.self_hosted == 'true' && 'dyna-large' || 'ubuntu-latest') }}
++    runs-on: ubuntu-latest
+     timeout-minutes: 150
+     steps:
+       - uses: actions/checkout@v4
+         with:
+           fetch-depth: 0
+-      - name: Check Dyna dependencies (install fallback without root)
+-        if: runner.environment != 'github-hosted'
+-        run: bash tools/ci/dyna_ci_deps.sh
+       - name: Install Rust toolchains and the ALSA and udev headers
+         env:
+           HOSTED: ${{ runner.environment == 'github-hosted' }}
+@@ -89,7 +49,7 @@ jobs:
+           workspaces: .
+           save-if: ${{ github.ref == 'refs/heads/main' }}
+       # Unlike rust-cache, retain the staged workspace artifacts and source mtimes.
+-      # Dyna's target symlink already persists these directories between jobs.
++      # A self-hosted runner's persistent target already keeps these directories between jobs.
+       - uses: actions/cache/restore@v4
+         if: runner.environment == 'github-hosted'
+         id: coverage-cache
+diff --git a/.github/workflows/wasm-mods.yml b/.github/workflows/wasm-mods.yml
+index c5a5afaf17c..66c76f71783 100644
+--- a/.github/workflows/wasm-mods.yml
++++ b/.github/workflows/wasm-mods.yml
+@@ -1,7 +1,7 @@
+ name: wasm-mods
+ # The daily run and manual dispatch only, never pull requests or main pushes (owner, 2026-11-12; CI tiers 2026-11-13).
+ on:
+-  # The daily run (daily.yml) calls it with the commit to check; root dispatches it on a branch that changes
++  # The daily run (daily.yml) calls it with the commit to check; a maintainer dispatches it on a branch that changes
+   # what it builds.
+   workflow_call:
+     inputs:
+@@ -20,7 +20,9 @@ concurrency:
+   cancel-in-progress: ${{ inputs.commit == '' && github.ref != 'refs/heads/main' }}
+ jobs:
+   fixture:
+-    runs-on: dyna-large
++    # The client tests below need the prepared vanilla data: a self-hosted Linux runner holding the maintainer's
++    # own Minecraft files (label horizon-game, as ci.yml's vanilla-parity).
++    runs-on: [self-hosted, linux, horizon-game]
+     timeout-minutes: 120
+     env:
+       CARGO_INCREMENTAL: 0
+@@ -31,7 +33,7 @@ jobs:
+       - name: Configure persistent build targets
+         shell: bash
+         run: |
+-          # Dyna supplies a persistent target mount.
++          # A runner may supply a persistent target folder (CARGO_TARGET_DIR).
+           target="${CARGO_TARGET_DIR:-$GITHUB_WORKSPACE/target}"
+           mkdir -p "$target"
+           if [[ "$target" != "$GITHUB_WORKSPACE/target" ]]; then
+@@ -123,15 +125,10 @@ jobs:
+         with:
+           distribution: temurin
+           java-version: '25'
++      - name: Tools from the runner
++        run: bash tools/ci/runner-env.sh
+       - name: Prepare checkout-keyed vanilla data
+-        run: |
+-          for dir in minecraft datagen horizon-client tools; do
+-            if [ ! -d "/cache/horizon-local/$dir" ]; then
+-              echo "::error::prepared data unavailable on this runner: $dir"
+-              exit 1
+-            fi
+-          done
+-          HORIZON_DYNA_CACHE=true HORIZON_PREPARED_CACHE="$DYNA_CI_BUILD/vanilla" HORIZON_SHARED_SOURCE=/cache/horizon-local bash tools/ci/vanilla-data.sh
++        run: bash tools/ci/vanilla-data.sh
+       - name: Run the client tests that load the compiled fixture
+         shell: bash
+         env:
+diff --git a/docs/ci-runners.md b/docs/ci-runners.md
+index 8ffbe527320..ef3234016e9 100644
+--- a/docs/ci-runners.md
++++ b/docs/ci-runners.md
+@@ -151,17 +151,3 @@ To move to a new release, in one pull request:
+ 1. write the new number in `tools/ci/rust-version`;
+ 2. update `DIST` and each platform's component checksums in `launcher/src/rust_toolchain.rs` for that release;
+ 3. fix what the new compiler and Clippy report, and anything the release changed (build layout, warnings).
+-
+-## Cheap checks on contributors' pull requests
+-
+-A pull request whose head branch is in a contributor's fork gets only the cheap checks: `verify-static` and
+-`format` (repository hygiene, the mod API boundary scan and rustfmt; nothing compiles). `lint`, `verify`,
+-`launcher`, the Windows launcher tests, the modding book and cargo-horizon-mod's builds are skipped, and a skipped job
+-counts as passed for a required check. Everything runs on main's pushes, on dispatches, and on pull requests from
+-this repository's own branches (rollups, syncs, fast-path fixes, our sessions' work), which carry contributors'
+-changes into one heavy run. The rule is `tools/ci/pr_gate.py`; `tests/test_pr_gate.py` keeps the workflows to it.
+-
+-A reviewer runs the heavy gate on one contributor's pull request with `gh workflow run dyna-ci.yml -f pr=<number>`.
+-Main's workflow checks out that pull request's head commit on GitHub's runners (never ours) with a read-only token,
+-and the `pr-status` job, which runs none of its code and alone may write commit statuses, posts `dispatched/lint`,
+-`dispatched/verify`, `dispatched/verify-static` and `dispatched/launcher` on that commit.
+diff --git a/docs/layering/mod-host-map.md b/docs/layering/mod-host-map.md
+index 87d5ae53576..bfb7fe0bcd4 100644
+--- a/docs/layering/mod-host-map.md
++++ b/docs/layering/mod-host-map.md
+@@ -114,5 +114,5 @@ host areas by strand, and the vocabulary split) are built from the current tree,
+ 
+ - locally: `python3 tools/layering/scan_engine_mod_edges.py --map target/layering/mod-host-map-tables.md` (or with
+   no argument, to print them);
+-- for main: the `mod-host-map` artifact of the `verify-static` job of the latest `dyna-checks` run on main. Only pushes to
++- for main: the `mod-host-map` artifact of the `verify` job of the latest `checks` run on main. Only pushes to
+   main build it; pull request runs don't.
+diff --git a/tests/test_ci_cargo_jobs.py b/tests/test_ci_cargo_jobs.py
+index 905c9c6e53a..0a8c287a99f 100644
+--- a/tests/test_ci_cargo_jobs.py
++++ b/tests/test_ci_cargo_jobs.py
+@@ -1,7 +1,6 @@
+-"""Build parallelism: a Dyna runner's CPU quota within its memory, fixed elsewhere."""
++"""Build parallelism: a self-hosted runner's CPU quota within its memory, fixed elsewhere."""
+ import importlib.util
+ import os
+-import re
+ from pathlib import Path
+ import shutil
+ import subprocess
+@@ -27,7 +26,7 @@ def steps(workflow: str, job: str) -> dict:
+ class CargoJobsTests(unittest.TestCase):
+     def test_cpu_quota_bounded_by_memory_with_a_floor_of_four(self):
+         cases = [
+-            ((8, 16 * GIB, 3072), 5),  # dyna-large: memory, not its 8 CPUs, binds
++            ((8, 16 * GIB, 3072), 5),  # an 8-CPU, 16 GiB runner: memory, not its CPUs, binds
+             ((8, 16 * GIB, 4096), 4),
+             ((16, 64 * GIB, 3072), 16),  # CPUs bind
+             ((2, 4 * GIB, 3072), 4),  # never below the old fixed cap
+@@ -77,15 +76,6 @@ class CargoJobsTests(unittest.TestCase):
+                                env=dict(PATH=f"{stubs}:/usr/bin:/bin", GITHUB_ENV=str(receipt), ARGS=str(args), **env))
+                 return receipt.read_text(), args.read_text().strip()
+ 
+-            for job, mib in (("lint", 3072), ("verify", 4096)):
+-                script = steps("dyna-ci.yml", job)["Choose build parallelism"]["run"]
+-                for kind, expected in (("dyna", "JOBS=-j6\n"), ("boat", "JOBS=-j4\n"),
+-                                       ("github", "JOBS=\n"), ("other", "JOBS=\n")):
+-                    with self.subTest(job=job, kind=kind):
+-                        written, called = run(script, RUNNER_KIND=kind)
+-                        self.assertEqual(written, expected)
+-                        self.assertEqual(called, f"tools/ci/cargo_jobs.py --job-mib {mib}" if kind == "dyna" else "")
+-
+             script = steps("fn-replace-check.yml", "fn-replace-check")["Choose build parallelism"]["run"]
+             for environment, expected in (("github-hosted", "CARGO_BUILD_JOBS=2\n"), ("self-hosted", "CARGO_BUILD_JOBS=6\n")):
+                 with self.subTest(environment=environment):
+@@ -105,22 +95,6 @@ class CargoJobsTests(unittest.TestCase):
+             self.assertIn("[build]\njobs = 5\n", config)
+             self.assertEqual(env.read_text(), "RUST_TEST_THREADS=8\nCI_JOBS=5\nCI_CPUS=8\n")
+ 
+-    def test_every_dyna_job_that_builds_caps_its_parallelism_first(self):
+-        # A runner's nproc reports the whole host: an uncapped build there starts one compiler per
+-        # host core inside the runner's CPU quota.
+-        builds = re.compile(r"\bcargo (build|test|check|clippy|rustc|run|doc)\b|vanilla-data\.sh|"
+-                            r"prebuilt_game\.py|ignored_tests\.py|run_test_binaries\.py|test_\w+_parity\.py")
+-        for path in sorted((ROOT / ".github/workflows").glob("*.yml")):
+-            for name, job in (yaml.safe_load(path.read_text()).get("jobs") or {}).items():
+-                if "dyna" not in str(job.get("runs-on", "")):
+-                    continue
+-                runs = [step.get("run") or "" for step in job.get("steps", [])]
+-                first = next((i for i, run in enumerate(runs) if builds.search(run)), None)
+-                if first is None:
+-                    continue
+-                with self.subTest(workflow=path.name, job=name):
+-                    capped = [i for i, run in enumerate(runs) if "tools/ci/cargo_jobs.py" in run and "--cap" in run]
+-                    self.assertTrue(capped and capped[0] < first, "cap parallelism before the first build step")
+ 
+ if __name__ == "__main__":
+     unittest.main()
+diff --git a/tests/test_ci_concurrency.py b/tests/test_ci_concurrency.py
+index a7cf2b59992..391238ed12e 100644
+--- a/tests/test_ci_concurrency.py
++++ b/tests/test_ci_concurrency.py
+@@ -10,7 +10,6 @@ ROOT = Path(__file__).resolve().parents[1]
+ sys.path.insert(0, str(ROOT / "tools/ci/vendor/pyyaml-6.0.3.zip"))
+ import yaml
+ 
+-WORKFLOWS = [ROOT / ".github/workflows/dyna-ci.yml"]
+ # The daily run's legs: called by daily.yml or dispatched by hand, never on pull requests or main pushes (owner,
+ # 2026-11-12; CI tiers 2026-11-13).
+ DAILY_LEGS = [ROOT / ".github/workflows" / name for name in ("wasm-mods.yml", "fn-replace-check.yml",
+@@ -75,38 +74,6 @@ def concurrency_for(path, event, sha, number=None, ref="refs/heads/main", inputs
+ 
+ 
+ class ConcurrencyTests(unittest.TestCase):
+-    def test_main_pushes_run_side_by_side_and_finish(self):
+-        for path in WORKFLOWS:
+-            with self.subTest(workflow=path.name):
+-                first = concurrency_for(path, "push", "a" * 40)
+-                next_push = concurrency_for(path, "push", "b" * 40)
+-                self.assertNotEqual(first[0], next_push[0], "a main push must not wait behind another")
+-                self.assertIs(first[1], False, "a main push must not cancel the running run")
+-                self.assertIs(next_push[1], False)
+-
+-    def test_pr_updates_cancel_only_the_same_pr_group(self):
+-        for path in WORKFLOWS:
+-            with self.subTest(workflow=path.name):
+-                first = concurrency_for(path, "pull_request", "a" * 40, 101)
+-                update = concurrency_for(path, "pull_request", "b" * 40, 101)
+-                other_pr = concurrency_for(path, "pull_request", "c" * 40, 102)
+-                main = concurrency_for(path, "push", "d" * 40)
+-                self.assertEqual(first[0], update[0], "updates must replace checks for the same PR")
+-                self.assertNotEqual(first[0], other_pr[0], "one PR must not cancel another PR")
+-                self.assertNotEqual(first[0], main[0], "a PR must not cancel main")
+-                for _, cancel in (first, update, other_pr):
+-                    self.assertIs(cancel, True, "PR events must still cancel their previous checks")
+-
+-    def test_pr_dispatches_on_one_main_head_stay_apart(self):
+-        for path in WORKFLOWS:
+-            with self.subTest(workflow=path.name):
+-                sha = "e" * 40
+-                one = concurrency_for(path, "workflow_dispatch", sha, inputs={"pr": "201"})
+-                other = concurrency_for(path, "workflow_dispatch", sha, inputs={"pr": "202"})
+-                main = concurrency_for(path, "push", sha)
+-                self.assertNotEqual(one[0], other[0], "two reviewers' dispatches must not replace each other")
+-                self.assertNotEqual(one[0], main[0], "a dispatch must not hold main's run")
+-
+     def test_daily_legs_never_run_on_pull_requests_or_pushes(self):
+         for path in DAILY_LEGS + [ROOT / ".github/workflows" / name
+                                   for name in ("ignored-tests.yml", "native-dylib-probe.yml")]:
+diff --git a/tests/test_ci_failure_visibility.py b/tests/test_ci_failure_visibility.py
+index 2240e6522f8..de4bcefefd6 100644
+--- a/tests/test_ci_failure_visibility.py
++++ b/tests/test_ci_failure_visibility.py
+@@ -153,23 +153,3 @@ class Visibility(unittest.TestCase):
+         self.assertNotIn("PRIVATE_PAYLOAD", result.stdout)
+         self.assertEqual(result.stderr, "")
+ 
+-    def test_formatting_failure_does_not_skip_later_builds_but_is_propagated(self):
+-        steps = yaml.safe_load((ROOT / '.github/workflows/dyna-ci.yml').read_text())["jobs"]["lint"]["steps"]
+-        fmt = next(s for s in steps if s.get("id") == "formatting")
+-        native = next(s for s in steps if s.get("id") == "native-lint")
+-        final = next(s for s in steps if s.get("name") == "Summarize failed gate steps")
+-        self.assertNotIn("continue-on-error", fmt)
+-        self.assertNotIn("clippy", fmt["run"])
+-        self.assertIn("clippy", native["run"])
+-        self.assertNotIn("continue-on-error", native)
+-        for name in ("Lint native targets", "Lint the server build without sound or controllers", "The mod API builds for wasm32"):
+-            step = next(s for s in steps if s.get("name") == name)
+-            self.assertLess(steps.index(fmt), steps.index(step))
+-            self.assertLess(steps.index(step), steps.index(final))
+-            self.assertNotIn("formatting", step.get("if", ""))
+-        self.assertIn("failure()", final["if"])
+-        self.assertIn("!cancelled()", final["if"])
+-        for name in ("native-lint", "server-lint"):
+-            step = next(s for s in steps if s.get("id") == name)
+-            self.assertIn("!cancelled()", step["if"])
+-            self.assertNotIn("success()", step["if"])
+diff --git a/tests/test_ci_runners.py b/tests/test_ci_runners.py
+index 0d9db6dd974..f3bb5f5c8bc 100644
+--- a/tests/test_ci_runners.py
++++ b/tests/test_ci_runners.py
+@@ -14,8 +14,6 @@ WORKFLOWS = ROOT / ".github/workflows"
+ LIGHT = ("horizon-light", "playhorizon-light", "playhorizon-ci")
+ CHECKS = ("horizon-checks",)
+ FORK_GUARD = "github.event.pull_request.head.repo.full_name == github.repository"
+-# dyna-ci.yml decides trust once, in its changes job (a fork's pull request, dispatched with `pr` or not).
+-TRUSTED = "needs.changes.outputs.trusted == 'true'"
+ TRUSTED_WRITES = re.compile(r"^\s*(contents|actions|packages|id-token|deployments|attestations): write", re.M)
+ # actions: write can start workflows too; cancel-on-close needs it to cancel runs and runs no checkout at all.
+ CANCELS_RUNS = {"cancel-on-close.yml cancel"}
+@@ -76,16 +74,7 @@ class OwnRunnerTests(unittest.TestCase):
+         count = 0
+         for where, _, _, _, value, pools in routed():
+             count += 1
+-            # dyna-ci.yml (ours) routes through the changes job's self_hosted
+-            # output and dyna-medium, or SELF_HOSTED_CI=all with the fork guard
+-            # before the playhorizon-ci labels; the carried upstream files use
+-            # SELF_HOSTED_CI != 'off'. Both fall back to GitHub's runners.
+-            if "dyna-ci.yml" in where:
+-                self.assertIn("needs.changes.outputs.self_hosted == 'true'", value, where)
+-                self.assertIn("vars.SELF_HOSTED_CI == 'all'", value, where)
+-                self.assertIn(TRUSTED, value, where)
+-            else:
+-                self.assertIn("vars.SELF_HOSTED_CI != 'off'", value, where)
++            self.assertIn("vars.SELF_HOSTED_CI != 'off'", value, where)
+             # Both labels select a GitHub-hosted Ubuntu runner when our pools are disabled.
+             self.assertRegex(value, r"\|\| 'ubuntu-(?:latest|24\.04)' \}\}$", where)
+             if "checks" in pools:
+@@ -98,10 +87,9 @@ class OwnRunnerTests(unittest.TestCase):
+             if "light" not in pools:
+                 continue
+             if "pull_request" in on:
+-                # The guard lives in the job's `if` upstream; dyna-ci.yml (ours)
+-                # puts it in `runs-on`, before the self-hosted labels.
++                # The guard lives in the job's `if` or in `runs-on`, before the self-hosted labels.
+                 condition = next((l for l in block.splitlines() if l.strip().startswith("if:")), "")
+-                guarded = any(guard in condition or guard in value for guard in (FORK_GUARD, TRUSTED))
++                guarded = FORK_GUARD in condition or FORK_GUARD in value
+                 self.assertTrue(guarded, f"{where}: a fork's pull request")
+             if "pull_request_target" in on:
+                 # main's code only: every checkout is main's.
+diff --git a/tests/test_ci_rust_changes.py b/tests/test_ci_rust_changes.py
+index 6bdabd41e34..de382fdfe59 100644
+--- a/tests/test_ci_rust_changes.py
++++ b/tests/test_ci_rust_changes.py
+@@ -31,7 +31,7 @@ class RustChangesTests(unittest.TestCase):
+         for path in ["launcher/src/main.rs", "launcher/Cargo.lock", "crates/horizon-port-pack/src/net.rs",
+                      "crates/horizon-mcp/src/lib.rs", "crates/horizon-mod-api-gen/src/injection.rs",
+                      "crates/horizon-theme/src/lib.rs", "Cargo.toml", "Cargo.lock",
+-                     ".github/workflows/ci.yml", ".github/workflows/dyna-ci.yml"]:
++                     ".github/workflows/ci.yml"]:
+             with self.subTest(path=path):
+                 self.assertTrue(needs_launcher(["README.md", path]))
+ 
+@@ -94,7 +94,7 @@ class RustChangesTests(unittest.TestCase):
+         self.assertEqual(selections([("M", "docs/setup.md")]), {
+             "rust_required": False, "launcher_required": False, "tooling_required": False,
+         })
+-        for path in ["Cargo.lock", "tools/ci/rust_changes.py", ".github/workflows/dyna-ci.yml"]:
++        for path in ["Cargo.lock", "tools/ci/rust_changes.py", ".github/workflows/ci.yml"]:
+             selected = selections([("M", path)])
+             self.assertTrue(selected["rust_required"])
+             self.assertTrue(selected["launcher_required"])
+diff --git a/tests/test_ci_source_mtimes.py b/tests/test_ci_source_mtimes.py
+index 2f6b99d86cc..0df2ffd69cf 100644
+--- a/tests/test_ci_source_mtimes.py
++++ b/tests/test_ci_source_mtimes.py
+@@ -136,25 +136,5 @@ BUILDS = re.compile(r"\bcargo (build|test|check|clippy|rustc|run|doc)\b|vanilla-
+                     r"ignored_tests\.py|run_test_binaries\.py")
+ 
+ 
+-class PersistentTargetTests(unittest.TestCase):
+-    def test_every_dyna_job_that_builds_snapshots_its_sources_first(self):
+-        # A Dyna runner keeps its target between jobs of any branch. A job that builds there
+-        # without refreshing the snapshot leaves artifacts of its tree that the next snapshotting
+-        # job, restoring old timestamps, judges fresh. A job building in its own scratch target is exempt.
+-        for path in sorted((ROOT / ".github/workflows").glob("*.yml")):
+-            for name, job in (yaml.safe_load(path.read_text()).get("jobs") or {}).items():
+-                if "dyna" not in str(job.get("runs-on", "")):
+-                    continue
+-                runs = [step.get("run") or "" for step in job.get("steps", [])]
+-                if any('echo "CARGO_TARGET_DIR=' in run and "mktemp -d" in run for run in runs):
+-                    continue
+-                builds = [i for i, run in enumerate(runs) if BUILDS.search(run)]
+-                if not builds:
+-                    continue
+-                with self.subTest(workflow=path.name, job=name):
+-                    snapshot = [i for i, run in enumerate(runs) if "tools/ci/source_mtimes.py" in run]
+-                    self.assertTrue(snapshot and snapshot[0] < builds[0],
+-                                    "restore the source snapshot before the first build step")
+-
+ if __name__ == "__main__":
+     unittest.main()
+diff --git a/tests/test_client_ci_stopgap.py b/tests/test_client_ci_stopgap.py
+index df12bfa32e6..6f6ddb3547e 100644
+--- a/tests/test_client_ci_stopgap.py
++++ b/tests/test_client_ci_stopgap.py
+@@ -14,28 +14,6 @@ ROOT = Path(__file__).resolve().parents[1]
+ 
+ 
+ class ClientStopgap(unittest.TestCase):
+-    def test_actual_yaml_routes_only_two_exact_client_selectors(self):
+-        job = yaml.safe_load((ROOT / '.github/workflows/ignored-tests.yml').read_text())["jobs"]["ignored-tests-shards"]
+-        expression = job["runs-on"]
+-        selectors = ignored_shards.expand(ignored_shards.SHARDS) + [
+-            "horizon-client", "horizon-client#1of1", "horizon-client#1of3",
+-            "horizon-client#2of3", "horizon-client#3of3", "horizon-client-lib#1of2",
+-        ]
+-        for selector in selectors:
+-            with self.subTest(selector=selector):
+-                actual = expression
+-                if expression.startswith('${{'):
+-                    source = expression.removeprefix('${{').removesuffix('}}').strip()
+-                    tree = ast.parse(source.replace('&&', ' and ').replace('||', ' or '), mode='eval')
+-                    # Validate context identity before adapting to the shared evaluator.
+-                    # In particular github.shard must not receive matrix selector data.
+-                    for node in ast.walk(tree):
+-                        if isinstance(node, ast.Name):
+-                            self.assertIn(node.id, ('matrix', 'true', 'false'))
+-                    actual = expression_value(source.replace('matrix.', 'github.'), {"shard": selector})
+-                expected = "dyna-xlarge" if selector in ("horizon-client#1of2", "horizon-client#2of2") else "dyna-large"
+-                self.assertEqual(actual, expected)
+-
+     def test_wrapper_command_threads_for_canonical_and_direct_selectors(self):
+         selectors = ignored_shards.expand(ignored_shards.SHARDS) + [
+             "horizon-client", "horizon-client#1of1", "horizon-client#1of3",
+diff --git a/tests/test_ignored_test_completion.py b/tests/test_ignored_test_completion.py
+index 63b1d574d84..0785e793453 100644
+--- a/tests/test_ignored_test_completion.py
++++ b/tests/test_ignored_test_completion.py
+@@ -275,10 +275,6 @@ class IgnoredTests(unittest.TestCase):
+             self.assertIsNone(ignored_tests.run("horizon-mod-package", [], only=("lib", ["holder::tests::slow"])))
+         self.assertEqual(execute.call_count, 1)
+         self.assertEqual(ignored_tests._stopped["reason"], "what the tests need could not be built")
+-        # verify and the launcher job build it with the same command.
+-        workflow = (Path(__file__).resolve().parents[1] / ".github/workflows/dyna-ci.yml").read_text()
+-        self.assertEqual(workflow.count("ignored_shards.py --prepare horizon-mod-package"), 2)
+-        self.assertNotIn("--example holder_actor", workflow)
+ 
+     def test_a_launcher_daily_row_runs_from_the_launcher_workspace_against_its_lockfile(self):
+         output = target(1, "test logs::slow ... ok\n", summary(passed=1))
+diff --git a/tests/test_nightly.py b/tests/test_nightly.py
+index 5de09f61a70..8b41f71b786 100644
+--- a/tests/test_nightly.py
++++ b/tests/test_nightly.py
+@@ -180,15 +180,12 @@ class UntrustedBuildTests(unittest.TestCase):
+ 
+     def test_an_untrusted_build_never_runs_on_the_release_runner(self):
+         runs_on = [line for line in self.game.splitlines() if "runs-on: ${{" in line]
+-        self.assertEqual(len(runs_on), 3)
++        self.assertEqual(len(runs_on), 2)
+         # The nightly's own runner: never the release runner, and never behind pull requests' parity queue.
+         nightly_default = "'[\"self-hosted\", \"macOS\", \"horizon-nightly\"]'"
+-        for line, variable in zip(runs_on, ("NIGHTLY_EXPORTERS_RUNNER", "NIGHTLY_MAC_RUNNER")):
++        for line in runs_on:
+             self.assertIn("inputs.trusted && toJSON(vars.MAC_RUNNER)", line)
+-            self.assertIn(f"vars.DYNA_CI_SELF_HOSTED == 'true' && vars.{variable}", line)
+             self.assertIn(f"vars.SELF_HOSTED_CI != 'off' && {nightly_default}", line)
+-        self.assertNotIn("NIGHTLY_LINUX_RUNNER", runs_on[1])
+-        self.assertIn("vars.NIGHTLY_LINUX_RUNNER", runs_on[2])
+ 
+     def test_a_trusted_build_never_reads_the_shared_sccache(self):
+         calls = self.game.count("bash tools/ci/runner-env.sh")
+diff --git a/tests/test_nightly_routing.py b/tests/test_nightly_routing.py
+index 025d249008c..2eddefa2e10 100644
+--- a/tests/test_nightly_routing.py
++++ b/tests/test_nightly_routing.py
+@@ -30,9 +30,7 @@ class NightlyRoutingTests(unittest.TestCase):
+         self.assertIn("needs: runner-configuration", workflow_jobs["exporters"])
+         self.assertIn("needs: [runner-configuration, exporters]", workflow_jobs["build"])
+         expressions = re.findall(r"^\s*runs-on:\s*\$\{\{(.*?)\}\}\s*$", text, re.M)
+-        self.assertEqual(len(expressions), 3)
+-        smoke = workflow_jobs["linux-smoke"]
+-        smoke_if = re.search(r"^\s*if:\s*\$\{\{(.*?)\}\}\s*$", smoke, re.M).group(1)
++        self.assertEqual(len(expressions), 2)
+         block = text.split("        include:\n", 1)[1].split("    runs-on:", 1)[0]
+         rows = []
+         for line in block.splitlines():
+@@ -46,10 +44,6 @@ class NightlyRoutingTests(unittest.TestCase):
+                 value = value.strip()
+                 rows[-1][key] = {"true": True, "false": False}.get(value, value)
+         self.assertEqual({row["name"] for row in rows}, {"linux", "linux-musl", "windows", "windows-arm64", "macos", "macos-x64"})
+-        linux = next(row for row in rows if row["name"] == "linux")
+-        self.assertIn(f"name: {linux['asset']}", smoke, "smoke must download the hosted producer's archive")
+-        self.assertIn(f"/hosted-linux/{linux['dir']}", smoke)
+-        self.assertIn("needs: [runner-configuration, build]", smoke)
+         script = """const fs = require('fs');
+ const state = JSON.parse(fs.readFileSync(0, 'utf8'));
+ // Actions returns an empty string for absent context properties, not undefined.
+@@ -63,33 +57,23 @@ console.log(JSON.stringify(eval(expression)));
+             return json.loads(result.stdout)
+         default_mac = ["self-hosted", "macOS", "horizon-nightly"]
+         bookkeeping = re.search(r"^\s*runs-on:\s*\$\{\{(.*?)\}\}\s*$", NIGHTLY.read_text(), re.M).group(1)
+-        for configured, release_runner, disabled, trusted, dyna in itertools.product(
+-            [False, True], [False, True], [False, True], [False, True], [None, "false", "true"]
+-        ):
++        for release_runner, disabled, trusted in itertools.product([False, True], [False, True], [False, True]):
+             variables = {"SELF_HOSTED_CI": "off" if disabled else "all"}
+-            if dyna is not None:
+-                variables["DYNA_CI_SELF_HOSTED"] = dyna
+-            override = configured and dyna == "true"
+             if release_runner:
+                 variables["MAC_RUNNER"] = "release-mac"
+-            if configured:
+-                variables.update({"NIGHTLY_LINUX_RUNNER": '"dyna-large"', "NIGHTLY_MAC_RUNNER": '"macos-15"', "NIGHTLY_EXPORTERS_RUNNER": '"dyna-large"', "NIGHTLY_BOOKKEEPING_RUNNER": '"dyna-small"'})
+             # An empty runs-on is rejected by Actions; never choose a shared runner instead.
+             dedicated = "release-mac" if release_runner else ""
+-            expected_exporter = dedicated if trusted else ("dyna-large" if override else ("ubuntu-latest" if disabled else default_mac))
+-            with self.subTest(configured=configured, release_runner=release_runner, disabled=disabled, trusted=trusted, dyna=dyna):
++            expected_exporter = dedicated if trusted else ("ubuntu-latest" if disabled else default_mac)
++            with self.subTest(release_runner=release_runner, disabled=disabled, trusted=trusted):
+                 self.assertEqual(evaluate(guard_if, {}, trusted), trusted and not release_runner)
+                 self.assertEqual(evaluate(expressions[0], {}, trusted), expected_exporter)
+-                expected_bookkeeping = "dyna-small" if override else ("ubuntu-latest" if disabled else ["self-hosted", "linux", "horizon-light"])
++                expected_bookkeeping = "ubuntu-latest" if disabled else ["self-hosted", "linux", "horizon-light"]
+                 self.assertEqual(evaluate(bookkeeping, {}, trusted), expected_bookkeeping)
+-                self.assertEqual(evaluate(smoke_if, {}, trusted), not trusted and override)
+-                if not trusted and override:
+-                    self.assertEqual(evaluate(expressions[2], {}, trusted), "dyna-large")
+                 for row in rows:
+                     if row["name"] in {"linux", "linux-musl"}:
+                         self.assertEqual(row["os"], "ubuntu-22.04", "shipped Linux binaries keep the documented libc baseline")
+                     if row.get("mac"):
+-                        expected = dedicated if trusted else ("macos-15" if disabled or override else default_mac)
++                        expected = dedicated if trusted else ("macos-15" if disabled else default_mac)
+                     else:
+                         expected = row["os"]
+                     with self.subTest(entry=row["name"]):
+diff --git a/tests/test_release_train.py b/tests/test_release_train.py
+index 45754604e20..afe79393197 100644
+--- a/tests/test_release_train.py
++++ b/tests/test_release_train.py
+@@ -350,7 +350,7 @@ class ReleaseTrainTests(unittest.TestCase):
+                         status="completed", conclusion="failure")
+         def job(name, status="completed", conclusion="success"):
+             return dict(name=name, status=status, conclusion=conclusion)
+-        gates = [job(name) for name in ("lint", "verify", "verify-static", "launcher", "pool-watch")]
++        gates = [job(name) for name in ("verify", "launcher")]
+         records = [record("pr", 1, "pull_request"), record("topic", 2, branch="topic"),
+                    record("new", 3), record("good", 4), record("old", 5)]
+         jobs = {3: gates[:-1], 4: gates + [job("client-data", conclusion="failure")]}
+@@ -358,12 +358,12 @@ class ReleaseTrainTests(unittest.TestCase):
+             self.assertEqual(arguments[:4], ("api", "--paginate", "--slurp", arguments[3]))
+             path = arguments[3]
+             self.assertNotIn("wasm-mods.yml", path, "the fixture runs in the daily run, not on main pushes")
+-            if "dyna-ci.yml/runs?" in path:
++            if "/ci.yml/runs?" in path:
+                 self.assertIn("branch=main&event=push", path)
+                 return [{"workflow_runs": records[:3]}, {"workflow_runs": records[3:]}]
+             ident = int(path.split("/runs/")[1].split("/")[0])
+             self.assertIn("filter=latest", path)
+-            return [{"jobs": jobs[ident][:2]}, {"jobs": jobs[ident][2:]}]
++            return [{"jobs": jobs[ident][:1]}, {"jobs": jobs[ident][1:]}]
+         with mock.patch.object(train, "REPO", "arismoko/horizon"), \
+                 mock.patch.object(train, "gh_json", side_effect=api) as requests:
+             self.assertEqual(train.green_main_head(parity=True), "good", "missing gate is not success")
+@@ -375,7 +375,7 @@ class ReleaseTrainTests(unittest.TestCase):
+             paths = [call.args[3] for call in requests.call_args_list]
+             self.assertFalse(any("/runs/3/jobs" in path for path in paths))
+             self.assertTrue(any("/runs/4/jobs" in path for path in paths))
+-            for name in ("verify", "verify-static", "pool-watch"):
++            for name in ("verify", "launcher"):
+                 for status, conclusion in [("queued", None), ("in_progress", "success"),
+                                            ("completed", "skipped"), ("completed", "cancelled"),
+                                            ("completed", "failure"), ("completed", "timed_out")]:
+@@ -428,15 +428,15 @@ class ReleaseTrainTests(unittest.TestCase):
+                 head = commits[1]
+                 green = {"workflow_runs": [dict(head_sha=head, head_branch="main", event="push", id=7)]}
+                 done = dict(status="completed", conclusion="success")
+-                gates = [{"jobs": [dict(name=name, **done) for name in ("lint", "verify", "verify-static", "launcher")]}]
++                gates = [{"jobs": [dict(name=name, **done) for name in ("verify", "launcher")]}]
+                 with mock.patch.object(train, "REPO", "arismoko/horizon"), \
+                         mock.patch.object(train, "gh_json", side_effect=[[green], gates]):
+                     self.assertEqual(train.channel_head("snapshot", ""), head, "a snapshot needs the gate only")
+                 with mock.patch.object(train, "REPO", "arismoko/horizon"), \
+-                        mock.patch.object(train, "gh_json", side_effect=[[green], [{"jobs": gates[0]["jobs"][:3]}]]):
++                        mock.patch.object(train, "gh_json", side_effect=[[green], [{"jobs": gates[0]["jobs"][:1]}]]):
+                     with self.assertRaisesRegex(SystemExit, "a snapshot needs the gate green"):
+                         train.channel_head("snapshot", head)
+-                pending = [{"jobs": gates[0]["jobs"][:3] + [dict(name="launcher", status="in_progress", conclusion=None)]}]
++                pending = [{"jobs": gates[0]["jobs"][:1] + [dict(name="launcher", status="in_progress", conclusion=None)]}]
+                 with mock.patch.object(train, "REPO", "arismoko/horizon"), \
+                         mock.patch.object(train, "gh_json", side_effect=[[green], pending]):
+                     with self.assertRaisesRegex(SystemExit, "a snapshot needs the gate green"):
+diff --git a/tests/test_repository_hygiene.py b/tests/test_repository_hygiene.py
+index 27cfe63fd52..397f8012290 100644
+--- a/tests/test_repository_hygiene.py
++++ b/tests/test_repository_hygiene.py
+@@ -74,7 +74,7 @@ class RepositoryHygieneTests(unittest.TestCase):
+ 
+     def test_all_workflow_files_are_parsed(self):
+         self.write(".github/workflows/ok.yml", "on: push\njobs: {}\n")
+-        for path in [".github/workflows/dyna-ci.yml", ".github/workflows/other.yaml"]:
++        for path in [".github/workflows/ci.yml", ".github/workflows/other.yaml"]:
+             with self.subTest(path=path):
+                 self.write(path, "name: [unfinished\n")
+                 result = self.run_check()
+@@ -88,16 +88,16 @@ class RepositoryHygieneTests(unittest.TestCase):
+     def test_pre_push_checks_each_committed_tip_not_clean_worktree(self):
+         self.git("commit", "-qm", "clean")
+         clean = self.git("rev-parse", "HEAD")
+-        self.write(".github/workflows/dyna-ci.yml", "name: [unfinished\n")
++        self.write(".github/workflows/ci.yml", "name: [unfinished\n")
+         self.git("commit", "-qm", "broken workflow")
+         broken = self.git("rev-parse", "HEAD")
+-        self.write(".github/workflows/dyna-ci.yml", "on: push\njobs: {}\n")
++        self.write(".github/workflows/ci.yml", "on: push\njobs: {}\n")
+         self.assertEqual(self.run_check().returncode, 0)
+         refs = f"refs/heads/clean {clean} refs/heads/clean {'0' * 40}\n"
+         refs += f"refs/heads/broken {broken} refs/heads/broken {'0' * 40}\n"
+         result = self.run_check(pre_push=refs)
+         self.assertNotEqual(result.returncode, 0)
+-        self.assertIn("dyna-ci.yml:", result.stderr)
++        self.assertIn("ci.yml:", result.stderr)
+         self.assertIn("invalid workflow YAML", result.stderr)
+         self.assertEqual(self.run_check(pre_push="").returncode, 0)
+         self.assertEqual(self.run_check(pre_push=f"refs/heads/x {'0' * 40} refs/heads/x {clean}\n").returncode, 0)
+diff --git a/tests/test_snapshot.py b/tests/test_snapshot.py
+index 8b9026bb303..4dd52358776 100644
+--- a/tests/test_snapshot.py
++++ b/tests/test_snapshot.py
+@@ -105,7 +105,6 @@ class NightlyBuildSnapshotTests(unittest.TestCase):
+                 if eval(condition.replace("||", "or").replace("&&", "and"), {"__builtins__": {}}):
+                     optional.add(row["name"])
+             self.assertEqual(optional, {"windows-arm64", "linux-musl"} | ({"macos-x64"} if kind == "snapshot" else set()))
+-        self.assertEqual(game["jobs"]["linux-smoke"]["needs"], ["runner-configuration", "build"])
+         self.assertEqual(self.workflow["jobs"]["sign"]["needs"], ["pick", "build"])
+         self.assertEqual(self.workflow["jobs"]["publish"]["needs"], ["pick", "build", "sign"])
+ 
+diff --git a/tools/ci/ignored_shards.py b/tools/ci/ignored_shards.py
+index 8caf00b5adb..e6a1a10475e 100755
+--- a/tools/ci/ignored_shards.py
++++ b/tools/ci/ignored_shards.py
+@@ -30,7 +30,7 @@ from tools.ci import rust_changes  # noqa: E402
+ ROOT = Path(__file__).resolve().parents[2]
+ 
+ # One package per shard, balanced on the measured test times of the single-job run this
+-# plan replaced (dyna-ci run #952, e8752e146f: horizon-client 380s, horizon-client-render
++# plan replaced (CI run #952, e8752e146f: horizon-client 380s, horizon-client-render
+ # 279s, horizon-client-lib 189s, 16m53s wall); horizon-world and horizon-items joined when every library
+ # test started running with the data, not only the #[ignore]d ones. Rebalance by editing this tuple only.
+ SHARDS = ("horizon-client", "horizon-client-lib", "horizon-client-render", "horizon-world", "horizon-items")
+@@ -43,7 +43,7 @@ DAILY_ROWS = "daily-rows"
+ # the other packages' groups in one 60-minute leg. Coverage, not spreading a slow job.
+ DAILY_ROWS_LEGS = {".": DAILY_ROWS, "launcher": "daily-rows-launcher"}
+ # What a package's tests need built that `cargo test` does not build itself, by package: the one command, run
+-# before its tests by `verify` (dyna-ci.yml), the launcher job and the daily run (tools/ci/ignored_tests.py), so they
++# before its tests by the daily run (tools/ci/ignored_tests.py), so they
+ # cannot drift. horizon-mod-package's holder tests start the `holder_actor` example from beside their test executable
+ # (target/debug/examples, the test profile's folder).
+ PREPARE = {
+diff --git a/tools/ci/runner-packages.txt b/tools/ci/runner-packages.txt
+index e5f6a0ed249..092fea4c0c4 100644
+--- a/tools/ci/runner-packages.txt
++++ b/tools/ci/runner-packages.txt
+@@ -1,8 +1,6 @@
+-# The apt packages the room's Dyna CI runner image installs, in the order its Containerfile lists them. That image
+-# is built outside this repository, so this file is its copy here: GitHub-hosted and boat runners install exactly
+-# this list (dyna-ci.yml's lint and verify), so they match the pool and cannot drift from each other. When the
+-# image's list changes, run tools/ci/check_runner_packages.py on its new Containerfile and update this file to match;
+-# tests/test_ci_boat.py keeps dyna_ci_deps.sh within it.
++# The apt packages a CI runner image installs, in the order its Containerfile lists them. GitHub-hosted runners
++# install exactly this list (machine-sample.yml), so they match the image and cannot drift from it. When the image's
++# list changes, update this file to match.
+ xvfb
+ xauth
+ x11-xkb-utils
+diff --git a/tools/ci/rust_changes.py b/tools/ci/rust_changes.py
+index dd660abcc10..10a0114b726 100644
+--- a/tools/ci/rust_changes.py
++++ b/tools/ci/rust_changes.py
+@@ -2,8 +2,8 @@
+ """Select CI checks from one fail-closed Git diff.
+ 
+ The default answers Rust selection; --launcher uses the launcher's dependency paths.
+---all emits the shared Rust, launcher and tooling decisions for dyna-checks (the machine sample is a daily leg,
+-machine-sample.yml, so dyna-checks selects nothing for it).
++--all emits the shared Rust, launcher and tooling decisions in one answer (the machine sample is a daily leg,
++machine-sample.yml, so nothing selects it here).
+ """
+ 
+ import argparse
+@@ -18,8 +18,7 @@ from tools import release_train  # noqa: E402
+ # The root workspace's manifest and toolchain files: the launcher's path crates inherit from them.
+ ROOT_RUST = {"Cargo.toml", "Cargo.lock", "rust-toolchain.toml", "rustfmt.toml", "clippy.toml"}
+ # The check itself: a change to it runs it.
+-LAUNCHER_CHECK = {".github/workflows/ci.yml", ".github/workflows/dyna-ci.yml",
+-                  "tools/ci/rust_changes.py", "tools/release_train.py"}
++LAUNCHER_CHECK = {".github/workflows/ci.yml", "tools/ci/rust_changes.py", "tools/release_train.py"}
+ 
+ 
+ def needs_rust(paths):
+diff --git a/tools/hotspots/README.md b/tools/hotspots/README.md
+index f9e8418f687..97cefe0bc02 100644
+--- a/tools/hotspots/README.md
++++ b/tools/hotspots/README.md
+@@ -1,29 +1,14 @@
+ # Conflict hotspots
+ 
+ A file that many independent PRs keep editing (a hand-kept list, a registry, a giant module) becomes a generated
+-list or one file per item, so independent PRs stop conflicting. These scripts find such files, keep new long lists
++list or one file per item, so independent PRs stop conflicting. These scripts keep new long lists
+ out, and carry old-style PRs across a switch. Standard library Python and git only.
+ 
+ | Script | For |
+ |---|---|
+-| `measure.py` | Ranks files by distinct PRs that changed them and by merges git could not replay (`git merge-tree`, git 2.38 or newer), on rollups, syncs and PR branches. `--days N` or `--since DATE` for a window; the fork's start comes from `--bound` or `--upstream`. `--markdown` (default), `--json`, `--report`. Its docstring defines every count. |
+-| `open_prs.py` | Lists the open PRs whose own diff touches a path. Run it before a switch PR; the list goes in that PR's body. |
+ | `carry.py` | Writes an old-style PR's addition to a switched list in the new form, into the working tree. |
+-| `check_lists.py` | `verify-static`: a `pub use` brace list under `crates/horizon-mod-vocab/src/exports/` names at most 12 items; the longer ones in its table may not grow past their entry (shortening needs no edit). A fragment a switch removed (`part_table.rs`) may not come back. |
+-| `check_stand_ins.py` | `verify-static`: the dispatch tests' stand-ins are one file each (`fixtures/stubs/<Name>.rs`, `fixtures/api/<Name>.rs`, a name in one folder only, none back in `shared.rs`); every type a hook signature names has one; the wire loopback's hand-written impls of vocabulary traits have every required method, and of `CapabilityProviders` every member trait. Its docstring lists what it cannot see (names the generator adds, derives, stub methods). |
+-
+-The nightly schedule of `dyna-checks` runs `measure.py --days 3 --report` and rewrites the issue
+-"Conflict hotspots: churn report" (files with 3 or more rollup conflicts or 15 or more PRs in 3 days). It is never a gate.
+-
+-## Measuring
+-
+-```sh
+-git fetch origin '+refs/pull/*/head:refs/pull/*/head'      # PR numbers for rollup members
+-git fetch https://github.com/horizon-rust/horizon.git main:refs/remotes/upstream/main
+-python3 tools/hotspots/measure.py --days 3                  # last 3 days
+-python3 tools/hotspots/measure.py --open-rollup origin/fork-review-rollup-68 --json > raw.json   # since the fork began
+-python3 tools/hotspots/open_prs.py --from-gh crates/horizon-mod-vocab/src/exports/part_table.rs
+-```
++| `check_lists.py` | CI's `verify`: a `pub use` brace list under `crates/horizon-mod-vocab/src/exports/` names at most 12 items; the longer ones in its table may not grow past their entry (shortening needs no edit). A fragment a switch removed (`part_table.rs`) may not come back. |
++| `check_stand_ins.py` | CI's `verify`: the dispatch tests' stand-ins are one file each (`fixtures/stubs/<Name>.rs`, `fixtures/api/<Name>.rs`, a name in one folder only, none back in `shared.rs`); every type a hook signature names has one; the wire loopback's hand-written impls of vocabulary traits have every required method, and of `CapabilityProviders` every member trait. Its docstring lists what it cannot see (names the generator adds, derives, stub methods). |
+ 
+ ## In a rollup, after a switch
+ 
+@@ -51,26 +36,3 @@ writes each name the PR added to the old `crates/horizon-mod-vocab/src/exports/p
+ `exports/parts_<file>.rs`, the fragment of the parts file that defines it on the PR's head, in the same scope and
+ `#[cfg]`; run `rustfmt --edition 2024` on the files it names. Taking main's side alone would drop the export, so a
+ forgotten carry fails to compile.
+-
+-## `game.rs` sync remnants
+-
+-After resolving a sync, run `python3 tools/hotspots/game_rs.py <sync-branch> <upstream-commit>`.
+-`--repo` defaults to this checkout. Use the upstream commit actually being synced, not its later head.
+-This is intentionally not wired into CI: CI need not have that ref.
+-
+-The report separates genuine remnants and classified name-only matches, with function and line counts,
+-plus unchanged, changed-in-place, fork-only and missing-from-fork sections. Exit 1 means genuine remnants
+-or stale classifications; exit 0 means neither. No automatic rename or move is performed.
+-
+-The parser records impl target types (`impl Trait for Type` is owned by `Type`), or `free` for free
+-functions, by brace depth. It is approximate: comments, strings, macros, cfg branches and complex or
+-multiline impl headers are not Rust-parsed. Counts are a sync aid, not a semantic equivalence proof.
+-
+-`game_rs.txt` is a whitespace table: fork owner, name, upstream owner, upstream path, then a reason.
+-Each row pins both sides of a verified name-only collision. A same-owner destination method always
+-counts as genuine, even if a row matches an unrelated destination. Free functions have no type owner:
+-for them a destination inside `game/` overrides a row, while an explicitly pinned helper outside
+-`game/` may be classified. Unclassified collisions conservatively count as genuine. Thus adding a
+-real `Game` method move with any classified name cannot be hidden by that classification. Rows that
+-match nothing (including rows superseded by genuine moves) fail with a request to delete them.
+-This table only shrinks or stays true; new remnants must not be classified away.
+diff --git a/tools/pr_ready.py b/tools/pr_ready.py
+index 61662034360..5a7db3b5a72 100755
+--- a/tools/pr_ready.py
++++ b/tools/pr_ready.py
+@@ -308,7 +308,7 @@ def parity_summary(output):
+     return text
+ 
+ 
+-# CI's lint job (.github/workflows/dyna-ci.yml): collect warnings across the whole graph before rejecting them.
++# CI's lint (.github/workflows/ci.yml verify): collect warnings across the whole graph before rejecting them.
+ CI_CLIPPY = "python3 tools/ci/check_warnings.py cargo clippy --keep-going --workspace --all-targets --locked"
+ CI_CLIPPY_SERVER = "python3 tools/ci/check_warnings.py cargo clippy --keep-going -p horizon-client -p horizon-game -p horizon-mod-host --all-targets --locked --no-default-features"
+ 
+diff --git a/tools/release_train.py b/tools/release_train.py
+index c2c186ca303..3b237e2c571 100644
+--- a/tools/release_train.py
++++ b/tools/release_train.py
+@@ -11,7 +11,7 @@ The game ships only the Nightly since 2026-10-28 (Ludovic): when `decide --kind
+ `nightly build` on the commit it decided (tools/ci/nightly.py), and "the last release" is the published Nightly.
+ On the fork (CI tiers, owner 2026-11-13) `--channel` names the kind of build: `nightly` takes `daily-green` and
+ refuses any other --head (an older commit had no daily run of its own, and no SDK); `snapshot` takes main's head (or
+-a --head on main) and refuses a commit whose gate jobs (dyna-checks' main-push lint, verify, verify-static, launcher)
++a --head on main) and refuses a commit whose gate jobs (the checks workflow's main-push verify and launcher)
+ did not all pass (pending is not passed); otherwise it always builds, as snapshot-<date>-<short> (no batch rules,
+ cap, pause or release-blocker: a snapshot is for testing main, never for players).
+ 
+@@ -552,8 +552,8 @@ def gate_jobs_passed(run_id, required):
+ 
+ 
+ DAILY_GREEN = "daily-green"
+-FORK_GATE = {"lint", "verify", "verify-static", "launcher", "pool-watch"}
+-SNAPSHOT_GATE = {"lint", "verify", "verify-static", "launcher"}
++FORK_GATE = {"verify", "launcher"}
++SNAPSHOT_GATE = {"verify", "launcher"}
+ 
+ 
+ def daily_green_commit():
+@@ -563,9 +563,9 @@ def daily_green_commit():
+ 
+ 
+ def fork_gate_passed(sha):
+-    """Whether the newest dyna-checks main-push run on sha passed every gate job (the snapshot's check)."""
++    """Whether the newest checks main-push run on sha passed every gate job (the snapshot's check)."""
+     pages = gh_json("api", "--paginate", "--slurp",
+-                    f"repos/{REPO}/actions/workflows/dyna-ci.yml/runs?branch=main&event=push&head_sha={sha}&per_page=100")
++                    f"repos/{REPO}/actions/workflows/ci.yml/runs?branch=main&event=push&head_sha={sha}&per_page=100")
+     runs = [entry for page in pages for entry in page["workflow_runs"]
+             if entry["head_sha"] == sha and entry["head_branch"] == "main" and entry["event"] == "push"]
+     return bool(runs) and gate_jobs_passed(runs[0]["id"], SNAPSHOT_GATE)
+@@ -590,7 +590,7 @@ def channel_head(channel, head):
+     if subprocess.run(["git", "merge-base", "--is-ancestor", sha, "refs/remotes/origin/main"], cwd=ROOT).returncode:
+         raise SystemExit(f"::error::refused: {sha} is not on main; a snapshot builds only a commit of main")
+     if not fork_gate_passed(sha):
+-        raise SystemExit(f"::error::refused: dyna-checks' gate jobs ({', '.join(sorted(SNAPSHOT_GATE))}) "
++        raise SystemExit(f"::error::refused: the checks gate jobs ({', '.join(sorted(SNAPSHOT_GATE))}) "
+                          f"did not all pass on a main push of {sha}; a snapshot needs the gate green on its commit")
+     return sha
+ 
+@@ -610,7 +610,7 @@ def green_main_head(parity=False, eligible=None):
+         # Runs are ordered by creation, not completion: a late old run must not
+         # displace a newer push. Paginate beyond bursts of cancelled main runs.
+         pages = gh_json("api", "--paginate", "--slurp",
+-                        f"repos/{REPO}/actions/workflows/dyna-ci.yml/runs?branch=main&event=push&per_page=100")
++                        f"repos/{REPO}/actions/workflows/ci.yml/runs?branch=main&event=push&per_page=100")
+         seen = set()
+         for page in pages:
+             for entry in page["workflow_runs"]:
+diff --git a/tools/sync/README.md b/tools/sync/README.md
+index 86546bc86e3..9ab686b613f 100644
+--- a/tools/sync/README.md
++++ b/tools/sync/README.md
+@@ -1,9 +1,4 @@
+-# Upstream integration checks
+-
+-`audit_launcher_restoration.py --upstream <sha> --upstream-base <sha>` inventories
+-changed launcher files and fork commits. It marks whole upstream takes without
+-judging whether a fork hunk is a permitted Horizon-layer restoration or mod work
+-that must remain. Reviewers check the inventory and the resulting corrections.
++# File-size baseline
+ 
+ ## File-size baseline provenance
+ 
+@@ -46,12 +41,11 @@ that this is an upstream sync and that the listed restoration growth is justifie
+ 
+ The fetch is required on every changed sync declaration; an unreachable upstream,
+ a timeout or missing history fails closed, even if a previous fetch left a cached
+-ref. Dyna verify therefore fails, with a network-required message, if its runner
++ref. CI therefore fails, with a network-required message, if its runner
+ cannot reach GitHub. `HORIZON_UPSTREAM_URL` overrides the URL for local bare-repo
+ tests; normal CI leaves it unset.
+ 
+-The Dyna verify checkout initially uses the checkout action's shallow default,
+-then its `Fetch this commit's history` step fetches `HEAD` with `--unshallow` before
+-running the file-size check. This retains the upstream-parent merge in history.
++A CI checkout must hold this commit's full history (fetch `HEAD` with `--unshallow`
++from a shallow checkout) before running the file-size check. This retains the upstream-parent merge in history.
+ The checker refuses a still-shallow checkout with an explicit full-history error;
+ it never treats missing history as approval.
+-- 
+2.39.5
+

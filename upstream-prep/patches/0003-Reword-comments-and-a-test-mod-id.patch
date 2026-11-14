@@ -1,0 +1,98 @@
+From 89e117433ad6941d1d9cc58a168356563c37f08b Mon Sep 17 00:00:00 2001
+From: arismoko <19542195+arismoko@users.noreply.github.com>
+Date: Sat, 14 Nov 2026 17:21:03 +0000
+Subject: [PATCH 3/3] Reword comments and a test mod id
+
+---
+ crates/horizon-client-render/src/crash.rs       | 13 +++++++------
+ crates/horizon-mod-package/src/manifest/wasm.rs |  4 ++--
+ crates/horizon-mod-vocab/src/content/crash.rs   |  2 +-
+ 3 files changed, 10 insertions(+), 9 deletions(-)
+
+diff --git a/crates/horizon-client-render/src/crash.rs b/crates/horizon-client-render/src/crash.rs
+index fffdacb5aa8..b46694aabeb 100644
+--- a/crates/horizon-client-render/src/crash.rs
++++ b/crates/horizon-client-render/src/crash.rs
+@@ -985,17 +985,17 @@ mod tests {
+     #[test]
+     fn a_panic_in_a_converted_package_names_the_runtime_package_export_and_site() {
+         let runtime = enter_native_mod(ModCall {
+-            id: "portizon",
++            id: "converter_runtime",
+             hook: "client_tick_pre",
+             part: None,
+         });
+-        let packages = ConvertedPackages::new("portizon", ["example:mod"]);
++        let packages = ConvertedPackages::new("converter_runtime", ["example:mod"]);
+         let package = packages.package("example:mod").unwrap();
+         let scope = package
+             .enter("tick", "com.example.Foo.tick(Foo.java:42)")
+             .unwrap();
+         assert!(attributed("boom".into()).ends_with(
+-            "\nin native mod portizon, hook client_tick_pre\n\
++            "\nin native mod converter_runtime, hook client_tick_pre\n\
+              in converted package example:mod, export tick, \
+              call site com.example.Foo.tick(Foo.java:42)"
+         ));
+@@ -1016,7 +1016,8 @@ mod tests {
+         );
+         drop(scope);
+         assert!(
+-            attributed("boom".into()).ends_with("\nin native mod portizon, hook client_tick_pre")
++            attributed("boom".into())
++                .ends_with("\nin native mod converter_runtime, hook client_tick_pre")
+         );
+         drop(runtime);
+         assert_eq!(attributed("boom".into()), "boom");
+@@ -1025,11 +1026,11 @@ mod tests {
+     #[test]
+     fn a_guest_export_cannot_forge_a_report_line() {
+         let runtime = enter_native_mod(ModCall {
+-            id: "portizon",
++            id: "converter_runtime",
+             hook: "client_tick_pre",
+             part: None,
+         });
+-        let packages = ConvertedPackages::new("portizon", ["example:mod"]);
++        let packages = ConvertedPackages::new("converter_runtime", ["example:mod"]);
+         let scope = packages
+             .package("example:mod")
+             .unwrap()
+diff --git a/crates/horizon-mod-package/src/manifest/wasm.rs b/crates/horizon-mod-package/src/manifest/wasm.rs
+index 861f9695e15..245fef97b4e 100644
+--- a/crates/horizon-mod-package/src/manifest/wasm.rs
++++ b/crates/horizon-mod-package/src/manifest/wasm.rs
+@@ -4,7 +4,7 @@ use sha2::{Digest, Sha512};
+ /// The most a `mod.wasm` may weigh.
+ pub const MAX_WASM: u64 = 64 << 20;
+ 
+-/// A wasm mod's `[wasm]` section, written by `cargo horizon-mod build --wasm` (or Portizon),
++/// A wasm mod's `[wasm]` section, written by `cargo horizon-mod build --wasm` (or a mod converter),
+ /// never by hand: what its one `mod.wasm` is and what it was built and linked against.
+ #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+ #[serde(try_from = "Fields")]
+@@ -116,7 +116,7 @@ impl Wasm {
+         &self.linked
+     }
+ 
+-    /// The converter that made it from a Java mod (`portizon@<commit>`), when it has no
++    /// The converter that made it from a Java mod (`<converter>@<commit>`), when it has no
+     /// Rust source of its own.
+     pub fn built_with(&self) -> Option<&str> {
+         self.built_with.as_deref()
+diff --git a/crates/horizon-mod-vocab/src/content/crash.rs b/crates/horizon-mod-vocab/src/content/crash.rs
+index 901095b967c..e3fca055afb 100644
+--- a/crates/horizon-mod-vocab/src/content/crash.rs
++++ b/crates/horizon-mod-vocab/src/content/crash.rs
+@@ -84,7 +84,7 @@ pub struct ConvertedCall {
+ // no wire: process-local crash attribution uses static runtime identities; not a hook payload.
+ /// The packages one native runtime declared it loaded.
+ ///
+-/// A runtime that hosts converted code (Portizon's wasm packages, a Java interpreter running
++/// A runtime that hosts converted code (a converter's wasm packages, a Java interpreter running
+ /// jars) builds this once from the packages it loaded and keeps it while they run. A call into
+ /// a package goes through the [`ConvertedPackage`] this registry hands out for an id it
+ /// declared, so guest code cannot name a package from another mod. The runtime's own `[mod] id`
+-- 
+2.39.5
+
