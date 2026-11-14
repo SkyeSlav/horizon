@@ -579,7 +579,7 @@ pub fn inline_object_fields(
         Some("player") | None if object.contains_key("player") => {
             Some(InlineObjectFields::Player {
                 profile: object.get("player")?,
-                hat: object.get("hat").and_then(Value::as_bool).unwrap_or(true),
+                hat: style_flag(object.get("hat")).unwrap_or(true),
             })
         }
         Some("atlas") | None if object.contains_key("sprite") => Some(InlineObjectFields::Atlas {
@@ -1009,6 +1009,17 @@ mod tests {
         let no_shadow = serde_json::json!({"text": "A", "shadow_color": 0});
         let text = to_text(&no_shadow, &mut |_| Text::empty());
         assert_eq!(text.rendered.spans[0].style.shadow_color, Some(0));
+    }
+
+    #[test]
+    fn snbt_player_object_preserves_false_hat() {
+        let (component, _) =
+            parse_snbt("{object:'player',player:{name:'alex'},hat:false}").unwrap();
+        let text = to_text(&component, &mut |_| Text::empty());
+        assert!(matches!(
+            &text.rendered.spans[0].style.inline_object,
+            Some(InlineObject::Player { hat: false, .. })
+        ));
     }
 
     #[test]
