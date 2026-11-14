@@ -219,6 +219,7 @@ fn drain_packets(game: &mut Game<'_>) {
 #[ignore = "daily"]
 fn a_command_arrival_holds_movement_until_lit_then_ticks_damage_again() {
     use super::LevelTeleport;
+    use horizon_client::lan::guest::InboxItem;
     use horizon_protocol::packets::play::{self, Serverbound as S};
 
     let mut resources = None;
@@ -251,18 +252,19 @@ fn a_command_arrival_holds_movement_until_lit_then_ticks_damage_again() {
         flags: 0,
     };
     game.lan.as_mut().unwrap().hub.guests.update(0, |g| {
-        g.inbox.push_back((
-            S::AcceptTeleportation(play::AcceptTeleportation {
-                id,
-                x: at[0],
-                y: at[1],
-                z: at[2],
-                yaw: 0.0,
-                pitch: 0.0,
-            }),
-            0,
-        ));
-        g.inbox.push_back((S::MovePlayerPos(step.clone()), 0));
+        g.inbox
+            .push_back(InboxItem::uncredited(S::AcceptTeleportation(
+                play::AcceptTeleportation {
+                    id,
+                    x: at[0],
+                    y: at[1],
+                    z: at[2],
+                    yaw: 0.0,
+                    pitch: 0.0,
+                },
+            )));
+        g.inbox
+            .push_back(InboxItem::uncredited(S::MovePlayerPos(step.clone())));
     });
     drain_packets(&mut game);
     assert_eq!(
@@ -278,9 +280,11 @@ fn a_command_arrival_holds_movement_until_lit_then_ticks_damage_again() {
     assert!(!landing(game.lan.as_ref().unwrap()));
     // End the preceding client tick's position-packet budget before the next move.
     game.lan.as_mut().unwrap().hub.guests.update(0, |g| {
+        g.inbox.push_back(InboxItem::uncredited(S::ClientTickEnd(
+            horizon_protocol::packets::Empty,
+        )));
         g.inbox
-            .push_back((S::ClientTickEnd(horizon_protocol::packets::Empty), 0));
-        g.inbox.push_back((S::MovePlayerPos(step), 0));
+            .push_back(InboxItem::uncredited(S::MovePlayerPos(step)));
     });
     drain_packets(&mut game);
     assert_eq!(
