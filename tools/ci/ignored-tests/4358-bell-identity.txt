@@ -1,0 +1,1 @@
+horizon-client game::commands::data::bell_command_identity_tests::placed_bell_is_a_real_stored_entity_with_command_metadata HORIZON_TEST_RESOURCES needs
