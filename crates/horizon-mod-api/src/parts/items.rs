@@ -586,7 +586,7 @@ pub mod tests {
         // empty slot.
         let host: &mut dyn ServerHost = &mut player;
         let aborted = host.transaction(|host, tx| {
-            assert_eq!(items.insert_any(host, tx, &sticks, 10), 10);
+            assert_eq!(items.insert_resource(host, tx, &sticks, 10), 10);
             Err::<(), ()>(())
         });
         assert!(aborted.is_err());
@@ -596,7 +596,7 @@ pub mod tests {
         );
         let host: &mut dyn ServerHost = &mut player;
         let went =
-            host.transaction(|host, tx| Ok::<_, ()>(items.insert_any(host, tx, &sticks, 10)));
+            host.transaction(|host, tx| Ok::<_, ()>(items.insert_resource(host, tx, &sticks, 10)));
         assert_eq!(went, Ok(10));
         assert_eq!(
             player_of(&player).slots[&5],
@@ -1747,8 +1747,8 @@ pub mod tests {
             let h = here().capability(host, &ITEMS, SHELF, None).unwrap();
             let r = ItemResource::of(&stick());
             host.transaction(|host, tx| {
-                assert_eq!(h.insert_any(host, tx, &r, 3), 3);
-                assert_eq!(h.extract_any(host, tx, &r, 129), 129);
+                assert_eq!(h.insert_resource(host, tx, &r, 3), 3);
+                assert_eq!(h.extract_resource(host, tx, &r, 129), 129);
                 Ok::<_, ()>(())
             })
             .unwrap();

@@ -194,7 +194,7 @@ pub fn try_pickup_world_fluid(
     host.transaction(|host, tx| {
         let picked = level.pickup_fluid(host, pos, player, tx).ok_or(())?;
         let fluid = FluidResource::of(&picked);
-        match destination.insert_any(host, tx, &fluid, picked.amount) == picked.amount {
+        match destination.insert_resource(host, tx, &fluid, picked.amount) == picked.amount {
             true => Ok(picked),
             false => Err(()),
         }
@@ -330,7 +330,7 @@ fn move_first(
             ends,
             want,
             |host, tx, want| from.extract(host, tx, index, &fluid, want),
-            |host, tx, out| to.insert_any(host, tx, &fluid, out),
+            |host, tx, out| to.insert_resource(host, tx, &fluid, out),
         );
         if let Ok(moved) = moved
             && moved > 0

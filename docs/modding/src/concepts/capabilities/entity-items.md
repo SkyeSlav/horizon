@@ -23,7 +23,7 @@ Player slot indices are half-open ranges:
 
 An armour slot accepts one item whose `equippable` component permits that slot
 and the player's type, by ID or tag. Bound armour can be removed only in creative.
-`insert_any` merges matching stacks in the selected slot, off hand and main
+`insert_resource` merges matching stacks in the selected slot, off hand and main
 inventory, then uses empty main-inventory slots; it does not fill armour slots.
 
 For non-player equipment, hands accept a stack. Armour and body slots accept
@@ -51,7 +51,7 @@ host.transaction(|host, tx| {
                 && from.amount(host, *index) == stack.count();
             if !still
                 || from.extract(host, tx, *index, &offered, stack.count()) != stack.count()
-                || to.insert_any(host, tx, &offered, stack.count()) != stack.count()
+                || to.insert_resource(host, tx, &offered, stack.count()) != stack.count()
             {
                 return Err(());
             }

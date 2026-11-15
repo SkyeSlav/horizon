@@ -98,7 +98,7 @@ fn a_combined_handler_numbers_both_and_fills_the_second_when_the_first_is_full()
     assert_eq!(combined.amount(host, 1), 100);
     assert_eq!(combined.resource(host, 2), None);
     let went =
-        host.transaction(|host, tx| Ok::<_, ()>(combined.insert_any(host, tx, &HYDROGEN, 150)));
+        host.transaction(|host, tx| Ok::<_, ()>(combined.insert_resource(host, tx, &HYDROGEN, 150)));
     assert_eq!(went, Ok(150));
     assert_eq!(first.held(), vec![full.clone(), full.clone()]);
     assert_eq!(second.held(), vec![full, Some((HYDROGEN, 50))]);
@@ -113,7 +113,7 @@ fn insert_stacking_tops_up_a_holding_index_before_an_empty_one() {
     let went =
         host.transaction(|host, tx| Ok::<_, ()>(handler.insert_stacking(host, tx, &HYDROGEN, 95)));
     assert_eq!(went, Ok(95));
-    // The default `insert_any` would have filled index 0 first.
+    // The default `insert_resource` would have filled index 0 first.
     assert_eq!(
         tanks.held(),
         vec![Some((HYDROGEN, 5)), Some((HYDROGEN, 100))]
@@ -239,13 +239,13 @@ fn a_part_answering_more_than_asked_shows_through_every_total() {
         ])
     };
     let insert = |host: &mut dyn ServerHost, handler: &dyn ResourceHandler<Chemical>, amount| {
-        host.transaction(|host, tx| Ok::<_, ()>(handler.insert_any(host, tx, &HYDROGEN, amount)))
+        host.transaction(|host, tx| Ok::<_, ()>(handler.insert_resource(host, tx, &HYDROGEN, amount)))
     };
     // The tank takes 100; the liar, asked for 50, answers 51: the total is over 150.
     assert_eq!(insert(&mut *host, &tank_then_liar(), 150), Ok(151));
     // Asked `u32::MAX`, no total can be over it: it answers 0, never `u32::MAX`.
     assert_eq!(insert(&mut *host, &tank_then_liar(), u32::MAX), Ok(0));
-    // The default `insert_any` and `insert_stacking` add up their indices the same way.
+    // The default `insert_resource` and `insert_stacking` add up their indices the same way.
     let indices = CombinedResourceHandler::new(vec![
         Box::new(Tanks::new(vec![Some((HYDROGEN, 90))])) as Box<dyn ResourceHandler<Chemical>>,
         Box::new(Liar),
