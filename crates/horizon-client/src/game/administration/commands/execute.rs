@@ -2,14 +2,9 @@
 //! filtering command sources, then run the final command once per source,
 //! reporting each result to the `store` callbacks of its source.
 use super::{Arg, Context, Dim, Game, R, Target, data::DataRef, err, wrap_degrees};
-use horizon_client::{
-    command::{CommandError, vanilla},
-    nbt_path::NbtPath,
-    text::Text,
-};
+use horizon_client::{command::CommandError, nbt_path::NbtPath, text::Text};
 use horizon_core::geometry::trig;
 use horizon_core::nbt::Tag;
-use horizon_world::dimension_type::DimensionFacts;
 
 /// `CommandSourceStack` fields Horizon models: the executing entity (None for
 /// the server), position, rotation, anchor, whether feedback is suppressed

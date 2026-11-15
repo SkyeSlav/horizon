@@ -1967,7 +1967,8 @@ mod tests {
     /// level's random draws nothing in any of it.
     #[test]
     fn saddling_and_armouring_play_at_pitch_one_from_the_mounts_own_random() {
-        let Some(mut game) = server_game() else {
+        let mut resources = None;
+        let Some(mut game) = server_game(&mut resources) else {
             return;
         };
         let at = [1.5, 64.0, -2.5];
@@ -2065,7 +2066,8 @@ mod tests {
     /// the armour do.
     #[test]
     fn a_chest_on_a_donkey_or_mule_plays_its_own_sound_at_full_volume() {
-        let Some(mut game) = server_game() else {
+        let mut resources = None;
+        let Some(mut game) = server_game(&mut resources) else {
             return;
         };
         for (kind, sound) in [
@@ -2120,7 +2122,8 @@ mod tests {
     /// blocks (`Mob.checkDespawn` reads `isPersistenceRequired`).
     #[test]
     fn a_camel_husk_keeps_itself_once_clicked() {
-        let Some(mut game) = server_game() else {
+        let mut resources = None;
+        let Some(mut game) = server_game(&mut resources) else {
             return;
         };
         mount(&mut game, "minecraft:camel_husk", 7, [1.5, 64.0, -2.5], 7);
@@ -2135,7 +2138,7 @@ mod tests {
             location: [0.0; 3],
         });
         assert!(game.interact_mob(target).unwrap(), "the saddle is used");
-        assert!(game.mobs[0].extra.saddled, "the saddle went on");
+        assert!(game.mobs[0].extra.saddled(), "the saddle went on");
         assert!(game.mobs[0].persistent, "a clicked camel husk stays");
     }
 }

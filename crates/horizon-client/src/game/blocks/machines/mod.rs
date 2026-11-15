@@ -3404,7 +3404,8 @@ mod can_take_tests {
     #[test]
     #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
     fn non_container_block_entity_above_hopper_does_not_block_item_suction() {
-        let mut game = server_game();
+        let mut resources = None;
+        let mut game = server_game(&mut resources);
         let hopper_pos = (2, 4, 3);
         let sign_pos = (2, 5, 3);
         let hopper_state = game
