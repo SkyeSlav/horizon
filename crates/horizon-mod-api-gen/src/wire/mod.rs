@@ -426,7 +426,10 @@ pub(super) fn surface_reading<'a>(
         for (module, via, function) in &members {
             let name = function.sig.ident.to_string();
             let subscription = SUBSCRIBED.iter().any(|(o, n)| o == owner && *n == name);
-            if hidden(&function.attrs) && !subscription {
+            // Area methods are host operations even when hidden from docs: public handle
+            // methods can call them on the guest. Only the union's own hidden plumbing
+            // stays local (apart from the subscription metadata transported explicitly).
+            if hidden(&function.attrs) && !subscription && via.is_none() {
                 continue;
             }
             if not_on_wasm(&function.attrs) {
