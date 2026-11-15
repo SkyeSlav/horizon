@@ -11,20 +11,26 @@ pub(super) fn page_views(
     let Some(page) = page else {
         return (String::new(), Vec::new(), 0, Vec::new());
     };
-    let views = page.recipes.into_iter().map(recipe_view).collect();
+    let views = page.recipes.into_iter().filter_map(recipe_view).collect();
     (page.title, page.tabs, page.tab, views)
 }
 
-fn recipe_view(view: mod_api::RecipeView) -> NativeRecipeView {
-    NativeRecipeView {
-        layout: match view.layout {
-            mod_api::RecipeLayout::Cooking => NativeRecipeLayout::Cooking,
-            mod_api::RecipeLayout::Single => NativeRecipeLayout::Single,
-            mod_api::RecipeLayout::Smithing => NativeRecipeLayout::Smithing,
-            mod_api::RecipeLayout::Brewing => NativeRecipeLayout::Brewing,
-            // `Grid`, and any layout a later API adds before the renderer draws it.
-            _ => NativeRecipeLayout::Grid,
-        },
+fn recipe_view(view: mod_api::RecipeView) -> Option<NativeRecipeView> {
+    let layout = match view.layout {
+        mod_api::RecipeLayout::Grid => NativeRecipeLayout::Grid,
+        mod_api::RecipeLayout::Cooking => NativeRecipeLayout::Cooking,
+        mod_api::RecipeLayout::Single => NativeRecipeLayout::Single,
+        mod_api::RecipeLayout::Smithing => NativeRecipeLayout::Smithing,
+        mod_api::RecipeLayout::Brewing => NativeRecipeLayout::Brewing,
+        _ => {
+            log::warn!(
+                "E_RECIPE_LAYOUT_UNSUPPORTED: panel_recipes refused an unsupported recipe layout"
+            );
+            return None;
+        }
+    };
+    Some(NativeRecipeView {
+        layout,
         width: view.width,
         height: view.height,
         slots: view.slots,
@@ -40,7 +46,7 @@ fn recipe_view(view: mod_api::RecipeView) -> NativeRecipeView {
         fluid_outputs: view.fluid_outputs,
         note: view.note,
         action: view.action,
-    }
+    })
 }
 
 impl Game<'_> {
