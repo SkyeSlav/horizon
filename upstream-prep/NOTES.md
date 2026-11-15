@@ -27,3 +27,6 @@ Edit helper: /tmp/rep.py (edit(path, [(old,new)]) exact-once replacements). Recr
   + roadmap rebuild). proofs.sh runs the Python tests with a plain git identity (no commit signing). PR description
   source: private repo arismoko/horizon-mod-api-pr-draft; draft here in pr-draft/README.md (edit_readme.py from README.orig.md).
   drop_from_diff.py removes a file's section from a hand diff when a later rebuild deletes that file.
+- 2026-11-15 16:10: the owner edited the draft repo directly (606d95a: "Since the first draft" folded into the thanks).
+  The repo's README is the source now; pr-draft/README.md is its copy. edit_readme.py and the 14 Nov original moved to
+  pr-draft/retired/ and must not be rerun. After the final main, only the counts change: pr-draft/set_counts.py PEOPLE COMMITS.

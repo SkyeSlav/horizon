@@ -44,7 +44,7 @@ The tree is kept in step with horizon-rust/horizon: upstream's main has been mer
 - @CocofireHD put each hook's notes on its own declaration and generated the book's hook page from them, and gave `level_can_survive` a form that crosses into WebAssembly.
 - @d3xc0 added a run of `BlockPart` answers (explosion resistance and drops, which entities may destroy a block, connections, rotation and state changes) and gave mods `player_disconnect` with a reason.
 - Mods store items by kind in 64-bit amounts and poll a block capability in constant time through `STORAGE` and `BlockCapabilityCache`, both from @Dawnforger, who also added tameable content-mod mobs.
-- @Detimes worked through what a community server's mods need: a player's inventory, ender chest and saved data, raw plugin channels, datafixing older saved NBT, and a vetoable `player_move`.
+- @Detimes worked through what a community server's mods need: a player's inventory, ender chest and saved data, raw plugin channels, datafixing older saved NBT, a vetoable `player_move`, and world and player writes.
 - Client mods can register their own block tint sources, coloured by vanilla's rules for each block, thanks to @ErikKalikas.
 - @foudretbr made action keybinds follow the player's current binding, stopped a server-side item use when the item in hand changes, and let title splashes come from every resource namespace.
 - From @Giantcookie392 came client reads such as latency, the local player's rotation and screen projection, and a fix that keeps a mob on a valid player target across ticks.
@@ -56,12 +56,12 @@ The tree is kept in step with horizon-rust/horizon: upstream's main has been mer
 - @JuanLuci gave mod screens buttons and text fields, gave client mods their own sounds through `SoundRef`, and added camera and tooltip hooks.
 - @KBroneZ let client mods add geometry to chunk meshes and bring their own texture atlases, fixed depth copies on OpenGL, and kept LAN guest turns intact when a listener panics.
 - Attribute bounds now come from the attribute catalog and mods can widen them, both by @Kerlann, who also added runtime levels a mod can open and unload.
-- @levzzz5154 wrote dozens of the NeoForge-named hooks and handle methods the API grew from, such as `server_chat`, `living_damage_pre`, `MerchantRef` and `BossBarRef`, and later decoded item component payloads for mod ingredients.
+- @levzzz5154 wrote dozens of the NeoForge-named hooks and handle methods the API grew from, such as `server_chat`, `living_damage_pre`, `MerchantRef` and `BossBarRef`, and later decoded item component payloads for mod ingredients and added registry reads.
 - Native mods can register their own dimensions and chunk generators because of @LoneStarrr, who also made dimension arguments suggest every server level.
 - @Mayonesu0 made the Rust tests and the self-check build and run on Windows, and added a long run of Item and Block Part answers such as `can_equip`, bounce restitution and `damage_item`.
 - @merenotnoonereal went through the hook catalog against Fabric and Paper batch by batch, recording each counterpart and gap, then built the Paper parity harness and the engine behind menu decisions.
-- @Mnntn brought registered entity renderers and their layers, fluid container helpers for pickup and placement, and block entity Part state on the server.
-- Behind many parts of the API are @OlaHulleberg's design notes, among them Part instance state, decide-fire-apply for client hooks and typed payloads, together with the hooks and fixes that followed, from fake-player actions to a cache of compiled WebAssembly modules.
+- @Mnntn brought registered entity renderers and their layers, fluid container helpers for pickup and placement, block entity Part state on the server, and entity Part state with attachment sync.
+- Behind many parts of the API are @OlaHulleberg's design notes, among them Part instance state, decide-fire-apply for client hooks and typed payloads, together with the hooks and fixes that followed, from fake-player actions to a cache of compiled WebAssembly modules, data maps and mob handle reads.
 - @Nixotica added `screen_room`, room beside a container screen's window for a mod's own panel, moving the window with it.
 - @oloion let content-mod entity types declare their passenger attachment points.
 - @Qwerner88880 built custom mob goals and brain behaviours for mods, the general entity type registry from saved rows to ticking, and the single move gate behind `entity_move`.
@@ -80,19 +80,8 @@ The tree is kept in step with horizon-rust/horizon: upstream's main has been mer
 - Client mods can register their own numeric and categorical item model properties, the two pieces @Vaspyyy added.
 - @vnsmoreira opened model and animation registration to mods: sprite sources, model loaders, item model types, and keyframe animations on the game's own sampling path.
 - @Xmilon brought dimensions, biome modifiers, biome regions and datapack registries to mods, rebuilt the Mods screen after NeoForge's mod list, and redesigned the launcher around mods: its Mods page and native mod builds run on this API.
-- @Zaccou added entity writes for portal cooldown and no-physics, exact-total experience orb merging, and client reads of the GUI scale and the hotbar slot.
+- @Zaccou added entity writes for portal cooldown and no-physics, exact-total experience orb merging, client reads of the GUI scale and the hotbar slot, command completion, and mob paths.
 - @Zenilea made the `PayloadCodec` derive handle recursive types and type macros, and kept a clipped face's colour ramp in mod screens.
-
-## Since the first draft
-
-Since 14 November this branch took upstream's main once more (the sync at horizon-rust/horizon 7785026e88), and
-nine more rounds of merges came in (arismoko/horizon rollups 109 to 117). Among them:
-- @Xmilon's launcher redesign (arismoko/horizon#4450), built around mods: the Mods page and native mod builds run on
-  this API, and it presents as Horizon Launcher;
-- @Joeypc6's screen drawing, menu slots and AI pause, @Mnntn's entity Part state and attachment sync, @Detimes'
-  world and player writes, @Zaccou's command completion and mob paths, @OlaHulleberg's data maps and mob handle
-  reads, @hinzee's and @Kerlann's viewed levels, and @levzzz5154's ingredient payloads and registry reads;
-- the move of every test that skips without vanilla data to the daily run, and the daily run's own fixes.
 
 ## What it adds
 
