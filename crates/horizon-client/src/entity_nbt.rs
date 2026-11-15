@@ -4046,16 +4046,27 @@ pub fn offers_from_nbt(tag: &Tag) -> Vec<crate::merchant::MerchantOffer> {
     };
     recipes
         .iter()
-        .filter_map(|r| {
+        .enumerate()
+        .filter_map(|(index, r)| {
             let cost = |key| {
                 r.get(key)
-                    .and_then(item_from_nbt)
+                    .and_then(|item| {
+                        horizon_items::item_nbt::item_from_nbt_at(
+                            item,
+                            &format_args!("Recipes index {index}.{key}"),
+                        )
+                    })
                     .map(|stack| ItemCost { stack })
             };
             Some(MerchantOffer {
                 base_cost_a: cost("buy")?,
                 cost_b: cost("buyB"),
-                result: r.get("sell").and_then(item_from_nbt)?,
+                result: r.get("sell").and_then(|item| {
+                    horizon_items::item_nbt::item_from_nbt_at(
+                        item,
+                        &format_args!("Recipes index {index}.sell"),
+                    )
+                })?,
                 uses: number(r.get("uses")).unwrap_or(0) as i32,
                 max_uses: number(r.get("maxUses")).unwrap_or(4) as i32,
                 reward_exp: number(r.get("rewardExp")).unwrap_or(1) != 0,

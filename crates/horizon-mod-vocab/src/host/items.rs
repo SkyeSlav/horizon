@@ -54,8 +54,10 @@ pub trait ItemsHost {
     /// item: `{id:"minecraft:diamond_sword",count:1,components:{"minecraft:damage":5}}`
     /// (`count` 1 when missing, `stone` is `minecraft:stone`). This API refuses with None:
     /// text that is no SNBT compound or has anything but whitespace after it, a `count`
-    /// outside 1 to 99 (the codec's range; it is not clamped to 1), air, and an item this
-    /// world does not have. It also refuses text over 2 MiB and nesting past 512 levels. Those
+    /// outside 1 to 99 (the codec's range; it is not clamped to 1), a transient component
+    /// (set or removed with `!`), air, and an item this world does not have. Unlike loading a
+    /// save, this reader refuses the whole stack when a typed component patch contains a
+    /// transient component; it does not silently drop that component. It also refuses text over 2 MiB and nesting past 512 levels. Those
     /// two are this API's own safety bound, the one place it differs from vanilla: vanilla's
     /// SNBT parser has no size or depth limit (very deep text ends in a stack overflow), and
     /// 2 MiB and 512 are binary NBT's limits, taken here so text a mod supplies cannot

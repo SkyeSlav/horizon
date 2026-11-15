@@ -3854,9 +3854,12 @@ impl Level {
         let mut inventory = Vec::new();
         let mut inventory_components = HashMap::new();
         if let Some(Tag::List(items)) = p.get("Inventory") {
-            for it in items {
+            for (index, it) in items.iter().enumerate() {
                 let slot = number(it.get("Slot")).unwrap_or(0) as i8 as u8;
-                if let Some(stack) = item_from_nbt(it) {
+                if let Some(stack) = horizon_items::item_nbt::item_from_nbt_at(
+                    it,
+                    &format_args!("Inventory index {index} (slot {slot})"),
+                ) {
                     let slot = if slot as i8 == -106 { 150 } else { slot };
                     if let Some(extra) = &stack.extra {
                         inventory_components.insert(slot, extra.clone());
