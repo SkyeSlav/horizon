@@ -295,6 +295,13 @@ impl EntityTable {
         }
     }
 
+    /// Each admitted id's lookup admission generation, unchanged by section moves.
+    /// Equipment leases use this to refuse a removed and re-admitted receiver.
+    pub fn admission_order(&mut self) -> impl Fn(u32) -> Option<JoinSeq> + '_ {
+        self.drain();
+        |id| Some(self.rows.get(&NonZeroU32::new(id)?)?.admission)
+    }
+
     /// Each admitted id's place in its section (`EntitySection` keeps its
     /// entities in the order they entered it), so a chunk saved section by
     /// section in this order loads back in it.

@@ -136,14 +136,16 @@ fn server_section_entries_share_admission_order_without_a_listener() {
     let first = table.section_entry_order()(1).unwrap();
     admit(3);
     sections.moved(scope(Overworld), 1, None, [0.0; 3]);
-    let entry = table.section_entry_order();
-    assert!(
-        entry(1).unwrap() > first,
-        "both writes must enter separately"
-    );
-    let mut ids = [1, 2, 3];
-    ids.sort_by_key(|id| entry(*id));
-    assert_eq!(ids, [2, 3, 1]);
+    {
+        let entry = table.section_entry_order();
+        assert!(
+            entry(1).unwrap() > first,
+            "both writes must enter separately"
+        );
+        let mut ids = [1, 2, 3];
+        ids.sort_by_key(|id| entry(*id));
+        assert_eq!(ids, [2, 3, 1]);
+    }
     assert_eq!(table.level_entities(Overworld.key()), [1, 2, 3]);
 }
 
