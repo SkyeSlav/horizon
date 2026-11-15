@@ -1256,12 +1256,16 @@ pub(in crate::game) mod tests {
     /// `entity_effect` and `tinted_leaves`): the colour as its ARGB int.
     #[test]
     fn flash_particles_carry_their_colour_to_guests() {
-        let (hub, rx_near, rx_far) = test_hub("FlashTest", {
-            // `Particle::read` reads a flash's colour from its pinned id, 52.
-            let mut names = vec!["minecraft:empty".to_string(); 52];
-            names.push("minecraft:flash".to_string());
-            names
-        });
+        let (hub, rx_near, rx_far) = test_hub(
+            "FlashTest",
+            {
+                // `Particle::read` reads a flash's colour from its pinned id, 52.
+                let mut names = vec!["minecraft:empty".to_string(); 52];
+                names.push("minecraft:flash".to_string());
+                names
+            },
+            None,
+        );
 
         let at = [0.0, 64.0, 0.0];
         let options = ParticleOptions::colored(ParticleType::Flash, [1.0, 0.0, 0.0, 1.0]);

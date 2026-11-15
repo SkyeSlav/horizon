@@ -48,13 +48,14 @@ fn drawing_game() -> Game<'static> {
     );
     let settings = Settings::default();
     let loaded = load_resources(
-        root.clone(),
+        horizon_assets::resource_source::ResourceRoot::directory(root.clone()),
+        Vec::new(),
         None,
         &root,
         &settings,
         std::time::Instant::now(),
         false,
-        false,
+        crate::game::execution_role::ExecutionRole::Client,
         &Progress::new(),
         &mut |_, _| unreachable!(),
     )
@@ -69,7 +70,9 @@ fn drawing_game() -> Game<'static> {
         loaded.gui.unwrap(),
         options,
         settings,
-        Audio::silent(&root),
+        Audio::silent(&horizon_assets::resource_source::ResourceSource::directory(
+            root.to_path_buf(),
+        )),
         None,
     )
     .unwrap();
@@ -94,7 +97,7 @@ fn place_shelf(game: &mut Game<'_>, pos: [i32; 3], facing: &str, stack: &ItemSta
     game.world.set(pos[0], pos[1], pos[2], state).unwrap();
     let mut shelf = Shelf::default();
     shelf.items[1] = Some(stack.clone());
-    game.world.block_entities.put(
+    game.world.block_entities.insert(
         (pos[0], pos[1], pos[2]),
         BlockEntity::Shelf(Box::new(shelf)),
     );

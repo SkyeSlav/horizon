@@ -89,21 +89,26 @@ fn only_an_empty_offhand_drowned_draws_for_the_shell() {
     ] {
         assert!(game.run_command(command), "{command}");
     }
-    let facts = game.biome_facts(0, 100, 0);
     let difficulty = game.local_difficulty([0.5, 100.0, 0.5]);
-    let base = |kind: &str| {
+    let base = |game: &Game<'_>, kind: &str| {
         let m = game.mobs.iter().find(|m| &*m.kind.id == kind).unwrap();
         assert_eq!(
-            m.extra.off_hand, None,
+            m.extra.off_hand_id(),
+            None,
             "{kind}: not finalized by summon with NBT"
         );
         m.clone()
     };
-    let finalize = |mut m: horizon_client::mobs::Mob, seed: i64| {
+    // The fork's finalize funnel draws from the level's random (`world.random`).
+    let finalize = |game: &mut Game<'_>, mut m: horizon_client::mobs::Mob, seed: i64| {
         m.random.set_seed(seed);
-        let mut level = LegacyRandom::new(seed);
-        horizon_client::mobs::spawning::finalize(&mut m, &facts, &difficulty, &mut level);
-        (m, level)
+        game.world.random = horizon_core::random::LevelRandom::for_level(LegacyRandom::new(seed));
+        game.finalize_plain(
+            &mut m,
+            &difficulty,
+            horizon_client::mobs::spawn_rules::Reason::Natural,
+        );
+        (m, game.world.random.clone())
     };
     // Other species draw nothing more: the end state of their random is the
     // one the route had before.
@@ -114,9 +119,10 @@ fn only_an_empty_offhand_drowned_draws_for_the_shell() {
     ];
     for kind in ["minecraft:zombie", "minecraft:husk"] {
         for (seed, state) in before {
-            let (m, level) = finalize(base(kind), seed);
+            let spawned = base(&game, kind);
+            let (m, level) = finalize(&mut game, spawned, seed);
             assert_eq!(level.state(), state, "{kind} seed {seed}");
-            assert_eq!(m.extra.off_hand, None);
+            assert_eq!(m.extra.off_hand_id(), None);
         }
     }
     // An occupied offhand: no shell draw, the item and the chances stay.
@@ -126,27 +132,35 @@ fn only_an_empty_offhand_drowned_draws_for_the_shell() {
         (3, 63989017391689),
     ];
     for (seed, state) in occupied {
-        let mut m = base("minecraft:drowned");
-        m.extra.off_hand = Some("minecraft:dandelion".into());
-        let (m, level) = finalize(m, seed);
+        let mut m = base(&game, "minecraft:drowned");
+        m.extra.set_slot_id(
+            horizon_items::equipment::OFFHAND,
+            Some("minecraft:dandelion".into()),
+        );
+        let (m, level) = finalize(&mut game, m, seed);
         assert_eq!(level.state(), state, "occupied seed {seed}");
-        assert_eq!(m.extra.off_hand.as_deref(), Some("minecraft:dandelion"));
+        assert_eq!(m.extra.off_hand_id(), Some("minecraft:dandelion"));
         assert_eq!(m.extra.drop_chances, None);
     }
     // An empty offhand: exactly one more draw, after every other one, and
     // the shell when it is under 0.03.
     let mut shells = 0;
     for seed in 0..400 {
-        let mut occupied = base("minecraft:drowned");
-        occupied.extra.off_hand = Some("minecraft:dandelion".into());
-        let (occupied, mut after) = finalize(occupied, seed);
-        let (empty, level) = finalize(base("minecraft:drowned"), seed);
+        let mut occupied = base(&game, "minecraft:drowned");
+        occupied.extra.set_slot_id(
+            horizon_items::equipment::OFFHAND,
+            Some("minecraft:dandelion".into()),
+        );
+        let (occupied, mut after) = finalize(&mut game, occupied, seed);
+        let fresh = base(&game, "minecraft:drowned");
+        let (empty, level) = finalize(&mut game, fresh, seed);
         let draw = after.next_float();
         assert_eq!(level.state(), after.state(), "seed {seed}: one draw");
-        let shell = empty.extra.off_hand.as_deref() == Some("minecraft:nautilus_shell");
+        let shell = empty.extra.off_hand_id() == Some("minecraft:nautilus_shell");
         assert_eq!(shell, draw < 0.03, "seed {seed}: draw {draw}");
         assert_eq!(
-            empty.extra.main_hand, occupied.extra.main_hand,
+            empty.extra.main_hand_id(),
+            occupied.extra.main_hand_id(),
             "seed {seed}"
         );
         if shell {
@@ -175,7 +189,7 @@ fn only_an_empty_offhand_drowned_draws_for_the_shell() {
             assert_eq!(drop_chance(&empty, "saddle"), DEFAULT_DROP_CHANCE);
             assert!(empty.saddle_item().is_none());
         } else {
-            assert_eq!(empty.extra.off_hand, None);
+            assert_eq!(empty.extra.off_hand_id(), None);
             assert_eq!(empty.extra.drop_chances, None);
         }
     }

@@ -38,9 +38,7 @@ fn flush_to_operator(
     game: &mut Game<'_>,
     receiver: &mpsc::Receiver<horizon_client::lan::Out>,
 ) -> Vec<serde_json::Value> {
-    let mut host = game.lan.take().expect("a LAN world");
-    game.send_admin_feedback(&mut host, None);
-    game.lan = Some(host);
+    game.send_admin_feedback(None);
     for g in &game.lan.as_ref().unwrap().hub.guests {
         g.sender.flush();
     }
@@ -59,7 +57,8 @@ fn admin_line(message: serde_json::Value) -> serde_json::Value {
 
 /// A LAN world the host opened, with one other operator (conn 7) connected.
 fn lan_game() -> (Game<'static>, mpsc::Receiver<horizon_client::lan::Out>) {
-    let mut game = crate::game::native_machines::tests::server_game();
+    let resources = Box::leak(Box::new(None));
+    let mut game = crate::game::game_tests::tests::server_game(resources);
     game.build_registries();
     game.set_allow_commands(true);
     game.player = Some(PlayerMotion::new(game.motion, Vec3::new(0.5, 66.0, 0.5)).unwrap());
@@ -102,7 +101,6 @@ fn lan_game() -> (Game<'static>, mpsc::Receiver<horizon_client::lan::Out>) {
             latency: Arc::new(AtomicI32::new(0)),
             address: "127.0.0.1:25565".parse().unwrap(),
             expected: false,
-            configured: Default::default(),
         },
         7,
         [8.5, 66.0, 8.5],

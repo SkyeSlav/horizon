@@ -1,7 +1,7 @@
 //! `/random`'s roll line: who hears it and who it names, and the names
 //! `/random reset` completes (RandomCommand).
 use super::*;
-use crate::game::{Dim, native_machines::tests::server_game};
+use crate::game::{Dim, game_tests::tests::server_game};
 use horizon_client::lan::{Joined, NetConfig, Out, PlayerSender, guest::Guest, hub::HubConfig};
 use horizon_protocol::packets::{configuration::ClientInformation, play::Clientbound};
 use std::sync::{Arc, atomic::AtomicI32, mpsc};
@@ -59,7 +59,8 @@ fn suggestions(receiver: &mpsc::Receiver<Out>) -> Vec<String> {
 
 /// A server with two guests on it (`conn` 2 and 7).
 fn server_with_guests() -> (Game<'static>, Vec<mpsc::Receiver<Out>>) {
-    let mut game = server_game();
+    let resources = Box::leak(Box::new(None));
+    let mut game = server_game(resources);
     game.build_registries();
     game.set_allow_commands(true);
     game.lan_host(
@@ -103,7 +104,6 @@ fn server_with_guests() -> (Game<'static>, Vec<mpsc::Receiver<Out>>) {
                 latency: Arc::new(AtomicI32::new(0)),
                 address: "127.0.0.1:25565".parse().unwrap(),
                 expected: false,
-                configured: Default::default(),
             },
             (1_000 + conn) as i32,
             [8.5, 200.0, 8.5],
@@ -162,7 +162,8 @@ fn a_guests_roll_reaches_every_player_once() {
 #[test]
 #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES and scratch homes/cwd"]
 fn a_blocks_roll_names_the_block_and_the_console_says_server() {
-    let mut game = server_game();
+    let mut resources = None;
+    let mut game = server_game(&mut resources);
     game.build_registries();
     game.set_allow_commands(true);
     assert!(game.run_command(
@@ -203,9 +204,7 @@ fn the_reset_argument_offers_the_sequences_the_world_has() {
     let mut w = horizon_protocol::buf::Writer::new();
     w.varint(1);
     w.string("random reset ");
-    let mut host = game.lan.take().expect("the hub is up");
-    game.guest_suggestions(&mut host, 2, &w.data);
-    game.lan = Some(host);
+    game.guest_suggestions(2, &w.data);
     let offered = suggestions(&receivers[0]);
     assert!(offered.iter().any(|s| s == "minecraft:test"), "{offered:?}");
 }

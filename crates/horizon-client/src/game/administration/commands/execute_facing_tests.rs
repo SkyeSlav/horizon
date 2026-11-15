@@ -1,8 +1,8 @@
 //! `execute facing` (`CommandSourceStack.facing`) wraps its yaw with
 //! `Mth.wrapDegrees`, and `execute positioned over` uses `Heightmap.NOT_AIR`,
 //! which skips cave air and void air as well as air.
-use super::super::super::native_machines::tests::server_game;
 use super::*;
+use crate::game::game_tests::tests::server_game;
 
 /// A pig summoned at a known place takes the rotation `rotate` gives it.
 fn summoned_pig(game: &mut Game<'_>) -> u32 {
@@ -13,7 +13,8 @@ fn summoned_pig(game: &mut Game<'_>) -> u32 {
 #[test]
 #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn facing_wraps_and_uses_mth_atan2() {
-    let mut game = server_game();
+    let mut resources = None;
+    let mut game = server_game(&mut resources);
     game.build_registries();
     game.set_allow_commands(true);
     let pig = summoned_pig(&mut game);
@@ -53,7 +54,8 @@ fn facing_wraps_and_uses_mth_atan2() {
 #[test]
 #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn over_world_surface_skips_cave_air_and_void_air() {
-    let mut game = server_game();
+    let mut resources = None;
+    let mut game = server_game(&mut resources);
     game.build_registries();
     game.set_allow_commands(true);
     let registry = game.pack.assets.registry;

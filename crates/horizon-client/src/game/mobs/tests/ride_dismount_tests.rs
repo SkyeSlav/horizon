@@ -140,7 +140,8 @@ fn ghast(game: &mut Game<'_>) -> u32 {
 #[test]
 fn a_ride_mount_keeps_the_players_view() {
     // No prepared resources (CI): nothing to run in.
-    let Some(mut game) = super::tests::server_game() else {
+    let mut resources = None;
+    let Some(mut game) = super::tests::server_game(&mut resources) else {
         return;
     };
     scene(&mut game);
@@ -156,7 +157,8 @@ fn a_ride_mount_keeps_the_players_view() {
 /// `AbstractHorse.doPlayerRide`, which turns the rider first).
 #[test]
 fn a_click_on_a_harnessed_ghast_keeps_the_players_view() {
-    let Some(mut game) = super::tests::server_game() else {
+    let mut resources = None;
+    let Some(mut game) = super::tests::server_game(&mut resources) else {
         return;
     };
     scene(&mut game);
@@ -166,7 +168,9 @@ fn a_click_on_a_harnessed_ghast_keeps_the_players_view() {
         .iter()
         .position(|m| m.id == id)
         .expect("the ghast");
-    game.mobs[index].extra.body = Some("minecraft:white_harness".into());
+    game.mobs[index]
+        .extra
+        .set_body(Some("minecraft:white_harness".into()));
     game.yaw = 90.0;
     assert!(game.interact_mount(index, "minecraft:air"));
     assert_eq!(game.riding, Some(id));
@@ -177,7 +181,8 @@ fn a_click_on_a_harnessed_ghast_keeps_the_players_view() {
 /// boards after it sits in the next seat.
 #[test]
 fn a_mob_that_boards_a_happy_ghast_after_its_player_takes_the_next_seat() {
-    let Some(mut game) = super::tests::server_game() else {
+    let mut resources = None;
+    let Some(mut game) = super::tests::server_game(&mut resources) else {
         return;
     };
     scene(&mut game);

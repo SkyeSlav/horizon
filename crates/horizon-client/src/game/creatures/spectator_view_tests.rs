@@ -19,13 +19,14 @@ fn game() -> Game<'static> {
     let root = root();
     let settings = Settings::default();
     let loaded = load_resources(
-        root.clone(),
+        horizon_assets::resource_source::ResourceRoot::directory(root.clone()),
+        Vec::new(),
         None,
         &root,
         &settings,
         std::time::Instant::now(),
         false,
-        true,
+        crate::game::execution_role::ExecutionRole::IntegratedServer,
         &Progress::new(),
         &mut |_, _| unreachable!(),
     )
@@ -40,13 +41,18 @@ fn game() -> Game<'static> {
         loaded.gui.unwrap(),
         options,
         settings,
-        Audio::silent(&root),
+        Audio::silent(&horizon_assets::resource_source::ResourceSource::directory(
+            root.to_path_buf(),
+        )),
         None,
     )
     .unwrap();
     game.build_registries();
     // The atlas the game bakes at startup: `mob_geometry` finds a body's texture in it.
-    game.gui.atlas = horizon_client::hud::HudAtlas::build(&root).unwrap();
+    game.gui.atlas = horizon_client::hud::HudAtlas::build(
+        &horizon_assets::resource_source::ResourceSource::directory(root.clone()),
+    )
+    .unwrap();
     game.set_allow_commands(true);
     game.world
         .chunks

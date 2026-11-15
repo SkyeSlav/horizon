@@ -2341,6 +2341,7 @@ mod pickup_xp_tests {
                 age: 0,
                 on_ground: true,
                 count: 1,
+                fire_ticks: 0,
                 ticks: 0,
                 air: 300,
                 health: 5,

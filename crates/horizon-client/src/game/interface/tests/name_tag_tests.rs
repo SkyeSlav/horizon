@@ -23,8 +23,8 @@ use horizon_client::save::uuid_text;
 use horizon_client::scoreboard as sb;
 use horizon_client::text::Text;
 use horizon_core::geometry::Vec3;
-use horizon_core::position::ChunkPos;
 use horizon_core::nbt::Tag;
+use horizon_core::position::ChunkPos;
 use std::sync::Arc;
 
 /// A mob of `species` with the box of its vanilla type, built without the
@@ -74,9 +74,12 @@ fn mob(id: u32, entity: &str, species: Species, width: f64, height: f64) -> Mob 
         brain: Brain::Passive,
         anim: Anim::Humanoid { zombie_arms: false },
         sounds: ["entity.cow.hurt", "entity.cow.hurt", "entity.cow.death"],
-        step_sound: None,
         food: Default::default(),
         tempt: Default::default(),
+        shadow: None,
+        attribute_bounds: Default::default(),
+        sound_overrides: Default::default(),
+        passenger_attachments: Vec::new(),
     };
     Mob::new(id, Arc::new(kind), Vec3::new(0.0, 64.0, 0.0), 0.0)
 }
@@ -126,13 +129,14 @@ fn game() -> Game<'static> {
     );
     let settings = Settings::default();
     let loaded = load_resources(
-        root.clone(),
+        horizon_assets::resource_source::ResourceRoot::directory(root.clone()),
+        Vec::new(),
         None,
         &root,
         &settings,
         std::time::Instant::now(),
         false,
-        true,
+        crate::game::execution_role::ExecutionRole::IntegratedServer,
         &Progress::new(),
         &mut |_, _| unreachable!(),
     )
@@ -147,7 +151,9 @@ fn game() -> Game<'static> {
         loaded.gui.unwrap(),
         options,
         settings,
-        Audio::silent(&root),
+        Audio::silent(&horizon_assets::resource_source::ResourceSource::directory(
+            root.to_path_buf(),
+        )),
         None,
     )
     .unwrap();
@@ -294,7 +300,7 @@ fn a_trades_title_draws_the_names_style() {
     // in the screen's grey (-12566464).
     let session = horizon_client::merchant::Session::new(Vec::new(), true);
     game.open_remote_merchant(session, Some(Text::colored("Bob", 0xFF_0000)));
-    let mut batch = HudBatch::new([854, 480]);
+    let mut batch = HudBatch::new([854, 480], game.settings.gui_scale_inputs());
     assert!(game.draw_merchant(&mut batch));
     let (_, oy) = game.inventory_origin(&batch);
     // The title's row: glyphs only, its own line (`oy + 6`, 8 px tall).

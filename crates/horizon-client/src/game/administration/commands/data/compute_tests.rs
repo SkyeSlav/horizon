@@ -1,7 +1,7 @@
 //! `/data modify ... compute` (DataCommands.decorateModification's compute
 //! source, over LootContextSources).
 use super::*;
-use crate::game::native_machines::tests::server_game;
+use crate::game::game_tests::tests::server_game;
 
 /// A compute source stores the provider's value, in the loot context the
 /// `default` / `block` / `entity` decoration builds; a provider the argument
@@ -9,7 +9,8 @@ use crate::game::native_machines::tests::server_game;
 #[test]
 #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn compute_sources_store_the_providers_value() {
-    let mut game = server_game();
+    let mut resources = None;
+    let mut game = server_game(&mut resources);
     game.build_registries();
     game.set_allow_commands(true);
     let store = "h_compute:values";

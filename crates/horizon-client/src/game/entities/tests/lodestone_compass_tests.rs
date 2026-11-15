@@ -5,8 +5,8 @@
 use crate::game::game_tests::tests::server_game;
 use crate::game::{Audio, Game, Options, Progress, Settings, execution_role, load_resources};
 use horizon_client::{entities::ItemFrame, items::ItemStack};
-use horizon_core::random::LegacyRandom;
 use horizon_core::nbt::Tag;
+use horizon_core::random::LegacyRandom;
 
 /// The lodestone at `pos` (the `target` of a `LodestoneTracker`).
 fn tracker(pos: [i32; 3]) -> Tag {
@@ -36,6 +36,8 @@ fn framed_compass(id: u32, pos: [i32; 3], facing: u8, rotation: i8) -> ItemFrame
         fixed: false,
         invisible: false,
         check_interval: 0,
+        attachment_lifetime: Default::default(),
+        join: Default::default(),
         custom_name: None,
         random: LegacyRandom::new(0),
     }
@@ -50,13 +52,14 @@ fn client_game() -> Game<'static> {
     );
     let settings = Settings::default();
     let loaded = load_resources(
-        root.clone(),
+        horizon_assets::resource_source::ResourceRoot::directory(root.clone()),
+        Vec::new(),
         None,
         &root,
         &settings,
         std::time::Instant::now(),
         false,
-        false,
+        crate::game::execution_role::ExecutionRole::Client,
         &Progress::new(),
         &mut |_, _| unreachable!(),
     )
@@ -71,7 +74,9 @@ fn client_game() -> Game<'static> {
         loaded.gui.unwrap(),
         options,
         settings,
-        Audio::silent(&root),
+        Audio::silent(&horizon_assets::resource_source::ResourceSource::directory(
+            root.to_path_buf(),
+        )),
         None,
     )
     .unwrap()
@@ -81,7 +86,8 @@ fn client_game() -> Game<'static> {
 /// item quad's four atlas corners fall inside exactly one of the 32 compass
 /// sprites `compass.json` dispatches over.
 fn drawn_needle(game: &mut Game<'_>, frame: ItemFrame) -> String {
-    game.item_frames = vec![frame];
+    game.item_frames = Default::default();
+    game.item_frames.push(frame);
     // The camera sits at the frame, so the frame passes `shouldRender`.
     let camera = glam::DVec3::from(super::center(&game.item_frames[0]));
     let mut out = Vec::new();

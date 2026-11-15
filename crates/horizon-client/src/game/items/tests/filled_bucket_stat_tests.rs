@@ -41,7 +41,6 @@ fn cauldron_game<'a>(
             f64::from(POS[1]) + 1.0,
             f64::from(POS[2]) + 0.5,
         ],
-        inside: false,
     });
     game
 }

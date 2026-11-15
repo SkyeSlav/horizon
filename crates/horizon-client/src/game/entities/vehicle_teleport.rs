@@ -101,6 +101,7 @@ fn vehicle_id(t: Target) -> Option<u32> {
 }
 
 #[cfg(test)]
+#[path = "vehicle_teleport/teleport_cross_tests.rs"]
 mod teleport_cross_tests;
 
 impl Game<'_> {

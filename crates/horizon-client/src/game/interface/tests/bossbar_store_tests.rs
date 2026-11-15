@@ -6,8 +6,8 @@ use super::*;
 use crate::game::game_tests::tests::server_game;
 
 fn game() -> Game<'static> {
-    let mut resources = None;
-    let mut game = server_game(&mut resources);
+    let resources = Box::leak(Box::new(None));
+    let mut game = server_game(resources);
     game.build_registries();
     game.set_allow_commands(true);
     game

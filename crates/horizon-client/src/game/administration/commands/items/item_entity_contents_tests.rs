@@ -8,8 +8,9 @@ use horizon_client::items::ItemStack;
 #[test]
 #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn a_dropped_item_entity_holds_its_stack_in_contents() {
-    use crate::game::native_machines::tests::server_game;
-    let mut game = server_game();
+    use crate::game::game_tests::tests::server_game;
+    let mut resources = None;
+    let mut game = server_game(&mut resources);
     game.build_registries();
     game.set_allow_commands(true);
     assert!(game.run_command("scoreboard objectives add held dummy"));

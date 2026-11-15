@@ -8207,7 +8207,11 @@ impl Game<'_> {
     /// firework rocket wherever it may be used, and the server launches it.
     /// Whether the item's use succeeded, which ends the click.
     /// The caller has selected Item.useOn after cooldown and adventure gates.
-    fn predict_item_on_block(&mut self, stack: &ItemStack, hit: &super::Hit) -> bool {
+    pub(in crate::game) fn predict_item_on_block(
+        &mut self,
+        stack: &ItemStack,
+        hit: &super::Hit,
+    ) -> bool {
         // FireworkRocketItem.useOn: SUCCESS unless gliding, when Item.use
         // boosts instead. The phase's cooldown/adventure gates already ran.
         if &*stack.item == "minecraft:firework_rocket" {
@@ -14077,7 +14081,6 @@ pub(crate) mod tests {
                 face: [0, 1, 0],
                 inside: false,
                 point: [f64::from(pos[0]) + 0.5, 70.0, 0.5],
-                inside: false,
             };
             let stack = ItemStack::new(name, 2);
             assert_eq!(game.items().get(name).unwrap().block, Some(target));
@@ -14101,7 +14104,6 @@ pub(crate) mod tests {
             face: [0, 1, 0],
             inside: false,
             point: [0.5, 71.0, 0.5],
-            inside: false,
         };
         game.set_mode_id(2);
         let before = game.held().cloned();

@@ -16,13 +16,14 @@ use std::sync::Arc;
 fn floored_game(root: &std::path::Path) -> Game<'static> {
     let settings = Settings::default();
     let loaded = load_resources(
-        root.to_path_buf(),
+        horizon_assets::resource_source::ResourceRoot::directory(root.to_path_buf()),
+        Vec::new(),
         None,
         root,
         &settings,
         std::time::Instant::now(),
         false,
-        false,
+        crate::game::execution_role::ExecutionRole::Client,
         &Progress::new(),
         &mut |_, _| unreachable!(),
     )
@@ -37,7 +38,9 @@ fn floored_game(root: &std::path::Path) -> Game<'static> {
         loaded.gui.unwrap(),
         options,
         settings,
-        Audio::silent(root),
+        Audio::silent(&horizon_assets::resource_source::ResourceSource::directory(
+            root.to_path_buf(),
+        )),
         None,
     )
     .unwrap();
@@ -165,7 +168,13 @@ fn a_starving_infested_player_rolls_the_infested_effect() {
         p.health.food.timer = 79;
         // No hurt cooldown to refuse it: vanilla starves every 80 ticks.
         p.health.hurt.cooldown = 0;
-        p.food_tick(resources, rules).unwrap();
+        p.food_tick(
+            &g.loop_context,
+            crate::game::entity::damage_level_of!(g),
+            resources,
+            rules,
+        )
+        .unwrap();
         let events = std::mem::take(&mut g.player.as_mut().unwrap().events);
         g.record_combat(&events);
         rolls += silverfish(&g);
