@@ -29,6 +29,7 @@ FORCED = [  # removed whatever refers to them (read and confirmed as the fork's 
     ".github/scripts/",
     # Tests of the removed operations (the CI gate's workflow text, boat, board, sync and conflict-measurement tools).
     "tests/test_dyna_ci.py",
+    "tests/test_ci_memory_report.py",
     "tests/test_ci_boat.py",
     "tests/test_gate_failures.py",
     "tests/test_ci_history_fetch.py",

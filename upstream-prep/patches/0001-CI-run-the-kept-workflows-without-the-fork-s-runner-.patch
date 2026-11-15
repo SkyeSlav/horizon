@@ -1,53 +1,55 @@
-From 92f29eccb4a2c1384b59aac6fa8b53af20f0be3a Mon Sep 17 00:00:00 2001
+From 9227ce1a53084b67a505f3a5af8d990de3e0825f Mon Sep 17 00:00:00 2001
 From: arismoko <19542195+arismoko@users.noreply.github.com>
 Date: Sat, 14 Nov 2026 17:21:38 +0000
-Subject: [PATCH 1/3] CI: run the kept workflows without the fork's runner pool
+Subject: [PATCH 1/2] CI: run the kept workflows without the fork's runner pool
  and gate
 
 The daily legs and the hot-path trend no longer route through the fork's runner pool: jobs that need the prepared
 vanilla data run on the horizon-game Linux runner (as ci.yml's vanilla-parity), the others on GitHub's runners.
-The checks that only the fork's gate ran (the test tiers, the export-list and stand-in guards, the mod API surface
-report) move into ci.yml's verify, and tools and tests that named the gate name ci.yml.
+Tools and tests that named the fork's gate name ci.yml. The checks that only that gate ran (the test tiers, the
+export-list and stand-in guards, the vocabulary and type boundary, the mod API surface report) move to their own
+workflow, mod-checks.yml: it runs when a pull request touches crates or those tools, and on demand.
 ---
- .github/actionlint.yaml                      |  3 +-
- .github/workflows/cargo-horizon-mod.yml      |  2 +-
- .github/workflows/ci.yml                     | 52 +++++++++++
- .github/workflows/daily.yml                  |  6 +-
- .github/workflows/fn-replace-check.yml       | 28 ++----
- .github/workflows/game-build.yml             | 94 ++------------------
- .github/workflows/hot-paths.yml              | 41 ++-------
- .github/workflows/ignored-tests.yml          | 39 ++------
- .github/workflows/launcher-windows-check.yml | 24 +----
- .github/workflows/machine-sample.yml         | 40 +--------
- .github/workflows/modding-book.yml           |  2 +-
- .github/workflows/native-dylib-probe.yml     | 23 +----
- .github/workflows/nightly-build.yml          |  2 +-
- .github/workflows/release.yml                |  6 +-
- .github/workflows/wasm-coverage.yml          | 48 +---------
- .github/workflows/wasm-mods.yml              | 19 ++--
- docs/ci-runners.md                           | 14 ---
- docs/layering/mod-host-map.md                |  2 +-
- tests/test_ci_cargo_jobs.py                  | 30 +------
- tests/test_ci_concurrency.py                 | 33 -------
- tests/test_ci_failure_visibility.py          | 20 -----
- tests/test_ci_runners.py                     | 18 +---
- tests/test_ci_rust_changes.py                |  4 +-
- tests/test_ci_source_mtimes.py               | 20 -----
- tests/test_client_ci_stopgap.py              | 22 -----
- tests/test_ignored_test_completion.py        |  4 -
- tests/test_nightly.py                        |  7 +-
- tests/test_nightly_routing.py                | 28 ++----
- tests/test_release_train.py                  | 14 +--
- tests/test_repository_hygiene.py             |  8 +-
- tests/test_snapshot.py                       |  1 -
- tools/ci/ignored_shards.py                   |  4 +-
- tools/ci/runner-packages.txt                 |  8 +-
- tools/ci/rust_changes.py                     |  7 +-
- tools/hotspots/README.md                     | 44 +--------
- tools/pr_ready.py                            |  2 +-
- tools/release_train.py                       | 14 +--
- tools/sync/README.md                         | 14 +--
- 38 files changed, 163 insertions(+), 584 deletions(-)
+ .github/actionlint.yaml                      |   3 +-
+ .github/workflows/cargo-horizon-mod.yml      |   2 +-
+ .github/workflows/daily.yml                  |   6 +-
+ .github/workflows/fn-replace-check.yml       |  28 +---
+ .github/workflows/game-build.yml             |  94 ++----------
+ .github/workflows/hot-paths.yml              |  41 +-----
+ .github/workflows/ignored-tests.yml          |  39 +----
+ .github/workflows/launcher-windows-check.yml |  24 +--
+ .github/workflows/machine-sample.yml         |  40 +----
+ .github/workflows/mod-checks.yml             | 146 +++++++++++++++++++
+ .github/workflows/modding-book.yml           |   2 +-
+ .github/workflows/native-dylib-probe.yml     |  23 +--
+ .github/workflows/nightly-build.yml          |   2 +-
+ .github/workflows/release.yml                |   6 +-
+ .github/workflows/wasm-coverage.yml          |  48 +-----
+ .github/workflows/wasm-mods.yml              |  19 +--
+ docs/ci-runners.md                           |  14 --
+ docs/layering/mod-host-map.md                |   2 +-
+ tests/test_ci_cargo_jobs.py                  |  30 +---
+ tests/test_ci_concurrency.py                 |  33 -----
+ tests/test_ci_failure_visibility.py          |  20 ---
+ tests/test_ci_runners.py                     |  18 +--
+ tests/test_ci_rust_changes.py                |   4 +-
+ tests/test_ci_source_mtimes.py               |  20 ---
+ tests/test_client_ci_stopgap.py              |  22 ---
+ tests/test_ignored_test_completion.py        |   4 -
+ tests/test_nightly.py                        |   7 +-
+ tests/test_nightly_routing.py                |  28 +---
+ tests/test_release_train.py                  |  14 +-
+ tests/test_repository_hygiene.py             |   8 +-
+ tests/test_snapshot.py                       |   1 -
+ tools/ci/ignored_shards.py                   |   4 +-
+ tools/ci/runner-packages.txt                 |   8 +-
+ tools/ci/rust_changes.py                     |   9 +-
+ tools/hotspots/README.md                     |  44 +-----
+ tools/pr_ready.py                            |   2 +-
+ tools/release_train.py                       |  14 +-
+ tools/sync/README.md                         |   9 --
+ 38 files changed, 254 insertions(+), 584 deletions(-)
+ create mode 100644 .github/workflows/mod-checks.yml
 
 diff --git a/.github/actionlint.yaml b/.github/actionlint.yaml
 index 816852b9097..cee6d13c42f 100644
@@ -73,78 +75,8 @@ index 5549e3e1461..0fe5b9773b9 100644
      if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
      name: build ${{ matrix.target }}
      strategy:
-diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
-index c55a28f1d85..5250fd9ca3a 100644
---- a/.github/workflows/ci.yml
-+++ b/.github/workflows/ci.yml
-@@ -95,6 +95,41 @@ jobs:
-         run: python3 tools/check_mod_vocabulary_state.py
-       - name: Test offline research tooling
-         run: python -m unittest discover -s tests -v
-+      - name: Test prepared-data tooling
-+        run: python3 -m unittest discover -s tools/ci -p 'test_prepared_*.py' -v
-+      # The test tiers (CONTRIBUTING.md "CI tiers"): one file per topic in tools/ci/ignored-tests/, and a test that boots
-+      # the game, starts a child process or reruns its own executable is #[ignore = "daily"] with a row there.
-+      - name: Ignored-test policy files read cleanly
-+        run: python3 tools/ci/check_ignored_test_rows.py
-+      - name: Game-boot tests are daily tests
-+        run: python3 tools/ci/check_game_boot_tests.py
-+      - name: Process-starting tests are daily tests
-+        run: python3 tools/ci/check_process_tests.py
-+      - name: Test reruns select ignored tests too
-+        run: python3 tools/ci/reexec_include_ignored.py --check
-+      # tools/hotspots/README.md: export brace lists stay short, the dispatch-test and wire-loopback stand-ins keep up
-+      # with the API they mirror, and the wire_loopback root gains no module line and no test.
-+      - name: Export lists stay short
-+        run: python3 tools/hotspots/check_lists.py
-+      - name: Test stand-ins keep up with the API
-+        run: python3 tools/hotspots/check_stand_ins.py
-+      - name: wire_loopback root does not grow
-+        env:
-+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-+        run: python3 tools/hotspots/check_wire_loopback.py ${BASE_SHA:+--base "$BASE_SHA" --pull-request-merge}
-+      # The mod-host map's tables (docs/layering/mod-host-map.md), built on main's pushes instead of committed.
-+      - name: Build the mod-host map tables
-+        id: mod_host_map
-+        if: github.event_name == 'push'
-+        run: python3 tools/layering/scan_engine_mod_edges.py --map target/layering/mod-host-map-tables.md
-+      - name: Upload the mod-host map tables
-+        if: github.event_name == 'push' && steps.mod_host_map.outcome == 'success'
-+        continue-on-error: true
-+        uses: actions/upload-artifact@v4
-+        with:
-+          name: mod-host-map
-+          path: target/layering/mod-host-map-tables.md
-+          if-no-files-found: error
-       - name: Install Rust toolchain and the ALSA and udev headers the client links against
-         if: steps.rust.outputs.required != 'false'
-         env:
-@@ -140,6 +175,23 @@ jobs:
-           # recompiling the workspace with a different dependency graph.
-           cargo +stable test --workspace --lib --bins --tests mod_content::tests:: -- --ignored
-           cargo +stable test --workspace --doc
-+      # The mod API surface gate (docs/modding/src/reference/sdk/02-surface.md): what a pull request changes in what
-+      # mods can name, in the job summary. It fails for a stale or unreadable new change note and, with
-+      # tools/ci/surface.toml's gate on, for a breaking change no new note declares (tools/ci/surface_report.py).
-+      - name: Build the source stage generator
-+        if: steps.rust.outputs.required != 'false'
-+        run: |
-+          cargo +stable build --locked -p horizon-mod-api-gen --bin horizon-stage
-+          echo "HORIZON_STAGE_TOOL=$PWD/target/debug/horizon-stage" >> "$GITHUB_ENV"
-+      - name: Report the mod API surface change
-+        if: steps.rust.outputs.required != 'false' && github.event_name == 'pull_request'
-+        env:
-+          EVENT: ${{ github.event_name }}
-+          GH_TOKEN: ${{ github.token }}
-+        run: python3 tools/ci/surface_report.py
-+      - name: Validate prebuilt source stage and listed slots
-+        if: steps.rust.outputs.required != 'false'
-+        run: python3 tools/ci/test_stage_catalog.py -v
-   # The launcher is its own workspace (launcher/Cargo.toml), so verify's cargo runs never build it. A pull request that
-   # changes it or a crate it builds is checked here, and so is every push to main: two pull requests can each pass
-   # alone and break it together (#2059 and the registry ratings did, 2026-10-26).
 diff --git a/.github/workflows/daily.yml b/.github/workflows/daily.yml
-index 73112760942..9291871eb71 100644
+index a76053bc997..ed772403802 100644
 --- a/.github/workflows/daily.yml
 +++ b/.github/workflows/daily.yml
 @@ -1,7 +1,7 @@
@@ -169,19 +101,19 @@ index 73112760942..9291871eb71 100644
      timeout-minutes: 5
      permissions:
 diff --git a/.github/workflows/fn-replace-check.yml b/.github/workflows/fn-replace-check.yml
-index e06af0572a6..608dc2953b4 100644
+index 3ecd16fd7a1..8d29765ef03 100644
 --- a/.github/workflows/fn-replace-check.yml
 +++ b/.github/workflows/fn-replace-check.yml
-@@ -6,7 +6,7 @@ name: fn-replace-check
- # fails here and not on a player's machine (#1102). Build and link only: no game runs and no vanilla
- # data is read. Checked by the daily run and by dispatch, never on pull requests or main pushes.
+@@ -13,7 +13,7 @@ name: fn-replace-check
+ # (the daily run's sdk job then built nothing) is checked against that release, which needs no key; a hand dispatch
+ # of anything else builds the server SDK itself.
  on:
 -  # The daily run (daily.yml) calls it with the commit to check; root dispatches it on a branch that changes
 +  # The daily run (daily.yml) calls it with the commit to check; a maintainer dispatches it on a branch that changes
    # what it builds.
    workflow_call:
      inputs:
-@@ -24,33 +24,18 @@ concurrency:
+@@ -31,33 +31,18 @@ concurrency:
    group: fn-replace-check-${{ inputs.commit && github.run_id || github.ref == 'refs/heads/main' && github.run_id || github.ref }}
    cancel-in-progress: ${{ inputs.commit == '' && github.ref != 'refs/heads/main' }}
  env:
@@ -218,7 +150,7 @@ index e06af0572a6..608dc2953b4 100644
        # (tools/ci/cargo_jobs.py). CARGO_BUILD_JOBS, not a flag: it must also reach the launcher's mod builds.
        - name: Choose build parallelism
          run: |
-@@ -70,9 +55,6 @@ jobs:
+@@ -77,9 +62,6 @@ jobs:
          run: |
            sudo fallocate -l 8G /mnt/swapfile && sudo chmod 600 /mnt/swapfile && sudo mkswap /mnt/swapfile && sudo swapon /mnt/swapfile
            free -g
@@ -228,7 +160,7 @@ index e06af0572a6..608dc2953b4 100644
        - name: Install the launcher's pinned Rust and the headers the launcher and the game link against
          run: |
            if [ "$RUNNER_ENVIRONMENT" = github-hosted ]; then
-@@ -88,7 +70,7 @@ jobs:
+@@ -95,7 +77,7 @@ jobs:
            pinned=$(cat tools/ci/rust-version)
            rustup toolchain install "$pinned" --profile minimal
            echo "RUSTUP_TOOLCHAIN=$pinned" >> "$GITHUB_ENV"
@@ -658,6 +590,158 @@ index 272d61f3973..70942aa78c2 100644
            bash tools/ci/rustup_install.sh --profile minimal --component rustfmt --component clippy --target wasm32-unknown-unknown
        # The build runs at the runner's size, not the host's (tools/ci/cargo_jobs.py), as lint's did.
        - name: Cap build parallelism to the runner
+diff --git a/.github/workflows/mod-checks.yml b/.github/workflows/mod-checks.yml
+new file mode 100644
+index 00000000000..13c025e4149
+--- /dev/null
++++ b/.github/workflows/mod-checks.yml
+@@ -0,0 +1,146 @@
++name: mod-checks
++# The mod API's own checks, kept out of ci.yml: the test tiers (CONTRIBUTING.md "CI tiers"), the export-list,
++# stand-in and wire_loopback guards (tools/hotspots/README.md), the vocabulary and type boundary, and the mod API
++# surface report. A pull request runs it when it touches crates or these tools; a maintainer can start it by hand.
++# It is advisory: a path-filtered workflow cannot be a required check.
++on:
++  pull_request:
++    paths:
++      - 'crates/**'
++      - 'tools/ci/**'
++      - 'tools/hotspots/**'
++      - 'tools/layering/**'
++      - 'tools/check_mod_vocabulary_state.py'
++      - '.github/workflows/mod-checks.yml'
++  workflow_dispatch:
++permissions:
++  contents: read
++concurrency:
++  group: mod-checks-${{ github.ref }}
++  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
++jobs:
++  tree:
++    runs-on: ubuntu-latest
++    timeout-minutes: 10
++    outputs:
++      mod_api: ${{ steps.scope.outputs.mod_api }}
++    steps:
++      - uses: actions/checkout@v4
++        with:
++          fetch-depth: 0
++          persist-credentials: false
++      - uses: actions/setup-python@v5
++        with:
++          python-version: '3.12'
++      # The Rust jobs below run when the pull request touches the mod API, its generator, the engine's hook bodies
++      # or these checks; a dispatch runs everything.
++      - name: Does this pull request touch the mod API?
++        id: scope
++        env:
++          BASE_SHA: ${{ github.event.pull_request.base.sha }}
++        run: |
++          if [ -z "$BASE_SHA" ]; then echo "mod_api=true" >> "$GITHUB_OUTPUT"; exit 0; fi
++          if git diff --name-only "$BASE_SHA"...HEAD | grep -qE '^(crates/horizon-mod-|crates/cargo-horizon-mod/|crates/horizon-client/src/game/(modding|native_hooks)/|tools/ci/(surface|test_stage_catalog|check_api_boundary)|\.github/workflows/mod-checks\.yml)'; then
++            echo "mod_api=true" >> "$GITHUB_OUTPUT"
++          else
++            echo "mod_api=false" >> "$GITHUB_OUTPUT"
++          fi
++      - name: Check the mod API type boundary (including negative control)
++        run: python3 tools/ci/check_api_boundary.py --source-only
++      - name: Vocabulary state has explicit ownership
++        run: python3 tools/check_mod_vocabulary_state.py
++      - name: Test prepared-data tooling
++        run: python3 -m unittest discover -s tools/ci -p 'test_prepared_*.py' -v
++      # One file per topic in tools/ci/ignored-tests/; a test that boots the game, starts a child process or reruns
++      # its own executable is #[ignore = "daily"] with a row there.
++      - name: Ignored-test policy files read cleanly
++        run: python3 tools/ci/check_ignored_test_rows.py
++      - name: Game-boot tests are daily tests
++        run: python3 tools/ci/check_game_boot_tests.py
++      - name: Process-starting tests are daily tests
++        run: python3 tools/ci/check_process_tests.py
++      - name: Test reruns select ignored tests too
++        run: python3 tools/ci/reexec_include_ignored.py --check
++      - name: Export lists stay short
++        run: python3 tools/hotspots/check_lists.py
++      - name: Test stand-ins keep up with the API
++        run: python3 tools/hotspots/check_stand_ins.py
++      - name: wire_loopback root does not grow
++        env:
++          BASE_SHA: ${{ github.event.pull_request.base.sha }}
++        run: python3 tools/hotspots/check_wire_loopback.py ${BASE_SHA:+--base "$BASE_SHA" --pull-request-merge}
++      # The mod-host map's tables (docs/layering/mod-host-map.md), built on request instead of committed.
++      - name: Build the mod-host map tables
++        id: mod_host_map
++        if: github.event_name == 'workflow_dispatch'
++        run: python3 tools/layering/scan_engine_mod_edges.py --map target/layering/mod-host-map-tables.md
++      - name: Upload the mod-host map tables
++        if: steps.mod_host_map.outcome == 'success'
++        uses: actions/upload-artifact@v4
++        with:
++          name: mod-host-map
++          path: target/layering/mod-host-map-tables.md
++          if-no-files-found: error
++
++  lint:
++    needs: tree
++    if: needs.tree.outputs.mod_api == 'true'
++    runs-on: ubuntu-latest
++    timeout-minutes: 60
++    steps:
++      - uses: actions/checkout@v4
++        with:
++          persist-credentials: false
++      - name: Install Rust toolchain
++        run: bash tools/ci/rustup_install.sh --profile minimal
++      - uses: Swatinem/rust-cache@v2
++        with:
++          key: mod-checks-lint
++      - name: Install the ALSA and udev headers
++        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libudev-dev
++      # cargo fmt does not reach these files: the mod API and vocab roots load their modules through generated
++      # includes, game/ through build-derived declarations, and the fixtures and loopback tests are not modules.
++      - name: Format of the files cargo fmt skips
++        run: |
++          find crates/horizon-mod-api/src crates/horizon-mod-vocab/src -name '*.rs' -print0 | xargs -0 rustfmt --edition 2024 --check --config skip_children=true
++          find crates/horizon-client/src/game -name '*.rs' -print0 | xargs -0 rustfmt --edition 2024 --config skip_children=true --check
++          rustfmt --edition 2024 --check crates/horizon-mod-api-gen/dispatch-tests/src/fixtures/*.rs crates/horizon-mod-api-gen/dispatch-tests/src/fixtures/*/*.rs
++          rustfmt --edition 2024 --check crates/horizon-mod-wasm/wire-loopback/tests/wire_loopback/*.rs
++      - name: Lint the mod host in the server build
++        run: cargo clippy -p horizon-client -p horizon-game -p horizon-mod-host --all-targets --locked --no-default-features -- -D warnings
++
++  surface:
++    needs: tree
++    if: needs.tree.outputs.mod_api == 'true'
++    runs-on: ubuntu-latest
++    timeout-minutes: 60
++    steps:
++      - uses: actions/checkout@v4
++        with:
++          fetch-depth: 0
++          persist-credentials: false
++      - uses: actions/setup-python@v5
++        with:
++          python-version: '3.12'
++      - name: Install Rust toolchain
++        run: bash tools/ci/rustup_install.sh --profile minimal
++      - uses: Swatinem/rust-cache@v2
++        with:
++          key: mod-checks-surface
++      - name: Check generated mod API signatures
++        run: python3 tools/ci/check_api_boundary.py
++      # The mod API surface gate (docs/modding/src/reference/sdk/02-surface.md): what a pull request changes in what
++      # mods can name, in the job summary. It fails for a stale or unreadable new change note and, with
++      # tools/ci/surface.toml's gate on, for a breaking change no new note declares (tools/ci/surface_report.py).
++      - name: Build the source stage generator
++        run: |
++          cargo build --locked -p horizon-mod-api-gen --bin horizon-stage
++          echo "HORIZON_STAGE_TOOL=$PWD/target/debug/horizon-stage" >> "$GITHUB_ENV"
++      - name: Report the mod API surface change
++        if: github.event_name == 'pull_request'
++        env:
++          EVENT: ${{ github.event_name }}
++          GH_TOKEN: ${{ github.token }}
++        run: python3 tools/ci/surface_report.py
++      - name: Validate prebuilt source stage and listed slots
++        run: python3 tools/ci/test_stage_catalog.py -v
 diff --git a/.github/workflows/modding-book.yml b/.github/workflows/modding-book.yml
 index 44262414e5c..acd587044a9 100644
 --- a/.github/workflows/modding-book.yml
@@ -903,7 +987,7 @@ index c5a5afaf17c..66c76f71783 100644
          shell: bash
          env:
 diff --git a/docs/ci-runners.md b/docs/ci-runners.md
-index 8ffbe527320..ef3234016e9 100644
+index 0a0a3226571..25fc73d1b84 100644
 --- a/docs/ci-runners.md
 +++ b/docs/ci-runners.md
 @@ -151,17 +151,3 @@ To move to a new release, in one pull request:
@@ -1076,7 +1160,7 @@ index 2240e6522f8..de4bcefefd6 100644
 -            self.assertIn("!cancelled()", step["if"])
 -            self.assertNotIn("success()", step["if"])
 diff --git a/tests/test_ci_runners.py b/tests/test_ci_runners.py
-index 0d9db6dd974..f3bb5f5c8bc 100644
+index e8cad3c9a62..db4f4108db9 100644
 --- a/tests/test_ci_runners.py
 +++ b/tests/test_ci_runners.py
 @@ -14,8 +14,6 @@ WORKFLOWS = ROOT / ".github/workflows"
@@ -1120,10 +1204,10 @@ index 0d9db6dd974..f3bb5f5c8bc 100644
              if "pull_request_target" in on:
                  # main's code only: every checkout is main's.
 diff --git a/tests/test_ci_rust_changes.py b/tests/test_ci_rust_changes.py
-index 6bdabd41e34..de382fdfe59 100644
+index de10dbf0ab5..8117d81eb03 100644
 --- a/tests/test_ci_rust_changes.py
 +++ b/tests/test_ci_rust_changes.py
-@@ -31,7 +31,7 @@ class RustChangesTests(unittest.TestCase):
+@@ -38,7 +38,7 @@ class RustChangesTests(unittest.TestCase):
          for path in ["launcher/src/main.rs", "launcher/Cargo.lock", "crates/horizon-port-pack/src/net.rs",
                       "crates/horizon-mcp/src/lib.rs", "crates/horizon-mod-api-gen/src/injection.rs",
                       "crates/horizon-theme/src/lib.rs", "Cargo.toml", "Cargo.lock",
@@ -1132,7 +1216,7 @@ index 6bdabd41e34..de382fdfe59 100644
              with self.subTest(path=path):
                  self.assertTrue(needs_launcher(["README.md", path]))
  
-@@ -94,7 +94,7 @@ class RustChangesTests(unittest.TestCase):
+@@ -112,7 +112,7 @@ class RustChangesTests(unittest.TestCase):
          self.assertEqual(selections([("M", "docs/setup.md")]), {
              "rust_required": False, "launcher_required": False, "tooling_required": False,
          })
@@ -1205,10 +1289,10 @@ index df12bfa32e6..6f6ddb3547e 100644
          selectors = ignored_shards.expand(ignored_shards.SHARDS) + [
              "horizon-client", "horizon-client#1of1", "horizon-client#1of3",
 diff --git a/tests/test_ignored_test_completion.py b/tests/test_ignored_test_completion.py
-index 63b1d574d84..0785e793453 100644
+index 506dd9b7954..3f21f2d81fc 100644
 --- a/tests/test_ignored_test_completion.py
 +++ b/tests/test_ignored_test_completion.py
-@@ -275,10 +275,6 @@ class IgnoredTests(unittest.TestCase):
+@@ -282,10 +282,6 @@ class IgnoredTests(unittest.TestCase):
              self.assertIsNone(ignored_tests.run("horizon-mod-package", [], only=("lib", ["holder::tests::slow"])))
          self.assertEqual(execute.call_count, 1)
          self.assertEqual(ignored_tests._stopped["reason"], "what the tests need could not be built")
@@ -1446,7 +1530,7 @@ index e5f6a0ed249..092fea4c0c4 100644
  xauth
  x11-xkb-utils
 diff --git a/tools/ci/rust_changes.py b/tools/ci/rust_changes.py
-index dd660abcc10..10a0114b726 100644
+index edeb7d8d98d..aa6238a0568 100644
 --- a/tools/ci/rust_changes.py
 +++ b/tools/ci/rust_changes.py
 @@ -2,8 +2,8 @@
@@ -1457,10 +1541,10 @@ index dd660abcc10..10a0114b726 100644
 -machine-sample.yml, so dyna-checks selects nothing for it).
 +--all emits the shared Rust, launcher and tooling decisions in one answer (the machine sample is a daily leg,
 +machine-sample.yml, so nothing selects it here).
+ server_build: whether verify's clippy of the server build has anything new to check (needs_server_build).
  """
  
- import argparse
-@@ -18,8 +18,7 @@ from tools import release_train  # noqa: E402
+@@ -19,8 +19,7 @@ from tools import release_train  # noqa: E402
  # The root workspace's manifest and toolchain files: the launcher's path crates inherit from them.
  ROOT_RUST = {"Cargo.toml", "Cargo.lock", "rust-toolchain.toml", "rustfmt.toml", "clippy.toml"}
  # The check itself: a change to it runs it.
@@ -1469,7 +1553,16 @@ index dd660abcc10..10a0114b726 100644
 +LAUNCHER_CHECK = {".github/workflows/ci.yml", "tools/ci/rust_changes.py", "tools/release_train.py"}
  
  
- def needs_rust(paths):
+ # The Python under tools/ and tests/: verify's Python steps and the parity jobs run it, and no Rust build or test reads
+@@ -111,7 +110,7 @@ if __name__ == "__main__":
+     parser.add_argument("head")
+     mode = parser.add_mutually_exclusive_group()
+     mode.add_argument("--launcher", action="store_true", help="answer for the launcher instead")
+-    mode.add_argument("--all", action="store_true", help="emit centralized dyna-checks selections")
++    mode.add_argument("--all", action="store_true", help="emit every selection in one answer")
+     args = parser.parse_args()
+     changes = changed_entries(args.base, args.head)
+     paths = [path for _, path in changes]
 diff --git a/tools/hotspots/README.md b/tools/hotspots/README.md
 index f9e8418f687..97cefe0bc02 100644
 --- a/tools/hotspots/README.md
@@ -1535,10 +1628,10 @@ index f9e8418f687..97cefe0bc02 100644
 -match nothing (including rows superseded by genuine moves) fail with a request to delete them.
 -This table only shrinks or stays true; new remnants must not be classified away.
 diff --git a/tools/pr_ready.py b/tools/pr_ready.py
-index 61662034360..5a7db3b5a72 100755
+index cb769a653a0..d2e58de41b9 100755
 --- a/tools/pr_ready.py
 +++ b/tools/pr_ready.py
-@@ -308,7 +308,7 @@ def parity_summary(output):
+@@ -302,7 +302,7 @@ def parity_summary(output):
      return text
  
  
@@ -1548,7 +1641,7 @@ index 61662034360..5a7db3b5a72 100755
  CI_CLIPPY_SERVER = "python3 tools/ci/check_warnings.py cargo clippy --keep-going -p horizon-client -p horizon-game -p horizon-mod-host --all-targets --locked --no-default-features"
  
 diff --git a/tools/release_train.py b/tools/release_train.py
-index c2c186ca303..3b237e2c571 100644
+index 7aefef28e6b..092c31243c0 100644
 --- a/tools/release_train.py
 +++ b/tools/release_train.py
 @@ -11,7 +11,7 @@ The game ships only the Nightly since 2026-10-28 (Ludovic): when `decide --kind
@@ -1560,7 +1653,7 @@ index c2c186ca303..3b237e2c571 100644
  did not all pass (pending is not passed); otherwise it always builds, as snapshot-<date>-<short> (no batch rules,
  cap, pause or release-blocker: a snapshot is for testing main, never for players).
  
-@@ -552,8 +552,8 @@ def gate_jobs_passed(run_id, required):
+@@ -563,8 +563,8 @@ def gate_jobs_passed(run_id, required):
  
  
  DAILY_GREEN = "daily-green"
@@ -1571,7 +1664,7 @@ index c2c186ca303..3b237e2c571 100644
  
  
  def daily_green_commit():
-@@ -563,9 +563,9 @@ def daily_green_commit():
+@@ -574,9 +574,9 @@ def daily_green_commit():
  
  
  def fork_gate_passed(sha):
@@ -1583,7 +1676,7 @@ index c2c186ca303..3b237e2c571 100644
      runs = [entry for page in pages for entry in page["workflow_runs"]
              if entry["head_sha"] == sha and entry["head_branch"] == "main" and entry["event"] == "push"]
      return bool(runs) and gate_jobs_passed(runs[0]["id"], SNAPSHOT_GATE)
-@@ -590,7 +590,7 @@ def channel_head(channel, head):
+@@ -601,7 +601,7 @@ def channel_head(channel, head):
      if subprocess.run(["git", "merge-base", "--is-ancestor", sha, "refs/remotes/origin/main"], cwd=ROOT).returncode:
          raise SystemExit(f"::error::refused: {sha} is not on main; a snapshot builds only a commit of main")
      if not fork_gate_passed(sha):
@@ -1592,7 +1685,7 @@ index c2c186ca303..3b237e2c571 100644
                           f"did not all pass on a main push of {sha}; a snapshot needs the gate green on its commit")
      return sha
  
-@@ -610,7 +610,7 @@ def green_main_head(parity=False, eligible=None):
+@@ -621,7 +621,7 @@ def green_main_head(parity=False, eligible=None):
          # Runs are ordered by creation, not completion: a late old run must not
          # displace a newer push. Paginate beyond bursts of cancelled main runs.
          pages = gh_json("api", "--paginate", "--slurp",
@@ -1602,36 +1695,28 @@ index c2c186ca303..3b237e2c571 100644
          for page in pages:
              for entry in page["workflow_runs"]:
 diff --git a/tools/sync/README.md b/tools/sync/README.md
-index 86546bc86e3..9ab686b613f 100644
+index 08f4b2a97ef..7edbcc108db 100644
 --- a/tools/sync/README.md
 +++ b/tools/sync/README.md
-@@ -1,9 +1,4 @@
--# Upstream integration checks
--
+@@ -1,10 +1,5 @@
+ # Upstream integration checks
+ 
 -`audit_launcher_restoration.py --upstream <sha> --upstream-base <sha>` inventories
 -changed launcher files and fork commits. It marks whole upstream takes without
 -judging whether a fork hunk is a permitted Horizon-layer restoration or mod work
 -that must remain. Reviewers check the inventory and the resulting corrections.
-+# File-size baseline
+-
+ ## Upstream changes the merge dropped
  
- ## File-size baseline provenance
- 
-@@ -46,12 +41,11 @@ that this is an upstream sync and that the listed restoration growth is justifie
- 
- The fetch is required on every changed sync declaration; an unreachable upstream,
- a timeout or missing history fails closed, even if a previous fetch left a cached
--ref. Dyna verify therefore fails, with a network-required message, if its runner
-+ref. CI therefore fails, with a network-required message, if its runner
- cannot reach GitHub. `HORIZON_UPSTREAM_URL` overrides the URL for local bare-repo
- tests; normal CI leaves it unset.
- 
--The Dyna verify checkout initially uses the checkout action's shallow default,
--then its `Fetch this commit's history` step fetches `HEAD` with `--unshallow` before
--running the file-size check. This retains the upstream-parent merge in history.
-+A CI checkout must hold this commit's full history (fetch `HEAD` with `--unshallow`
-+from a shallow checkout) before running the file-size check. This retains the upstream-parent merge in history.
- The checker refuses a still-shallow checkout with an explicit full-history error;
- it never treats missing history as approval.
+ A conflict resolved to the fork's side drops upstream's change silently: the sync builds, and the fork later looks
+@@ -40,7 +35,3 @@ Both checks look this up lazily: only when they have a violation, or when their
+ merge base's, so an ordinary PR or rollup never touches the network. When they look, an unreachable upstream, a
+ timeout, a shallow checkout or missing history fails closed, even if a previous fetch left a cached ref.
+ `HORIZON_UPSTREAM_URL` overrides the URL for local bare-repo tests; normal CI leaves it unset.
+-
+-The Dyna verify checkout initially uses the checkout action's shallow default, then its
+-`Fetch this commit's history` step fetches `HEAD` with `--unshallow` before running the checks, which retains
+-the upstream-parent merge in history.
 -- 
 2.39.5
 

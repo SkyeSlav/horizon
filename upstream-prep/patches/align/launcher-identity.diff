@@ -203,10 +203,10 @@ index 8efea3ba7ec..607088f9e5e 100644
          if: needs.decide.outputs.dry_run == 'true'
          run: |
 diff --git a/crates/horizon-addresses/src/lib.rs b/crates/horizon-addresses/src/lib.rs
-index 78db0498fd4..9ef08482a93 100644
+index b0628208069..8a15ebe95c2 100644
 --- a/crates/horizon-addresses/src/lib.rs
 +++ b/crates/horizon-addresses/src/lib.rs
-@@ -61,9 +61,6 @@ pub const SHOP: &str = "https://playhorizon.dev/shop";
+@@ -65,9 +65,6 @@ pub const LAUNCHER_LOOK_CREDIT: &str = "https://github.com/Xmilon";
  /// The official launcher installer's product home.
  pub const LAUNCHER_ABOUT: &str = "https://playhorizon.dev";
  
@@ -229,7 +229,7 @@ index 1e8eec1dbad..00000000000
 -# Never put a private key or a test signing key in this file.
 -Iql+MN7pjxis0Xm+fRhjoW0aIwO1tV/gQLonX1tK35o=
 diff --git a/crates/horizon-release-sign/src/lib.rs b/crates/horizon-release-sign/src/lib.rs
-index df6293fa618..28687dde832 100644
+index d519344f010..d5cec4aa50d 100644
 --- a/crates/horizon-release-sign/src/lib.rs
 +++ b/crates/horizon-release-sign/src/lib.rs
 @@ -30,7 +30,6 @@ pub const SIGNATURE_V2: &str = "SHA256SUMS.v2.sig";
@@ -240,7 +240,7 @@ index df6293fa618..28687dde832 100644
  
  /// An Ed25519 public key.
  pub type PublicKey = [u8; 32];
-@@ -41,16 +40,15 @@ pub fn trusted_keys() -> Vec<PublicKey> {
+@@ -41,10 +40,10 @@ pub fn trusted_keys() -> Vec<PublicKey> {
      trusted_keys_for("horizon-rust/horizon")
  }
  
@@ -253,6 +253,11 @@ index df6293fa618..28687dde832 100644
 +    parse_keys(repository_keys(repository, KEYS)).unwrap_or_default()
  }
  
+ /// The environment variable that adds one more trusted SDK key: exactly one base64 Ed25519 public key, what
+@@ -90,10 +89,9 @@ fn extra_sdk_keys() -> Vec<PublicKey> {
+     Vec::new()
+ }
+ 
 -fn repository_keys<'a>(repository: &str, upstream: &'a str, fork: &'a str) -> &'a str {
 +fn repository_keys<'a>(repository: &str, keys: &'a str) -> &'a str {
      match repository {
@@ -262,7 +267,7 @@ index df6293fa618..28687dde832 100644
          _ => "",
      }
  }
-@@ -387,7 +385,7 @@ pub fn legacy_digest(tag: &str, asset: &str) -> Option<&'static str> {
+@@ -430,7 +428,7 @@ pub fn legacy_digest(tag: &str, asset: &str) -> Option<&'static str> {
      legacy_digest_for("horizon-rust/horizon", tag, asset)
  }
  
@@ -271,7 +276,7 @@ index df6293fa618..28687dde832 100644
  pub fn legacy_digest_for(repository: &str, tag: &str, asset: &str) -> Option<&'static str> {
      if repository != "horizon-rust/horizon" {
          return None;
-@@ -521,54 +519,46 @@ mod tests {
+@@ -564,54 +562,46 @@ mod tests {
      #[test]
      fn repository_trust_is_isolated_and_unknown_repositories_fail_closed() {
          let (upstream, _) = SigningKey::generate().unwrap();
@@ -356,11 +361,11 @@ index df6293fa618..28687dde832 100644
 -        );
      }
  
-     use super::*;
-diff --git a/crates/horizon-release-sign/tests/cli.rs b/crates/horizon-release-sign/tests/cli.rs
+     /// Runs in both profiles (CI runs it with `--release` too): the variable's key is trusted for an SDK
+diff --git a/crates/horizon-release-sign/tests/it/cli.rs b/crates/horizon-release-sign/tests/it/cli.rs
 index c499b0f2d7e..d2e2772aad1 100644
---- a/crates/horizon-release-sign/tests/cli.rs
-+++ b/crates/horizon-release-sign/tests/cli.rs
+--- a/crates/horizon-release-sign/tests/it/cli.rs
++++ b/crates/horizon-release-sign/tests/it/cli.rs
 @@ -264,7 +264,7 @@ fn a_nightly_is_signed_for_its_channel_and_for_its_version() {
  #[ignore = "daily"]
  fn publishing_never_bypasses_signatures_for_fork_or_unknown_repositories() {
@@ -371,7 +376,7 @@ index c499b0f2d7e..d2e2772aad1 100644
          assert!(
              !output.status.success(),
 diff --git a/docs/design-system.md b/docs/design-system.md
-index 5fcd1fa92c5..d1001007b8d 100644
+index 48bc896936a..2d1f44e4201 100644
 --- a/docs/design-system.md
 +++ b/docs/design-system.md
 @@ -180,8 +180,16 @@ than Pixelify. Hover and focus are vanilla's white edge.
@@ -394,20 +399,20 @@ index 5fcd1fa92c5..d1001007b8d 100644
    (`TILE_SHADES`), never Minecraft's stone; the landscape is a banded sky, a sun cut in slices like
    the mark, hills and square trees (a sunset in dark, a dawn in light). The launcher bakes them in
 diff --git a/docs/security.md b/docs/security.md
-index 0b637e66cd4..e333e4d9223 100644
+index 1245234b3ab..5dacb5d46c8 100644
 --- a/docs/security.md
 +++ b/docs/security.md
-@@ -67,8 +67,7 @@ and some are waiting for Ludovic:
-   a secret of GitHub's `release` environment, which only real releases from main can use. The job that signs runs
-   nothing from the repository but a short script calling OpenSSL, so no pull request can read the key by changing
-   the code that gets built. Nobody, Ludovic included, ever needs to see it.
+@@ -75,8 +75,7 @@ and some are waiting for Ludovic:
+   does not compile the lookup, so no environment adds trust to a shipped launcher, and game and launcher releases
+   are never checked with it. A test in both profiles proves the release profile ignores the variable. No release
+   key enters the daily job.
 -- **Nightly signatures.** This describes upstream's Nightly channel, not the fork's daily-only prebuilt schedule and publishing policy; this sync enables no new release trigger or keys.
 -  A Nightly carries two signatures over the same `SHA256SUMS`. `SHA256SUMS.sig` is signed
 +- **Nightly signatures.** A Nightly carries two signatures over the same `SHA256SUMS`. `SHA256SUMS.sig` is signed
    for the channel (`horizon release nightly`), for launchers and servers from before this change, which read only
    that one. `SHA256SUMS.v2.sig` is signed for the Nightly's own version (`horizon release nightly-<date>-<commit>`),
    which its release title names (`Nightly <date> · <commit>`). Current launchers, `horizon-server update` and
-@@ -79,21 +78,12 @@ and some are waiting for Ludovic:
+@@ -87,21 +86,12 @@ and some are waiting for Ludovic:
    or picked with `--version` any more; they leave GitHub with the 7-day rotation. Until a v2 Nightly exists, a
    launcher has nothing to update to, so the first Nightly is built right after this merges. A server can still go back
    to a build it already has with `horizon-server rollback`, which checks nothing it hasn't already checked.
@@ -434,7 +439,7 @@ index 0b637e66cd4..e333e4d9223 100644
    change to any of them waits for a review from the `horizon-rust/council` team (council poll P35). Everything else still merges as soon as its checks pass.
  - **Agents get their own, smaller identity** (prepared, switched on by Ludovic). The `horizon-agent` GitHub App
 diff --git a/launcher/README.md b/launcher/README.md
-index 88dcdb7e707..1b6da37170c 100644
+index 5db73cd9643..f0c2bf8e43f 100644
 --- a/launcher/README.md
 +++ b/launcher/README.md
 @@ -1,42 +1,5 @@
@@ -481,7 +486,7 @@ index 88dcdb7e707..1b6da37170c 100644
  Minecraft, and starts the client or a dedicated server. Built with [GPUI Fast](https://github.com/longbridge/gpui-fast),
  a fork of Zed's UI framework [GPUI](https://www.gpui.rs) that draws unchanged views from the last frame;
 diff --git a/launcher/build.rs b/launcher/build.rs
-index 5f008cb9ee4..3eaae177456 100644
+index 0d143ecd7a2..19e627bd17a 100644
 --- a/launcher/build.rs
 +++ b/launcher/build.rs
 @@ -1,15 +1,6 @@
@@ -500,15 +505,29 @@ index 5f008cb9ee4..3eaae177456 100644
      if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows")
          && std::env::var("CARGO_CFG_TARGET_ENV").as_deref() == Ok("msvc")
      {
-@@ -17,23 +8,12 @@ fn main() {
-         println!("cargo:rustc-link-arg-bins=/DEPENDENTLOADFLAG:0x800");
+@@ -22,37 +13,12 @@ fn main() {
+         }
      }
      let dir = std::env::var("CARGO_MANIFEST_DIR").unwrap_or_default();
--    let icon = if repository == "arismoko/horizon" {
--        "fork/launcher.ico"
--    } else {
--        "horizon.ico"
--    };
+-    // Microsoft sign-in in a local build: the fork's own Azure client ID from an untracked
+-    // `launcher/.msa-client-id` (never committed), when the variable isn't set. Release builds
+-    // set HORIZON_MSA_CLIENT_ID from the repository variable instead. Watched only once it exists
+-    // (a missing watched file would rerun this script on every build): after adding it, change
+-    // build.rs or clean once.
+-    let id_file = format!("{dir}/.msa-client-id");
+-    if std::path::Path::new(&id_file).is_file() {
+-        println!("cargo:rerun-if-changed={id_file}");
+-    }
+-    println!("cargo:rerun-if-env-changed=HORIZON_MSA_CLIENT_ID");
+-    if std::env::var_os("HORIZON_MSA_CLIENT_ID").is_none() {
+-        if let Ok(id) = std::fs::read_to_string(&id_file) {
+-            let id = id.trim();
+-            if !id.is_empty() {
+-                println!("cargo:rustc-env=HORIZON_MSA_CLIENT_ID={id}");
+-            }
+-        }
+-    }
+-    let icon = "horizon.ico";
 -    let ico = format!("{dir}/../packaging/icons/{icon}");
 +    let ico = format!("{dir}/../packaging/icons/horizon.ico");
      println!("cargo:rerun-if-changed={ico}");
@@ -517,8 +536,8 @@ index 5f008cb9ee4..3eaae177456 100644
          let mut resource = winresource::WindowsResource::new();
          resource.set_icon(&ico);
 -        if repository == "arismoko/horizon" {
--            resource.set("FileDescription", "Horizon Fork Launcher (arismoko)");
--            resource.set("ProductName", "Horizon Fork Launcher (arismoko)");
+-            resource.set("FileDescription", "Horizon Launcher");
+-            resource.set("ProductName", "Horizon Launcher");
 -            resource.set("InternalName", "horizon-fork-launcher");
 -            resource.set("OriginalFilename", "horizon-fork-launcher.exe");
 -        }
@@ -533,10 +552,10 @@ index 706149fcdaf..3882ef8fbe3 100644
 -{"discord": "https://discord.gg/playhorizon", "sponsor": "https://github.com/sponsors/ludovic111", "website": "https://playhorizon.dev", "official_server": "play.playhorizon.dev", "official_server_previous": ["horizon.bunchy7s.dev"], "roadmap": "https://github.com/users/arismoko/projects/1", "docs": "https://arismoko.github.io/horizon/"}
 +{"discord": "https://discord.gg/playhorizon", "sponsor": "https://github.com/sponsors/ludovic111", "website": "https://playhorizon.dev", "official_server": "play.playhorizon.dev", "official_server_previous": ["horizon.bunchy7s.dev"], "roadmap": "", "docs": "https://arismoko.github.io/horizon/"}
 diff --git a/launcher/src/backend.rs b/launcher/src/backend.rs
-index 2dab807e08b..eb6bcd07043 100644
+index 7e02e35d0a6..49a6bb2ef3c 100644
 --- a/launcher/src/backend.rs
 +++ b/launcher/src/backend.rs
-@@ -830,7 +830,7 @@ pub struct Links {
+@@ -833,7 +833,7 @@ pub struct Links {
      pub discord: String,
      pub sponsor: String,
      pub website: String,
@@ -545,7 +564,29 @@ index 2dab807e08b..eb6bcd07043 100644
      pub roadmap: String,
      /// The modding book.
      pub docs: String,
-@@ -5581,7 +5581,7 @@ pub fn {f}("
+@@ -908,7 +908,9 @@ pub fn data_dir() -> PathBuf {
+     if let Ok(Some(roots)) = crate::data_location::configured_roots() {
+         return roots.launcher;
+     }
+-    crate::identity::launcher_folder_in(&dirs::data_dir().unwrap_or_else(std::env::temp_dir))
++    dirs::data_dir()
++        .unwrap_or_else(std::env::temp_dir)
++        .join("horizon-launcher")
+ }
+ 
+ /// A canonical path without Windows' verbatim prefix: `canonicalize` gives `\\?\C:\...` there,
+@@ -2537,7 +2539,9 @@ pub fn game_home() -> PathBuf {
+     if let Ok(Some(roots)) = crate::data_location::configured_roots() {
+         return roots.game;
+     }
+-    crate::identity::game_folder_in(&dirs::data_dir().unwrap_or_else(std::env::temp_dir))
++    dirs::data_dir()
++        .unwrap_or_else(std::env::temp_dir)
++        .join("horizon")
+ }
+ 
+ /// Whether No AI is on: every AI feature hidden and off (`horizon_platform::no_ai`, kept in the
+@@ -5571,7 +5575,7 @@ pub fn {f}("
          assert!(launcher_update(&[r(own_tag())]).is_none());
          assert_eq!(launcher_version(&own_tag()), Some(VERSION));
          assert_eq!(
@@ -554,7 +595,7 @@ index 2dab807e08b..eb6bcd07043 100644
              Some(VERSION)
          );
      }
-@@ -6811,7 +6811,7 @@ pub fn {f}("
+@@ -6814,7 +6818,7 @@ pub fn {f}("
              let app = dir.join("Horizon.app");
              fs::create_dir_all(app.join("Contents/MacOS")).unwrap();
              fs::create_dir_all(app.join("Contents/Resources")).unwrap();
@@ -563,7 +604,7 @@ index 2dab807e08b..eb6bcd07043 100644
              fs::copy("/usr/bin/true", &bin).unwrap();
              fs::set_permissions(&bin, fs::Permissions::from_mode(0o755)).unwrap();
              fs::write(app.join("Contents/Resources/version"), version).unwrap();
-@@ -6820,8 +6820,7 @@ pub fn {f}("
+@@ -6823,8 +6827,7 @@ pub fn {f}("
                  "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<plist version=\"1.0\"><dict>\
                   <key>CFBundleExecutable</key><string>horizon-launcher</string>\
                   <key>CFBundleIdentifier</key><string>dev.horizon.test</string>\
@@ -573,7 +614,7 @@ index 2dab807e08b..eb6bcd07043 100644
              )
              .unwrap();
              let signed = Command::new("codesign")
-@@ -6847,7 +6846,7 @@ pub fn {f}("
+@@ -6850,7 +6853,7 @@ pub fn {f}("
          replace_bundle(&new, &installed).unwrap();
          let version = fs::read_to_string(installed.join("Contents/Resources/version")).unwrap();
          assert_eq!(version, "2.0.0");
@@ -582,6 +623,26 @@ index 2dab807e08b..eb6bcd07043 100644
          assert!(
              Command::new(&bin).status().unwrap().success(),
              "still executable"
+diff --git a/launcher/src/data_location.rs b/launcher/src/data_location.rs
+index 0937145937e..73a31912105 100644
+--- a/launcher/src/data_location.rs
++++ b/launcher/src/data_location.rs
+@@ -39,14 +39,7 @@ pub fn bootstrap_path() -> Result<PathBuf> {
+         return Ok(test_home().join("location.json"));
+     }
+     dirs::config_dir()
+-        .map(|p| {
+-            crate::identity::folder_in(
+-                &p,
+-                "horizon-launcher-location",
+-                crate::identity::LEGACY_LOCATION_FOLDER,
+-            )
+-            .join("location.json")
+-        })
++        .map(|p| p.join("horizon-launcher-location").join("location.json"))
+         .ok_or_else(|| "Cannot locate the platform configuration folder for location.json".into())
+ }
+ 
 diff --git a/launcher/src/desktop.rs b/launcher/src/desktop.rs
 index 5ddc78d5c74..87d279ed207 100644
 --- a/launcher/src/desktop.rs
@@ -606,7 +667,7 @@ index 5ddc78d5c74..87d279ed207 100644
  
  /// Every file this module writes, with its contents, under `data`.
 diff --git a/launcher/src/installer.rs b/launcher/src/installer.rs
-index 67175fe5782..faa2ba27cf4 100644
+index 3c642fdbbe0..faa2ba27cf4 100644
 --- a/launcher/src/installer.rs
 +++ b/launcher/src/installer.rs
 @@ -7,7 +7,7 @@
@@ -645,7 +706,18 @@ index 67175fe5782..faa2ba27cf4 100644
  /// uninstalling never has to guess what is ours.
  pub fn folder_for(chosen: &Path) -> PathBuf {
      if chosen
-@@ -452,9 +452,7 @@ fn builds_are_launchers(builds: &Path, data: &Path, location: Option<&Roots>) ->
+@@ -439,9 +439,7 @@ fn named(path: &Path, name: &str) -> bool {
+ /// `--remove-data` may delete it: the default `horizon-launcher` folder, or the `launcher` folder
+ /// of a moved data location, which the move lays out as `<folder>\launcher`, `\game` and `\build`.
+ fn made_by_launcher(data: &Path, location: Option<&Roots>) -> bool {
+-    // A moved location is shared too when the folders are (`location.json` is read by both).
+-    let laid_out = !crate::identity::SHARES_DATA
+-        && location.is_some_and(|r| r.launcher == data && named(&r.launcher, "launcher"));
++    let laid_out = location.is_some_and(|r| r.launcher == data && named(&r.launcher, "launcher"));
+     named(data, "horizon-launcher") || laid_out
+ }
+ 
+@@ -454,9 +452,7 @@ fn builds_are_launchers(builds: &Path, data: &Path, location: Option<&Roots>) ->
  /// Takes the install away. Returns what could not be removed (a file in use, say).
  pub fn uninstall(remove_data: bool, progress: impl Fn(Step, f32)) -> Result<Vec<String>, String> {
      let dir = registered()
@@ -656,41 +728,48 @@ index 67175fe5782..faa2ba27cf4 100644
          .dir;
      close_running_launchers(&progress);
      clean_aside(&dir);
-@@ -646,9 +644,9 @@ mod tests {
+@@ -543,11 +539,6 @@ pub fn uninstall(remove_data: bool, progress: impl Fn(Step, f32)) -> Result<Vec<
+                     builds.display()
+                 ));
+             }
+-        } else if crate::identity::SHARES_DATA {
+-            left.push(format!(
+-                "{} (shared with the Horizon launcher, kept)",
+-                data.display()
+-            ));
+         } else {
+             left.push(format!(
+                 "{} (not the launcher's own folder)",
+@@ -652,24 +643,17 @@ mod tests {
+ 
      #[test]
      fn uninstall_deletes_only_folders_the_launcher_made() {
-         // The default folder, and one `HORIZON_LAUNCHER_HOME` names the same.
+-        let shares = crate::identity::SHARES_DATA;
+-        // The default folder, and one `HORIZON_LAUNCHER_HOME` names the same: the Horizon
+-        // launcher's own; a fork build shares it and never removes it.
 -        let default = Path::new("profile").join("horizon-launcher");
--        assert!(made_by_launcher(&default, None));
+-        assert_eq!(made_by_launcher(&default, None), !shares);
 -        assert!(builds_are_launchers(&default, &default, None));
+-        // The fork's own older folder goes with a fork build.
+-        let fork = Path::new("profile")
+-            .join("horizon-fork-arismoko")
+-            .join("launcher");
+-        assert_eq!(made_by_launcher(&fork, None), shares);
++        // The default folder, and one `HORIZON_LAUNCHER_HOME` names the same.
 +        let default = Path::new(r"C:\Users\p\AppData\Roaming\horizon-launcher");
 +        assert!(made_by_launcher(default, None));
 +        assert!(builds_are_launchers(default, default, None));
          assert!(!made_by_launcher(Path::new(r"D:\Documents"), None));
          assert!(!made_by_launcher(Path::new(r"D:\Games\launcher"), None));
  
-diff --git a/launcher/src/main.rs b/launcher/src/main.rs
-index a54b90f3bbb..434fde7c4d8 100644
---- a/launcher/src/main.rs
-+++ b/launcher/src/main.rs
-@@ -3063,7 +3063,7 @@ impl Launcher {
-                 .child(
-                     shell::text(theme::night::TITLE, shell::c(n.ink))
-                         .font_family(theme::DISPLAY_FONT)
--                        .child(tr("Horizon")),
-+                        .child("Horizon"),
-                 )
-         });
-         shell::sidebar_plate(&t)
-@@ -5541,7 +5541,7 @@ fn menus() -> Vec<Menu> {
-     vec![
-         Menu {
-             name: "Horizon Launcher".into(),
--            items: vec![MenuItem::action(tr("Quit Horizon Launcher"), Quit)],
-+            items: vec![MenuItem::action("Quit Horizon Launcher", Quit)],
-             disabled: false,
-         },
-         Menu {
+         // Data moved to D:\Horizon (`data_location::layout`): its launcher and build folders go,
+         // the game folder never.
+         let moved = moved_to(r"D:\Horizon");
+-        assert_eq!(made_by_launcher(&moved.launcher, Some(&moved)), !shares);
++        assert!(made_by_launcher(&moved.launcher, Some(&moved)));
+         assert!(builds_are_launchers(
+             &moved.build,
+             &moved.launcher,
 diff --git a/launcher/src/setup_args.rs b/launcher/src/setup_args.rs
 index 0784e5ccbaa..683c1bf1b4b 100644
 --- a/launcher/src/setup_args.rs
@@ -721,43 +800,6 @@ index 0784e5ccbaa..683c1bf1b4b 100644
      }
  
      #[test]
-diff --git a/launcher/src/setup_page.rs b/launcher/src/setup_page.rs
-index 97213b76867..605c42adcf2 100644
---- a/launcher/src/setup_page.rs
-+++ b/launcher/src/setup_page.rs
-@@ -396,7 +396,7 @@ impl Setup {
-             .flex()
-             .flex_col()
-             .gap(px(18.))
--            .child(text(night::DISPLAY, c(n.ink)).child(tr("Horizon")))
-+            .child(text(night::DISPLAY, c(n.ink)).child("Horizon"))
-             .child(body)
-     }
- }
-diff --git a/launcher/src/titlebar.rs b/launcher/src/titlebar.rs
-index 9884f7cce15..ede5b77928f 100644
---- a/launcher/src/titlebar.rs
-+++ b/launcher/src/titlebar.rs
-@@ -83,7 +83,7 @@ pub fn render(theme: &Theme, window: &Window) -> Option<Div> {
-         .px(px(12.))
-         .on_mouse_down(MouseButton::Left, |_, window, _| window.start_window_move())
-         .child(mark(16., theme))
--        .child(blocks::pixel(13., FontWeight::MEDIUM).child(horizon_launcher::i18n::tr("Horizon")));
-+        .child(blocks::pixel(13., FontWeight::MEDIUM).child("Horizon"));
- 
-     let mut bar = div()
-         .relative()
-@@ -428,9 +428,7 @@ mod windows {
-             .px(px(12.))
-             .window_control_area(WindowControlArea::Drag)
-             .child(mark(16., theme))
--            .child(
--                blocks::pixel(13., FontWeight::MEDIUM).child(horizon_launcher::i18n::tr("Horizon")),
--            );
-+            .child(blocks::pixel(13., FontWeight::MEDIUM).child("Horizon"));
-         Some(
-             div()
-                 .relative()
 diff --git a/launcher/tests/desktop.rs b/launcher/tests/desktop.rs
 index f204849d8f0..d168cd84730 100644
 --- a/launcher/tests/desktop.rs
@@ -1490,10 +1532,10 @@ index 223b9c554b3..00000000000
 -}
 diff --git a/tests/test_launcher_identity_packaging.py b/tests/test_launcher_identity_packaging.py
 deleted file mode 100644
-index bee00246529..00000000000
+index 57e95c95323..00000000000
 --- a/tests/test_launcher_identity_packaging.py
 +++ /dev/null
-@@ -1,121 +0,0 @@
+@@ -1,126 +0,0 @@
 -"""Packaging comparisons against independent pre-change git object fixtures.
 -
 -Fixtures are verbatim da81e38705 objects, not outputs of the staging function.
@@ -1544,11 +1586,16 @@ index bee00246529..00000000000
 -                subprocess.run(['rustc', '--edition=2021', str(source), '-o', str(binary), '--extern', f'horizon_addresses={addresses}', *flags], check=True)
 -                output = subprocess.check_output([str(binary)], text=True)
 -                outputs.append(dict(line.split('\t', 1) for line in output.splitlines()))
--            self.assertEqual(outputs[0], expected)
--            self.assertTrue(all(outputs[0][name] != outputs[1][name] for name in expected))
--            self.assertEqual(outputs[1]['KEYCHAIN_SERVICE'], 'io.github.arismoko.horizonfork.launcher')
--            self.assertEqual(outputs[1]['LAUNCHER_FOLDER'], 'horizon-fork-arismoko/launcher')
--            self.assertEqual(outputs[1]['GAME_FOLDER'], 'horizon-fork-arismoko/game')
+-            upstream, fork = outputs
+-            self.assertEqual(upstream, expected)
+-            # A fork build presents as the Horizon launcher and opens its data folders and saved
+-            # accounts, since it updates it; how it is installed keeps the fork's own names.
+-            shared = {'WINDOW_TITLE', 'DISPLAY_NAME', 'KEYCHAIN_SERVICE', 'LOCATION_FOLDER', 'LAUNCHER_FOLDER', 'GAME_FOLDER'}
+-            self.assertEqual({name: fork[name] for name in shared}, {name: upstream[name] for name in shared})
+-            self.assertTrue(all(fork[name] != upstream[name] for name in expected.keys() - shared))
+-            self.assertEqual(fork['APP_ID'], 'io.github.arismoko.horizonfork.launcher')
+-            self.assertEqual(fork['EXECUTABLE'], 'horizon-fork-launcher')
+-            self.assertEqual(fork['INSTALL_KEY'], 'Software\\ArismokoHorizonFork\\Launcher')
 -
 -    def test_real_workflow_repository_input_and_matrix(self):
 -        workflow = (ROOT / '.github/workflows/launcher.yml').read_text()
@@ -1905,10 +1952,10 @@ index 4622b5ff372..00000000000
 -if __name__ == '__main__':
 -    print(json.dumps(matrix(os.environ.get('GITHUB_REPOSITORY', 'arismoko/horizon')), separators=(',', ':')))
 diff --git a/tools/release_train.py b/tools/release_train.py
-index 3b237e2c571..8ea335fb16f 100644
+index 092c31243c0..1d719622937 100644
 --- a/tools/release_train.py
 +++ b/tools/release_train.py
-@@ -425,7 +425,7 @@ def line_intro(kind, version, previous):
+@@ -436,7 +436,7 @@ def line_intro(kind, version, previous):
              f"`horizon-server update --version {version}`.")
  
  
@@ -1917,7 +1964,7 @@ index 3b237e2c571..8ea335fb16f 100644
      """(title, body) of a release. previous: the release before it, for a line's first release."""
      shown = [pr for pr in prs if pr["paths"] and "skip-release" not in pr["labels"]]
      new = [pr for pr in shown if "feature" in pr["labels"]]
-@@ -434,12 +434,8 @@ def notes(kind, version, prs, issues, previous=None, repository="horizon-rust/ho
+@@ -445,12 +445,8 @@ def notes(kind, version, prs, issues, previous=None, repository="horizon-rust/ho
          title = f"Horizon {version.removeprefix(GAME_PREFIX)}" + (f": {summary(new, fixed)}" if shown else "")
      else:
          title = f"Horizon launcher {version.removeprefix(OLD_LAUNCHER_PREFIX).removeprefix(LAUNCHER_PREFIX)}"
@@ -1931,7 +1978,7 @@ index 3b237e2c571..8ea335fb16f 100644
      if intro:
          parts.append(intro)
      if not shown:
-@@ -453,7 +449,7 @@ def notes(kind, version, prs, issues, previous=None, repository="horizon-rust/ho
+@@ -464,7 +460,7 @@ def notes(kind, version, prs, issues, previous=None, repository="horizon-rust/ho
      contributors = sorted({pr["author"] for pr in shown if pr["author"] and pr["author"] != MAINTAINER})
      if contributors:
          parts.append("### Contributors\nThanks to " + ", ".join(f"@{name}" for name in contributors) + ".")
@@ -1940,7 +1987,7 @@ index 3b237e2c571..8ea335fb16f 100644
          parts.append(LAUNCHER_FOOTER)
      if kind == "game":
          parts.append(PLAYERS_FOOTER)
-@@ -707,7 +703,7 @@ def main():
+@@ -718,7 +714,7 @@ def main():
      if args.command == "notes":
          version = args.tag or "unreleased"
          previous = last["tag_name"] if last and last["tag_name"] != version else None

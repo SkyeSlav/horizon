@@ -19,6 +19,11 @@ work=${WORK:-$(dirname "$repo")/horizon-upstream-prep}
 
 git -C "$repo" fetch -q origin main
 git -C "$repo" fetch -q upstream main
+# The upstream commit the base already contains: the align steps take upstream's files from it, never from a newer
+# upstream main the base has not synced (that comes with the sync after the pull request opens).
+UPSTREAM_REF=$(git -C "$repo" merge-base "$base" upstream/main)
+export UPSTREAM_REF
+echo "upstream commit in the base: $UPSTREAM_REF"
 # Reuse the work tree when there is one, keeping its target/ (a cargo check stays incremental between runs).
 if [ -d "$work/.git" ] || [ -f "$work/.git" ]; then
   git -C "$work" am --abort 2>/dev/null || true

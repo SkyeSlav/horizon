@@ -1,8 +1,8 @@
 diff --git a/AGENTS.md b/AGENTS.md
-index a8c7dbdaca5..1f5cecaf329 100644
+index bd6804a034c..3f8f40e14d1 100644
 --- a/AGENTS.md
 +++ b/AGENTS.md
-@@ -52,7 +52,7 @@ Feature → files → harness for the most-changed areas: [docs/architecture.md]
+@@ -54,7 +54,7 @@ Feature → files → harness for the most-changed areas: [docs/architecture.md]
  
  ## Mod API on this fork: the clean break
  
@@ -38,10 +38,10 @@ index bb8cf3354cd..0b174ac8098 100644
                      with self.subTest(repository=repository, ephemeral=ephemeral):
                          result = subprocess.run(
 diff --git a/tests/test_nightly.py b/tests/test_nightly.py
-index cac57afec3b..3a09aac7c96 100644
+index 6368ac12f40..5e172849264 100644
 --- a/tests/test_nightly.py
 +++ b/tests/test_nightly.py
-@@ -316,7 +316,7 @@ class SdkPairTests(unittest.TestCase):
+@@ -288,7 +288,7 @@ class SdkPairTests(unittest.TestCase):
              with self.assertRaisesRegex(SystemExit, "publication refused"):
                  nightly.require_sdk("a" * 40)
              self.assertEqual(inventory.call_count, 2)
@@ -50,7 +50,7 @@ index cac57afec3b..3a09aac7c96 100644
                  mock.patch.object(nightly, "sdk_ready") as sdk:
              nightly.require_sdk("a" * 40)
              sdk.assert_not_called()
-@@ -362,7 +362,7 @@ class SdkPairTests(unittest.TestCase):
+@@ -334,7 +334,7 @@ class SdkPairTests(unittest.TestCase):
          main = nightly.Ref("main", "a" * 40, T)
          saved = [{"number": 17, "head": "b" * 40}]
          explicit = [{"number": 19, "head": "c" * 40}]
@@ -59,21 +59,8 @@ index cac57afec3b..3a09aac7c96 100644
              for spec in ("", "19"):
                  with self.subTest(repo=repo, spec=spec), \
                          mock.patch.dict(nightly.os.environ, {"GITHUB_REPOSITORY": repo, "NIGHTLY_PRS": spec,
-diff --git a/tests/test_optional_release_assets.py b/tests/test_optional_release_assets.py
-index ca4dc326391..35d68ced62f 100644
---- a/tests/test_optional_release_assets.py
-+++ b/tests/test_optional_release_assets.py
-@@ -36,7 +36,7 @@ def run_step(containing):
-                      "release shell checks require a bash that is not WSL's, OpenSSL and sha256sum")
- class OptionalReleaseAssetsTests(unittest.TestCase):
-     def test_sign_and_publish_with_each_optional_archive_combination(self):
--        for repository, mask in product(("horizon-rust/horizon", "horizon-rust/horizon"), range(4)):
-+        for repository, mask in product(("horizon-rust/horizon", "another/fork"), range(4)):
-             with self.subTest(repository=repository, mask=mask), tempfile.TemporaryDirectory() as folder:
-                 root = Path(folder)
-                 dist = root / "dist"
 diff --git a/tests/test_release_train.py b/tests/test_release_train.py
-index 518b71024b7..3261ba7f699 100644
+index 2b9fb3e7721..dda28b20961 100644
 --- a/tests/test_release_train.py
 +++ b/tests/test_release_train.py
 @@ -31,7 +31,7 @@ def metadata_page(nodes):
@@ -107,10 +94,10 @@ index 9c529623cb0..eaa1bf4535f 100644
    }
  }
 diff --git a/tools/ci/nightly.py b/tools/ci/nightly.py
-index 4724a195fce..6e8b616bc1e 100644
+index 6db7a068a39..daae527da84 100644
 --- a/tools/ci/nightly.py
 +++ b/tools/ci/nightly.py
-@@ -276,14 +276,14 @@ def listed(name: str, data: bytes, sums: str) -> bool:
+@@ -270,14 +270,14 @@ def listed(name: str, data: bytes, sums: str) -> bool:
  
  def signature_check(sha: str, folder: Path, names: list[str]) -> list[str]:
      """The command that checks sdk-<sha>'s SHA256SUMS signature in `folder` as the launcher does (horizon-release-sign,
@@ -127,42 +114,12 @@ index 4724a195fce..6e8b616bc1e 100644
      them ([`signature_check`])."""
      with tempfile.TemporaryDirectory() as folder:
          gh("release", "download", f"sdk-{sha}", "--repo", "horizon-rust/horizon", "--dir", folder,
-@@ -345,24 +345,24 @@ def green_base(repo: str, issue: str) -> Ref:
-     """NIGHTLY_BASE, else a green main commit from this repository's checks
-     (checks plus parity-main), never an untested fallback."""
-     explicit = os.environ.get("NIGHTLY_BASE", "").strip()
--    fork = repo == "horizon-rust/horizon"
-+    paired = repo == "horizon-rust/horizon"
-     if explicit:
-         sha = explicit
--    elif fork:
-+    elif paired:
-         sha = train.daily_green_commit()
-     else:
-         sha = train.green_main_head(parity=True)
-     if not sha:
--        checks = "every leg of a daily run (no `daily-green` tag yet)" if fork else "checks and parity-main"
-+        checks = "every leg of a daily run (no `daily-green` tag yet)" if paired else "checks and parity-main"
-         stop(repo, issue, f"the build stopped: no recent commit of main passed {checks}, so "
-                           "none is green to build on. The next build after they pass takes it.")
-     if not is_ancestor(sha, "refs/remotes/origin/main"):
-         stop(repo, issue, f"the build stopped: {sha[:9]} is not on main.")
-     sha = git("rev-parse", sha)
--    if fork and explicit and sha != train.daily_green_commit():
-+    if paired and explicit and sha != train.daily_green_commit():
-         stop(repo, issue, f"the build stopped: {sha} is not the commit `daily-green` points to; a nightly builds "
-                           "only the newest fully green daily run's commit, never an older one without its own daily run.")
--    if fork and not sdk_ready(sha):
-+    if paired and not sdk_ready(sha):
-         stop(repo, issue, f"the build stopped: {sha} has no complete published sdk-{sha} release.")
-     return Ref("main", sha, dt.datetime.fromisoformat(git("show", "-s", "--format=%cI", sha)))
- 
-@@ -380,7 +380,7 @@ def pick(force: bool) -> None:
+@@ -361,7 +361,7 @@ def pick(force: bool) -> None:
      dry_run = os.environ.get("DRY_RUN") == "true"
      if repo == "horizon-rust/horizon":
          if os.environ.get("NIGHTLY_PRS", "").strip():
--            stop(repo, os.environ.get("NIGHTLY_ISSUE", ""), "fork Nightlies require an SDK-paired main commit, not PR picks")
-+            stop(repo, os.environ.get("NIGHTLY_ISSUE", ""), "Nightlies here require an SDK-paired main commit, not PR picks")
+-            stop(repo, os.environ.get("NIGHTLY_ISSUE", ""), "fork Nightlies build main's commit, which their SDK is built for, not PR picks")
++            stop(repo, os.environ.get("NIGHTLY_ISSUE", ""), "a Nightly builds main's commit, the one its SDK is built for, not PR picks")
          return build_set(main, [], [], today, force, dry_run)
      if spec := os.environ.get("NIGHTLY_PRS", "").strip():  # a dry run's own set; the saved one stays
          return build_set(main, requested(spec, ns.lookup(repo)), [], today, force, dry_run)

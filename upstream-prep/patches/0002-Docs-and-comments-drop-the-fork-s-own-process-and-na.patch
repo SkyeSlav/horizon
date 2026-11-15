@@ -1,7 +1,7 @@
-From 16956fddb496dd2f989bf8417293cc6121b92e39 Mon Sep 17 00:00:00 2001
+From 403d5b26f840d06f9acbeb28e64dbaa01b1b4209 Mon Sep 17 00:00:00 2001
 From: arismoko <19542195+arismoko@users.noreply.github.com>
 Date: Sat, 14 Nov 2026 17:23:33 +0000
-Subject: [PATCH 2/3] Docs and comments: drop the fork's own process and names
+Subject: [PATCH 2/2] Docs and comments: drop the fork's own process and names
 
 Contributor docs, the PR template and comments no longer describe the fork's rollups, its gate or its agents;
 the daily run's issues and the changelog digest carry a neutral disclosure line.
@@ -18,17 +18,16 @@ the daily run's issues and the changelog digest carry a neutral disclosure line.
  docs/release-flow.md                         | 11 +++++------
  tests/test_ci_rust_changes.py                |  2 +-
  tests/test_nightly_routing.py                |  4 ++--
- tools/changelog.py                           |  2 +-
  tools/ci/cargo_jobs.py                       |  2 +-
  tools/ci/daily_summary.py                    |  2 +-
  tools/ci/nightly.py                          |  4 ++--
  tools/ci/rust_changes.py                     |  2 +-
  tools/ci/surface.toml                        |  2 +-
  tools/ci/test_prepared_cache.py              |  2 +-
- 19 files changed, 30 insertions(+), 39 deletions(-)
+ 18 files changed, 29 insertions(+), 38 deletions(-)
 
 diff --git a/.github/pull_request_template.md b/.github/pull_request_template.md
-index 9ac8118ec00..92de7222451 100644
+index 442bdf2f0f4..0fec2bb05e7 100644
 --- a/.github/pull_request_template.md
 +++ b/.github/pull_request_template.md
 @@ -42,6 +42,3 @@ Tried in game: <what you did and saw, or "no: <why>", or "n/a">
@@ -50,7 +49,7 @@ index 2ba4611f6c2..cf4de15ca42 100644
  # artifacts). Only `publish` may write; the jobs that read the legs' output have `contents: read`. Called by the daily run
  # after a green summary (daily.yml, sdk-publish) and by prebuilt-game.yml's hand dispatch.
 diff --git a/AGENTS.md b/AGENTS.md
-index 7ab63069408..df156d55974 100644
+index ea54fa01003..a4a4a8eb364 100644
 --- a/AGENTS.md
 +++ b/AGENTS.md
 @@ -33,8 +33,8 @@ Feature → files → harness for the most-changed areas: [docs/architecture.md]
@@ -65,7 +64,7 @@ index 7ab63069408..df156d55974 100644
    resources, boots the game, starts a child process, uses the network or a compiled wasm fixture, or takes 2 s or
    more is `#[ignore]`d with a row in `tools/ci/ignored-tests/`; say in the PR when you could not run it. A daily red
 diff --git a/CONTRIBUTING.md b/CONTRIBUTING.md
-index 3dbdeba91ea..e95ffebf49d 100644
+index c39ae225a96..e7681a47b28 100644
 --- a/CONTRIBUTING.md
 +++ b/CONTRIBUTING.md
 @@ -121,20 +121,19 @@ It exits non-zero when something fails.
@@ -92,7 +91,7 @@ index 3dbdeba91ea..e95ffebf49d 100644
  already daily tests, and the existing ones that need resources or a child process are being moved over.
  In Linux `verify`, test binaries run normally under an inet guard: opening, binding or connecting an IPv4/IPv6
  socket or calling libc name-resolution APIs (`getaddrinfo`, `gethostbyname`/`gethostbyname2`/`gethostbyaddr`, their reentrant
-@@ -194,9 +193,6 @@ it (edited on every push, never repeated): talk to its author in the thread befo
+@@ -196,9 +195,6 @@ it (edited on every push, never repeated): talk to its author in the thread befo
    needs. There's no line limit; split by concern, never by size, and don't bundle unrelated changes.
  - **Fill in the template**: what and why, the vanilla reference, the pr_ready block, screenshots for anything you
    can see.
@@ -101,8 +100,8 @@ index 3dbdeba91ea..e95ffebf49d 100644
 -  intact; only design questions come back to you. You don't need to tick "Allow edits by maintainers".
  - **Keep your branch yours.** You can push to it as you like. If you want to bring it up to date, `git merge
    origin/main` is the safe way; a rebase or force-push is fine too, since nothing of ours lives on your branch.
- - **Tick its kind** in the template: `parity` (Horizon now does what vanilla does), `bug` (a crash or breakage),
-@@ -230,7 +226,7 @@ starts from a spec:
+ - **Title: `kind(area): what changes`**, so the queue reads at a glance: `parity(mobs): a ghast's fireball uses its
+@@ -236,7 +232,7 @@ A change too big to review as one concern starts from a spec:
  
  ## Parity checks on forks
  
@@ -124,7 +123,7 @@ index d94e553bfd6..8f4ac92ee2a 100644
  row names what Farmer's Delight's injection does at its vanilla method, the hook's contract and the
  test that runs it. No Farmer's Delight-specific hook is proposed. The three contract mismatches the
 diff --git a/docs/design/mod-api/server-read-tier.md b/docs/design/mod-api/server-read-tier.md
-index 573d0cc2cbc..be2df4a6617 100644
+index 6ce1342a45c..c61a149b9cb 100644
 --- a/docs/design/mod-api/server-read-tier.md
 +++ b/docs/design/mod-api/server-read-tier.md
 @@ -52,9 +52,9 @@ handle count and the total; no build required):
@@ -166,7 +165,7 @@ index 91c9329198a..e07ed732aa0 100644
  
  | Measurement | Compared | Acceptance |
 diff --git a/docs/parity-workflow.md b/docs/parity-workflow.md
-index 7a0343f77b1..77f85b7b67b 100644
+index 33f3bcedd87..cbff13c587e 100644
 --- a/docs/parity-workflow.md
 +++ b/docs/parity-workflow.md
 @@ -25,8 +25,7 @@ runtimes, launch servers and generate worlds. Metadata for cold Linux 1.8.9 alon
@@ -180,10 +179,10 @@ index 7a0343f77b1..77f85b7b67b 100644
  ## Running the vanilla harnesses
  
 diff --git a/docs/release-flow.md b/docs/release-flow.md
-index dbc9fd5b10c..def47228223 100644
+index 45aa5c2313d..09a9809101e 100644
 --- a/docs/release-flow.md
 +++ b/docs/release-flow.md
-@@ -138,8 +138,7 @@ request doesn't wait for them.
+@@ -139,8 +139,7 @@ request doesn't wait for them.
     "don't merge" from anyone holds it).
  
  Never merge your own pull request: another Team member reviews and merges it. Never push to, force-push or rebase a
@@ -193,7 +192,7 @@ index dbc9fd5b10c..def47228223 100644
  
  **A risky pull request gets the `needs-proof` label** and waits for an agent's local proof (both single-player
  paths, `lan_e2e`, a screenshot for anything visible) before it merges. Risky means any of:
-@@ -206,18 +205,18 @@ Three kinds of game build (CI tiers, owner 2026-11-13):
+@@ -207,18 +206,18 @@ Three kinds of game build (CI tiers, owner 2026-11-13):
  
  | Build | Who starts it | What it needs | Published as |
  |---|---|---|---|
@@ -215,7 +214,7 @@ index dbc9fd5b10c..def47228223 100644
     it: no daily tests, no `daily-green`, no batch rules, no daily cap, no pause, no release-blocker.
  2. `snapshot-sdk` builds the commit's prebuilt SDK on every OS (`prebuilt-game-build.yml`; skipped when
     `sdk-<sha>` already exists) and `snapshot-sdk-publish` signs and publishes it as `sdk-<sha>` from this run's
-@@ -265,7 +264,7 @@ summary (`tools/ci/daily_summary.py`) reads each leg's result and its sanitised
+@@ -266,7 +265,7 @@ summary (`tools/ci/daily_summary.py`) reads each leg's result and its sanitised
  
  Only a run on `main` with `dry_run` false moves the tag, files issues or publishes; any other run prints what it
  would do. A Nightly ships only the commit `daily-green` points to, with its SDK (`release.yml`, `nightly build`).
@@ -225,10 +224,10 @@ index dbc9fd5b10c..def47228223 100644
  ```mermaid
  flowchart LR
 diff --git a/tests/test_ci_rust_changes.py b/tests/test_ci_rust_changes.py
-index de382fdfe59..abfa17b02c7 100644
+index 8117d81eb03..6237b31df6e 100644
 --- a/tests/test_ci_rust_changes.py
 +++ b/tests/test_ci_rust_changes.py
-@@ -99,7 +99,7 @@ class RustChangesTests(unittest.TestCase):
+@@ -117,7 +117,7 @@ class RustChangesTests(unittest.TestCase):
              self.assertTrue(selected["rust_required"])
              self.assertTrue(selected["launcher_required"])
              self.assertTrue(selected["tooling_required"])
@@ -256,19 +255,6 @@ index 2eddefa2e10..afe6c57d6cb 100644
              self.assertNotIn("nightly-notes.md", result.stderr)
  
      @unittest.skipUnless(shutil.which("bash"), "The runner guard executes in Bash")
-diff --git a/tools/changelog.py b/tools/changelog.py
-index e5b00b02543..7db31226726 100644
---- a/tools/changelog.py
-+++ b/tools/changelog.py
-@@ -204,7 +204,7 @@ def render(data, now, days=30, cap=12):
-             tag = release["tag_name"]
-             suffix = ' (tool pre-release)' if release.get('prerelease') else ''
-             add(release["published_at"], "Releases", f"[{escaped(release['name'] or tag)}]({WEB}/releases/tag/{quote(tag, safe='')}){suffix}", release["id"])
--    lines = ["> 🤖 Generated by Aria's agent swarm, Dyna, not by Aria.", "",
-+    lines = ["> 🤖 Generated by the changelog workflow.", "",
-              "# Changelog", "", f"Generated {now.strftime('%Y-%m-%d %H:%M UTC')}. Last {days} UTC calendar days.", "",
-              "Public repository activity, not a curated release promise. CI/build and bot PRs without labels, and skip-release PRs are omitted. Rollups expand their membership tables. Issue labels and open status reflect generation time.", ""]
-     for day in sorted(groups, reverse=True):
 diff --git a/tools/ci/cargo_jobs.py b/tools/ci/cargo_jobs.py
 index e16b152ca12..796d8574504 100644
 --- a/tools/ci/cargo_jobs.py
@@ -315,14 +301,14 @@ index 1cdbc228358..a49daa412ea 100644
      fork = repo == "arismoko/horizon"
      if explicit:
 diff --git a/tools/ci/rust_changes.py b/tools/ci/rust_changes.py
-index 10a0114b726..9c2009618bd 100644
+index aa6238a0568..ba661f386cf 100644
 --- a/tools/ci/rust_changes.py
 +++ b/tools/ci/rust_changes.py
-@@ -89,7 +89,7 @@ if __name__ == "__main__":
+@@ -110,7 +110,7 @@ if __name__ == "__main__":
      parser.add_argument("head")
      mode = parser.add_mutually_exclusive_group()
      mode.add_argument("--launcher", action="store_true", help="answer for the launcher instead")
--    mode.add_argument("--all", action="store_true", help="emit centralized dyna-checks selections")
+-    mode.add_argument("--all", action="store_true", help="emit every selection in one answer")
 +    mode.add_argument("--all", action="store_true", help="emit the Rust, launcher and tooling selections at once")
      args = parser.parse_args()
      changes = changed_entries(args.base, args.head)

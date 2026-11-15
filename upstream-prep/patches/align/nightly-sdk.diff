@@ -1,0 +1,2950 @@
+diff --git a/.github/workflows/daily.yml b/.github/workflows/daily.yml
+index a757da8565c..6413705b610 100644
+--- a/.github/workflows/daily.yml
++++ b/.github/workflows/daily.yml
+@@ -3,11 +3,9 @@ run-name: daily ${{ inputs.commit || github.sha }}${{ github.event_name == 'work
+ # The daily tier (CI tiers, owner 2026-11-13; docs/release-flow.md "Daily run"): every in-game test, once a day on
+ # main's head and by a maintainer's dispatch. Its legs are the workflows that used to run on main pushes, called unchanged:
+ # the ignored-tests data shards, the wasm fixture and guest stacks, fn-replace-check and the native linkage probe,
+-# plus the launcher's Windows runtime-lease tests (launcher-windows-check.yml) and the prebuilt SDK of the commit
+-# (prebuilt-game-build.yml), which the nightly needs.
+-# The summary then moves the tag `daily-green` to the commit when every leg passed, or files one issue per failing
+-# test (tools/ci/daily_summary.py), and on all green the nightly is published from that commit (release.yml).
+-# Only a run on main with dry_run false writes anything: tags, issues, the nightly.
++# plus the launcher's Windows runtime-lease tests (launcher-windows-check.yml). The summary files one issue per
++# failing test (tools/ci/daily_summary.py). The Nightly and its SDK are built by nightly-build.yml, not here.
++# Only a run on main with dry_run false writes anything: issues.
+ #   gh workflow run daily.yml --ref main -f dry_run=false             # the real run, as the schedule starts it
+ #   gh workflow run daily.yml --ref <branch> -f dry_run=true          # writes nothing; prints what it would do
+ on:
+@@ -20,7 +18,7 @@ on:
+         type: string
+         default: ''
+       dry_run:
+-        description: Print the tag move, issues and nightly the run would make; write nothing
++        description: Print the issues the run would file; write nothing
+         type: boolean
+         default: true
+       scheduled:
+@@ -79,7 +77,7 @@ jobs:
+         run: |
+           # A branch, tag or short SHA becomes the full SHA here; every later job and the run's summary job name use it.
+           sha=$(git rev-parse --verify --quiet "$COMMIT^{commit}") || { echo "::error::$COMMIT is not a commit of this repository"; exit 1; }
+-          # A writing run tags, files issues and signs and publishes the SDK and the Nightly: only for main's commits.
++          # A writing run files issues: only for main's commits.
+           if [ "$DRY_RUN" != true ]; then
+             git fetch -q --no-tags origin +refs/heads/main:refs/remotes/origin/main
+             git merge-base --is-ancestor "$sha" refs/remotes/origin/main \
+@@ -108,10 +106,10 @@ jobs:
+     uses: ./.github/workflows/wasm-mods.yml
+     with:
+       commit: ${{ needs.resolve.outputs.commit }}
+-  # Against this run's own SDK (the sdk job's legs, or sdk-<sha> when that is already released), signed with a
+-  # throwaway key that only the debug-assertions launcher it builds trusts. It waits for the sdk job for the legs.
++  # Against the server SDK it builds (or sdk-<sha> when that is already released), signed with a throwaway key that
++  # only the debug-assertions launcher it builds trusts.
+   fn-replace-check:
+-    needs: [resolve, sdk]
++    needs: resolve
+     if: needs.resolve.outputs.skip == 'false'
+     uses: ./.github/workflows/fn-replace-check.yml
+     with:
+@@ -130,33 +128,20 @@ jobs:
+     uses: ./.github/workflows/launcher-windows-check.yml
+     with:
+       commit: ${{ needs.resolve.outputs.commit }}
+-  # The prebuilt SDK of this commit, built and smoked on every OS; its archives stay this run's artifacts until
+-  # sdk-publish releases them after a green summary (a red daily publishes no SDK, as it publishes no nightly).
+-  sdk:
+-    needs: resolve
+-    if: needs.resolve.outputs.skip == 'false'
+-    uses: ./.github/workflows/prebuilt-game-build.yml
+-    with:
+-      commit: ${{ needs.resolve.outputs.commit }}
+-
+-  # Reads every leg's result and verdict file (never a log) and moves `daily-green` or files the issues.
++  # Reads every leg's result and verdict file (never a log) and files the issues.
+   summary:
+     # The resolved commit names the job: what a scheduled run's lookup (daily_summary.py --seen) matches.
+     name: summary ${{ needs.resolve.outputs.commit }}${{ needs.resolve.outputs.dry_run == 'true' && ' (dry run)' || '' }}
+-    needs: [resolve, shards, wasm-mods, fn-replace-check, linkage, windows-runtime-leases, sdk]
++    needs: [resolve, shards, wasm-mods, fn-replace-check, linkage, windows-runtime-leases]
+     if: always() && needs.resolve.result == 'success' && needs.resolve.outputs.skip == 'false'
+     runs-on: ubuntu-latest
+     timeout-minutes: 15
+     permissions:
+-      contents: write  # the daily-green tag
+       issues: write
+       actions: read
+-    outputs:
+-      green: ${{ steps.summary.outputs.green }}
+     steps:
+       - uses: actions/checkout@v4
+         with:
+-          fetch-depth: 0
+           persist-credentials: false
+       # No verdict file (a leg that never ran or died first) means that leg did not complete, never green.
+       - uses: actions/download-artifact@v4
+@@ -172,60 +157,3 @@ jobs:
+           RESULTS: ${{ toJSON(needs) }}
+           REPORTS: ${{ runner.temp }}/reports
+         run: python3 tools/ci/daily_summary.py
+-
+-  # The SDK of the daily-green commit, from the sdk leg's assets in this run (no rebuild), signed and published as
+-  # sdk-<sha> (sdk-publish.yml) before the nightly that needs it. A dry run moved no tag and publishes nothing: it
+-  # stops at the summary, which says what it would do. The sdk leg skips its build when sdk-<sha> already exists:
+-  # then there is nothing to publish.
+-  sdk-publish:
+-    needs: [resolve, summary, sdk]
+-    if: needs.summary.outputs.green == 'true' && needs.resolve.outputs.dry_run == 'false' && needs.sdk.outputs.needed == 'true'
+-    permissions:
+-      contents: write  # the sdk-<sha> release
+-    uses: ./.github/workflows/sdk-publish.yml
+-    with:
+-      commit: ${{ needs.resolve.outputs.commit }}
+-      publish: true
+-    secrets: inherit
+-
+-  # A failed publish files (or comments on) one issue, `Daily: sdk-publish did not complete`; the next success
+-  # closes it. The summary ran before the publish, so it cannot see it.
+-  sdk-publish-report:
+-    needs: [resolve, summary, sdk-publish]
+-    if: always() && needs.summary.outputs.green == 'true' && needs.resolve.outputs.dry_run == 'false' && contains(fromJSON('["success", "failure", "cancelled"]'), needs.sdk-publish.result)
+-    runs-on: ubuntu-latest
+-    timeout-minutes: 10
+-    permissions:
+-      issues: write
+-      actions: read
+-    steps:
+-      - uses: actions/checkout@v4
+-        with:
+-          persist-credentials: false
+-      - env:
+-          GH_TOKEN: ${{ github.token }}
+-          COMMIT: ${{ needs.resolve.outputs.commit }}
+-          DRY_RUN: ${{ needs.resolve.outputs.dry_run }}
+-          RESULT: ${{ needs.sdk-publish.result }}
+-        run: python3 tools/ci/daily_summary.py --after sdk-publish "$RESULT"
+-
+-  # The nightly: the daily-green commit, published through the release train (release.yml, kind nightly), after its
+-  # SDK.
+-  nightly:
+-    needs: [resolve, summary, sdk-publish]
+-    # After the SDK, which a Nightly carries the index of: published now, or already (its leg skipped the build).
+-    if: always() && needs.summary.outputs.green == 'true' && needs.resolve.outputs.dry_run == 'false' && (needs.sdk-publish.result == 'success' || needs.sdk-publish.result == 'skipped')
+-    # GitHub checks what every called job asks for at startup, skipped ones too (tests/test_ci_call_permissions.py).
+-    permissions:
+-      # Only because release.yml holds the snapshot's SDK publish (sdk-publish.yml), which asks for it and never
+-      # runs in this call (kind nightly). release.yml's nightly path writes nothing: its jobs declare read, and the
+-      # Nightly is written by `nightly build`, which this only starts.
+-      contents: write
+-      issues: read
+-      actions: write  # release.yml starts `nightly build`
+-    uses: ./.github/workflows/release.yml
+-    with:
+-      kind: nightly
+-      commit: ${{ needs.resolve.outputs.commit }}
+-      dry_run: false
+-      daily: true
+diff --git a/.github/workflows/fn-replace-check.yml b/.github/workflows/fn-replace-check.yml
+index 8d29765ef03..f385fb4e80a 100644
+--- a/.github/workflows/fn-replace-check.yml
++++ b/.github/workflows/fn-replace-check.yml
+@@ -5,13 +5,12 @@ name: fn-replace-check
+ # a mod with registry dependencies, and the refusals by name. So a change that breaks native mods
+ # fails here and not on a player's machine (#1102). Build and link only: no game runs and no vanilla
+ # data is read. Checked by the daily run and by dispatch, never on pull requests or main pushes.
+-# The launcher takes its SDK from an SDK release folder and checks its signature, so the check gets one: the
+-# daily run's own SDK (its `sdk-leg-*` artifacts), gathered and indexed as sdk-publish.yml does and signed with a
+-# throwaway key made for this run, whose public half the launcher trusts through HORIZON_SDK_TRUSTED_KEY. Only a
+-# launcher built with debug_assertions reads that variable (horizon_release_sign::sdk_keys_for), so the launcher
+-# here is built that way, and no release key enters this workflow. A commit whose sdk-<commit> is already released
+-# (the daily run's sdk job then built nothing) is checked against that release, which needs no key; a hand dispatch
+-# of anything else builds the server SDK itself.
++# The launcher takes its SDK from an SDK release folder and checks its signature, so the check gets one: the server
++# SDK of the commit, built here, gathered and indexed as sdk-publish.yml does and signed with a throwaway key made
++# for this run, whose public half the launcher trusts through HORIZON_SDK_TRUSTED_KEY. Only a launcher built with
++# debug_assertions reads that variable (horizon_release_sign::sdk_keys_for), so the launcher here is built that way,
++# and no release key enters this workflow. A commit whose sdk-<commit> is already released (a Nightly's) is checked
++# against that release, which needs no key.
+ on:
+   # The daily run (daily.yml) calls it with the commit to check; a maintainer dispatches it on a branch that changes
+   # what it builds.
+@@ -104,15 +103,12 @@ jobs:
+         env:
+           GH_TOKEN: ${{ github.token }}
+           GH_REPO: ${{ github.repository }}
+-          COMMIT_INPUT: ${{ inputs.commit }}
+         run: |
+-          # `published`: sdk-<commit> is released (the daily run's sdk job built nothing). `legs`: the daily run's own
+-          # sdk-leg-* artifacts. `build`: a hand dispatch builds the server SDK here.
++          # `published`: sdk-<commit> is released. `build`: the server SDK is built here.
+           if gh release view "sdk-$(git rev-parse HEAD)" > /dev/null 2>&1; then source=published
+-          elif [ -n "$COMMIT_INPUT" ]; then source=legs
+           else source=build; fi
+           echo "source=$source" | tee -a "$GITHUB_OUTPUT"
+-      - name: Server SDK, warnings denied (hand dispatch)
++      - name: Server SDK, warnings denied
+         if: steps.sdk.outputs.source == 'build'
+         # Release with ThinLTO as published, but 16 codegen units instead of 1: the same features,
+         # flags, exports and link, built in parallel. A fault only one unit's inlining shows first
+@@ -122,12 +118,6 @@ jobs:
+         run: |
+           python3 tools/prebuilt_game.py build "$FNR_SCRATCH/prebuilt" --server
+           python3 tools/prebuilt_game.py pack "$FNR_SCRATCH/prebuilt" "$FNR_SCRATCH/legs/sdk-leg-server"
+-      # The daily run's SDK: the Linux legs only, the ones this check reads (sdk-publish.yml gathers every leg).
+-      - uses: actions/download-artifact@v4
+-        if: steps.sdk.outputs.source == 'legs'
+-        with:
+-          pattern: sdk-leg-linux*
+-          path: ${{ env.FNR_SCRATCH }}/legs
+       - name: The API source's wasm32 check
+         if: steps.sdk.outputs.source != 'published'
+         run: rustup target add wasm32-unknown-unknown
+diff --git a/.github/workflows/game-build.yml b/.github/workflows/game-build.yml
+index 22f8d59274b..2eb7b712ad5 100644
+--- a/.github/workflows/game-build.yml
++++ b/.github/workflows/game-build.yml
+@@ -17,10 +17,6 @@ on:
+         description: The version built in (HORIZON_VERSION), e.g. 0.2.81 or nightly-2026-10-28
+         type: string
+         required: true
+-      kind:
+-        description: Build channel; snapshots require only SDK-supported platforms
+-        type: string
+-        default: release
+       nightly:
+         description: A nightly's "<date> <short sha>" (HORIZON_NIGHTLY), shown by the game; empty for a release
+         type: string
+@@ -127,10 +123,10 @@ jobs:
+   build:
+     needs: [runner-configuration, exporters]
+     name: build ${{ matrix.name }}
+-    # Windows ARM64 and musl stay optional. Snapshots also leave Intel macOS optional: only the SDK's
+-    # platforms are required there. Nightlies and releases retain their existing Intel macOS requirement.
+-    # Optional failed legs still run; signing omits their absent archives, and snapshot notes name them.
+-    continue-on-error: ${{ matrix.name == 'windows-arm64' || matrix.name == 'linux-musl' || (inputs.kind == 'snapshot' && matrix.name == 'macos-x64') }}
++    # Windows ARM64 and musl are new: a failure never holds the other platforms' release (the signing job
++    # needs this job, and a failed entry of it would fail it). The release steps leave the missing
++    # optional archives out with a warning.
++    continue-on-error: ${{ matrix.name == 'windows-arm64' || matrix.name == 'linux-musl' }}
+     strategy:
+       fail-fast: false
+       matrix:
+diff --git a/.github/workflows/nightly-build.yml b/.github/workflows/nightly-build.yml
+index b3c2b7224ef..754746a4082 100644
+--- a/.github/workflows/nightly-build.yml
++++ b/.github/workflows/nightly-build.yml
+@@ -1,12 +1,11 @@
+ name: nightly build
+-# A snapshot's run is named `snapshot build <commit>`: release_train.nightly_building tells the kinds apart by it.
+-run-name: ${{ inputs.kind == 'snapshot' && format('snapshot build {0}', inputs.base) || format('nightly build{0}', inputs.request && format(' (request {0})', inputs.request) || '') }}
++run-name: nightly build${{ inputs.request && format(' (request {0})', inputs.request) || '' }}
+ # The Nightly, the only build Horizon ships since 2026-10-28 (docs/release-flow.md "Nightly"; Ludovic). When the batch
+-# train decides (release.yml, with the commit as `base`; the daily run calls it when every leg is green), and when a
+-# trusted reviewer asks (`/nightly 2640 2642`, nightly-command.yml), it builds main plus the pull requests the
+-# reviewers picked, merged in order (tools/ci/nightly_set.py), or main alone with none picked. Main is its newest
+-# commit where checks passed (or the `base` input), on the fork the commit `daily-green` points to, and no
+-# Nightly is published while a release-blocker is open. It publishes the result as the `nightly` pre-release, which every launcher and
++# train decides (release.yml, with the commit as `base`), once a night, and when a trusted
++# reviewer asks (`/nightly 2640 2642`, nightly-command.yml), it builds main plus the pull requests the reviewers
++# picked, merged in order (tools/ci/nightly_set.py), or main alone with none picked. Main is its newest commit where
++# checks and parity-main passed (or the `base` input), as for a release, and no Nightly is published while a
++# release-blocker is open. It publishes the result as the `nightly` pre-release, which every launcher and
+ # `horizon-server update` install. The previous nightly stays a week as nightly-<date>.
+ #
+ # Why the signing key never meets the pull requests' code:
+@@ -14,7 +13,7 @@ run-name: ${{ inputs.kind == 'snapshot' && format('snapshot build {0}', inputs.b
+ #   so none of their files reaches the disk and no hook, filter or script of theirs runs. It refuses any pull
+ #   request that changes a path CODEOWNERS gives to Ludovic (this folder, tools/ci/, the signing and update code),
+ #   pushes the merge as nightly/build-<date>-<n> and saves the set on the nightly-state branch.
+-# - This file, game-build.yml and every script below run from main's copy: every dispatch names --ref main, and
++# - This file, game-build.yml and every script below run from main's copy: a schedule runs the default branch, and
+ #   `uses: ./…` takes the caller's commit. A picked pull request's own .github/ is never read.
+ # - `build` (game-build.yml, `trusted: false`) never reaches a release's tools: its macOS jobs run on the runner
+ #   that already runs pull requests' parity jobs, never the release runner; its Rust cache has its own key and is
+@@ -27,28 +26,20 @@ run-name: ${{ inputs.kind == 'snapshot' && format('snapshot build {0}', inputs.b
+ #   names the channel ("horizon release nightly"), so a nightly's signature can't pass for a release's.
+ # - `publish` verifies the signature with main's horizon-release-sign, checks the smoke test, and only then moves
+ #   the tag. Like sign, it never executes what build produced.
++# - The mod SDK of the Nightly's commit is built by `sdk` (prebuilt-game-build.yml, no secret) and released as
++#   `sdk-<sha>` by `sdk-publish` (sdk-publish.yml) with the same signing keys, before the Nightly. `sdk-index` fetches
++#   its sdk.json, checked against the release's signed SHA256SUMS, and `sign` signs it in the Nightly's sums, so the
++#   Nightly and its SDK name each other. `publish` refuses to go on without the SDK (nightly.py require-sdk).
+ # - The source ships with the build: `pick` writes horizon-source.tar.gz with `git archive` (git objects again, nothing
+ #   run), `sign` signs it with the builds, and `publish` attaches it and tags the commit nightly-source/<date>-<short>
+ #   for good (the dated release and the build branch go after 7 days; native mods pin the commit: docs/native-mods.md).
+ #   gh workflow run "nightly build"                     # now (skips when the pick is the same commit as last night's)
+ #   gh workflow run "nightly build" -f force=true       # build and publish even if unchanged
+ #   gh workflow run "nightly build" -f dry_run=true     # build and sign with a throwaway key, publish nothing
+-# Dry picks use only nightly/dry-run-<run>-<attempt>, removed by always-run cleanup; nightly-state and real build
+-# numbering/quota stay untouched, including on a failed build. A hard-killed cleanup may leave only that isolated ref.
+-# By dispatch only: the daily run starts it through release.yml when every leg is green (CI tiers, owner 2026-11-13).
+-# kind=snapshot (release.yml kind snapshot, after it published the commit's SDK): the same build and signing for one
+-# commit of main with the gate green, alone (no picks, no build branch, no nightly-state, no daily cap, no
+-# release-blocker hold), signed for the `snapshot` channel and its version, and published as the pre-release
+-# snapshot-<date>-<short> ("Snapshot <date> · <short>"); never the `nightly` tag, its rotation or nightly-source tags.
+-# The newest snapshot, and every snapshot of the last 7 days, stay (nightly.py prune-snapshots).
++# Since 2026-11-15 only by hand (release.yml, `/nightly`, or a dispatch): no scheduled build.
+ on:
+   workflow_dispatch:
+     inputs:
+-      kind:
+-        description: nightly (the `nightly` channel) or snapshot (a commit of main, its own tag; release.yml starts it)
+-        type: choice
+-        options: [nightly, snapshot]
+-        default: nightly
+       force:
+         description: Build and publish even if tonight's pick is the commit already published
+         type: boolean
+@@ -70,7 +61,7 @@ on:
+         type: string
+         default: ''
+       base:
+-        description: The commit of main to build on (default main's newest with green checks; on the fork the daily-green commit, and only it)
++        description: The commit of main to build on (default main's newest with green checks and parity-main)
+         type: string
+         default: ''
+       urgent:
+@@ -82,8 +73,7 @@ permissions:
+ concurrency:
+   # One build at a time. A newer request replaces one still waiting: it builds the set as it is by then, so no pick
+   # is lost.
+-  # Snapshots have groups of their own (real and dry apart), so one never replaces a waiting Nightly.
+-  group: ${{ inputs.kind == 'snapshot' && format('snapshot-build{0}', inputs.dry_run && '-dry-run' || '') || 'nightly-build' }}
++  group: nightly-build
+   cancel-in-progress: false
+ jobs:
+   pick:
+@@ -103,7 +93,6 @@ jobs:
+       version: ${{ steps.pick.outputs.version }}
+       nightly: ${{ steps.pick.outputs.nightly }}
+       source_tag: ${{ steps.pick.outputs.source_tag }}
+-      tag: ${{ steps.pick.outputs.tag }}
+       dry_run: ${{ steps.mode.outputs.dry_run }}
+     steps:
+       - uses: actions/checkout@v7
+@@ -122,18 +111,15 @@ jobs:
+           NIGHTLY_PRS: ${{ inputs.prs }}
+           NIGHTLY_BASE: ${{ inputs.base }}
+           NIGHTLY_URGENT: ${{ inputs.urgent }}
+-          KIND: ${{ inputs.kind }}
+         run: |
+-          set -euo pipefail
+-          python3 tools/ci/nightly.py pick --kind "$KIND" ${FORCE:+--force} | tee -a "$GITHUB_STEP_SUMMARY"
++          python3 tools/ci/nightly.py pick ${FORCE:+--force} | tee -a "$GITHUB_STEP_SUMMARY"
+           { echo; cat nightly-notes.md; } >> "$GITHUB_STEP_SUMMARY"
+-      - name: Old nightly/build-* branches deleted (real runs only)
++      - name: Old nightly/build-* branches deleted (scheduled runs only)
+         # Ludovic, 2026-10-27: older than 7 days, but never the newest build or one a published nightly points to;
+         # nothing but nightly/build-* (nightly.py stale_builds, tests/test_nightly.py).
+-        if: steps.mode.outputs.dry_run != 'true' && inputs.kind == 'nightly'
++        if: github.event_name == 'schedule'
+         env:
+           GH_TOKEN: ${{ github.token }}
+-        shell: bash
+         run: |
+           { echo "### nightly/build-* branches"; python3 tools/ci/nightly.py prune-builds --days 7; } | tee -a "$GITHUB_STEP_SUMMARY"
+       - name: The source of the build (horizon-source.tar.gz)
+@@ -153,21 +139,6 @@ jobs:
+           name: nightly-notes
+           path: nightly-notes.md
+           retention-days: 3
+-      # The fork's Nightly is exactly an SDK's build, and carries that SDK's index in its signed sums, so a game's build
+-      # id and SDK come from the game release itself (checked against sdk-<sha>'s SHA256SUMS here).
+-      - name: The SDK index the Nightly carries (sdk.json of sdk-<sha>)
+-        if: steps.pick.outputs.build == 'true' && github.repository == 'arismoko/horizon' && steps.pick.outputs.sdk != 'false'
+-        env:
+-          GH_TOKEN: ${{ github.token }}
+-          SHA: ${{ steps.pick.outputs.sha }}
+-        run: python3 tools/ci/nightly.py sdk-index "$SHA" sdk.json
+-      - uses: actions/upload-artifact@v7
+-        if: steps.pick.outputs.build == 'true' && github.repository == 'arismoko/horizon' && steps.pick.outputs.sdk != 'false'
+-        with:
+-          name: horizon-sdk-index
+-          path: sdk.json
+-          if-no-files-found: error
+-          retention-days: 3
+ 
+   build:
+     needs: pick
+@@ -177,12 +148,58 @@ jobs:
+       ref: ${{ needs.pick.outputs.sha }}
+       version: ${{ needs.pick.outputs.version }}
+       nightly: ${{ needs.pick.outputs.nightly }}
+-      kind: ${{ inputs.kind }}
+       developer_id: false
+       trusted: false  # it can hold unreviewed pull requests: their own cache key, never saved, not the release runner
+ 
++  # The mod SDK of this commit, built and smoked on every OS; sdk-publish releases it once the game's build is green.
++  sdk:
++    needs: pick
++    if: needs.pick.outputs.build == 'true'
++    uses: ./.github/workflows/prebuilt-game-build.yml
++    with:
++      commit: ${{ needs.pick.outputs.sha }}
++
++  # Signed with the release key and created as sdk-<sha>, before the Nightly that carries its index. A dry run signs
++  # with a throwaway key and publishes nothing; a commit whose sdk-<sha> exists is not built or released again.
++  sdk-publish:
++    needs: [pick, build, sdk]
++    if: needs.sdk.outputs.needed == 'true'
++    permissions:
++      contents: write  # the sdk-<sha> release
++    uses: ./.github/workflows/sdk-publish.yml
++    with:
++      commit: ${{ needs.pick.outputs.sha }}
++      publish: ${{ needs.pick.outputs.dry_run != 'true' }}
++    secrets: inherit
++
++  sdk-index:
++    needs: [pick, sdk-publish]
++    if: always() && needs.pick.outputs.build == 'true' && needs.pick.outputs.dry_run != 'true' && contains(fromJSON('["success", "skipped"]'), needs.sdk-publish.result)
++    runs-on: ubuntu-latest
++    timeout-minutes: 15
++    permissions:
++      contents: read
++    steps:
++      - uses: actions/checkout@v7
++        with:
++          fetch-depth: 0
++          persist-credentials: false
++      - name: The SDK index the Nightly carries (sdk.json of sdk-<sha>)
++        env:
++          GH_TOKEN: ${{ github.token }}
++          SHA: ${{ needs.pick.outputs.sha }}
++        run: python3 tools/ci/nightly.py sdk-index "$SHA" sdk.json
++      - uses: actions/upload-artifact@v7
++        with:
++          name: horizon-sdk-index
++          path: sdk.json
++          if-no-files-found: error
++          retention-days: 3
++
+   sign:
+-    needs: [pick, build]
++    needs: [pick, build, sdk-index]
++    # A dry run has no sdk-index (nothing is published for it to read).
++    if: always() && needs.build.result == 'success' && contains(fromJSON('["success", "skipped"]'), needs.sdk-index.result)
+     runs-on: ubuntu-latest
+     timeout-minutes: 10
+     # The key's only job: main's sign_release.sh hashes the archives and signs with the runner's OpenSSL.
+@@ -203,29 +220,20 @@ jobs:
+         # nightly-<date>-<commit>, the version the release title names, which current launchers and servers
+         # require (docs/security.md, "Nightly signatures"). The publish step titles the release from the same values.
+         env:
+-          RELEASE_SIGNING_KEY: ${{ needs.pick.outputs.dry_run != 'true' && secrets.RELEASE_SIGNING_KEY || '' }}
+-          RELEASE_SIGNING_KEY_NEXT: ${{ needs.pick.outputs.dry_run != 'true' && secrets.RELEASE_SIGNING_KEY_NEXT || '' }}
++          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
++          RELEASE_SIGNING_KEY_NEXT: ${{ secrets.RELEASE_SIGNING_KEY_NEXT }}
+           EPHEMERAL: ${{ needs.pick.outputs.dry_run == 'true' && 'yes' || '' }}
+-          # The channel (nightly or snapshot) and the build's version on it: sign_release.sh refuses a mismatch.
+-          KIND: ${{ inputs.kind }}
+-          ALSO_FOR: ${{ inputs.kind }}-${{ needs.pick.outputs.date }}-${{ needs.pick.outputs.short }}
++          ALSO_FOR: nightly-${{ needs.pick.outputs.date }}-${{ needs.pick.outputs.short }}
+         run: |
+           # Windows ARM64's build may fail without holding the Nightly (game-build.yml): then it is left out.
+           arm64=(); if [[ -f dist/horizon-windows-arm64.zip ]]; then arm64=(dist/horizon-windows-arm64.zip)
+           else echo "::warning::horizon-windows-arm64.zip is missing: SHA256SUMS goes out without it"; fi
+           musl=(); if [[ -f dist/horizon-linux-musl-x86_64.tar.gz ]]; then musl=(dist/horizon-linux-musl-x86_64.tar.gz)
+           else echo "::warning::horizon-linux-musl-x86_64.tar.gz is missing: SHA256SUMS goes out without it"; fi
+-          macos_x64=(dist/horizon-macos-x64.zip)
+-          if [[ "$KIND" == snapshot && ! -f dist/horizon-macos-x64.zip ]]; then
+-            macos_x64=()
+-            echo "::warning::horizon-macos-x64.zip is missing: the snapshot goes out without it"
+-          fi
+-          # The fork's Nightly carries its SDK's index (the pick job fetched it); upstream's has no SDK.
+-          # A snapshot's dry run of a commit whose SDK is not published yet has none (nightly.py pick_snapshot warns).
+-          sdk=(); if [[ "$GITHUB_REPOSITORY" == arismoko/horizon && ( "$KIND" == nightly || -f dist/sdk.json ) ]]; then sdk=(dist/sdk.json); fi
+-          bash tools/ci/sign_release.sh "$KIND" dist/horizon-linux-x86_64.tar.gz dist/horizon-windows-x64.zip \
++          sdk=(); [[ -f dist/sdk.json ]] && sdk=(dist/sdk.json)
++          bash tools/ci/sign_release.sh nightly dist/horizon-linux-x86_64.tar.gz dist/horizon-windows-x64.zip \
+             ${arm64[@]+"${arm64[@]}"} ${musl[@]+"${musl[@]}"} ${sdk[@]+"${sdk[@]}"} \
+-            dist/horizon-macos-arm64.zip ${macos_x64[@]+"${macos_x64[@]}"} dist/horizon-server-linux-x86_64.tar.gz \
++            dist/horizon-macos-arm64.zip dist/horizon-macos-x64.zip dist/horizon-server-linux-x86_64.tar.gz \
+             dist/horizon-source.tar.gz
+       - uses: actions/upload-artifact@v7
+         with:
+@@ -254,18 +262,19 @@ jobs:
+       - uses: actions/download-artifact@v8
+         with:
+           path: dist
++          # Not the SDK's artifacts (sdk-leg-*, sdk-release, sdk-signature): their SHA256SUMS is not the Nightly's.
++          pattern: '!sdk-*'
+           merge-multiple: true
+       - name: The signatures, checked as launchers check them
+         env:
+           EPHEMERAL: ${{ needs.pick.outputs.dry_run == 'true' && 'yes' || '' }}
+           DATE: ${{ needs.pick.outputs.date }}
+           SHORT: ${{ needs.pick.outputs.short }}
+-          KIND: ${{ inputs.kind }}
+         run: |
+           key=(); [[ -n "$EPHEMERAL" ]] && key=(--key "$(cat dist/ephemeral.pub)")
+-          cargo run --locked --quiet -p horizon-release-sign -- verify --repository "$GITHUB_REPOSITORY" --tag "$KIND" --publishing "${key[@]}" dist
++          cargo run --locked --quiet -p horizon-release-sign -- verify --tag nightly --publishing "${key[@]}" dist
+           # The version's own signature, which current launchers require: the title below names the same version.
+-          cargo run --locked --quiet -p horizon-release-sign -- verify --repository "$GITHUB_REPOSITORY" --tag "${KIND}-${DATE}-${SHORT}" \
++          cargo run --locked --quiet -p horizon-release-sign -- verify --tag "nightly-${DATE}-${SHORT}" \
+             --signature SHA256SUMS.v2.sig --publishing "${key[@]}" dist
+       - name: Ready to publish (the smoke test drew a world, no release-blocker is open)
+         # Right before publishing, as for a release: an issue labelled while the builds ran still holds it. A dry run
+@@ -273,17 +282,13 @@ jobs:
+         env:
+           GH_TOKEN: ${{ github.token }}
+           DRY_RUN: ${{ needs.pick.outputs.dry_run }}
+-          # A release-blocker holds the Nightly players get, not a snapshot built to test main.
+-          BLOCKERS: ${{ inputs.kind == 'nightly' && 'yes' || '' }}
+         run: |
+-          if ! python3 tools/release_train.py gate --kind game --smoke dist/smoke-test.json ${BLOCKERS:+--blockers}; then
+-            # The fork uses a dry run as release-readiness evidence: a missing/failed smoke
+-            # report must fail it, not produce a misleading green workflow.
+-            [[ "$DRY_RUN" == true && "$GITHUB_REPOSITORY" != arismoko/horizon ]] || { echo "::error::Nothing published"; exit 1; }
++          if ! python3 tools/release_train.py gate --kind game --smoke dist/smoke-test.json --blockers; then
++            [[ "$DRY_RUN" == true ]] || { echo "::error::Nothing published"; exit 1; }
+             echo "::warning::A real run would publish nothing"
+           fi
+       - name: Publish as the `nightly` pre-release
+-        if: needs.pick.outputs.dry_run != 'true' && inputs.kind == 'nightly'
++        if: needs.pick.outputs.dry_run != 'true'
+         env:
+           GH_TOKEN: ${{ github.token }}
+           SHA: ${{ needs.pick.outputs.sha }}
+@@ -305,7 +310,7 @@ jobs:
+           else
+             echo "::warning::horizon-windows-arm64.zip is missing: the Nightly goes out without it (ARM64 launchers install the x64 build)"
+           fi
+-          sdk=(); if [[ "$GITHUB_REPOSITORY" == arismoko/horizon ]]; then sdk=("dist/sdk.json#The mod SDK of this build (sdk.json; its files are the release sdk-$SHA)"); fi
++          sdk=(); [[ -f dist/sdk.json ]] && sdk=("dist/sdk.json#The mod SDK of this build (sdk.json; its files are the release sdk-$SHA)")
+           musl=()
+           if [[ -f dist/horizon-linux-musl-x86_64.tar.gz ]]; then
+             musl=("dist/horizon-linux-musl-x86_64.tar.gz#Game files for musl Linux (horizon-linux-musl-x86_64.tar.gz)")
+@@ -314,7 +319,6 @@ jobs:
+           fi
+           # A pre-release, never GitHub's latest: the latest stays the last vX.Y.Z, which launchers and servers from
+           # before the Nightly-only switch keep (they don't read Nightlies).
+-          python3 tools/ci/nightly.py require-sdk "$SHA"
+           gh release create nightly --prerelease --latest=false --target "$SHA" \
+             --title "Nightly $DATE · ${SHA:0:7}" --notes-file dist/nightly-notes.md \
+             "dist/horizon-linux-x86_64.tar.gz#Game files the launcher installs (Nightly): Linux (horizon-linux-x86_64.tar.gz)" \
+@@ -328,71 +332,12 @@ jobs:
+             dist/SHA256SUMS "${signature[@]}" dist/smoke-test.json
+           python3 tools/ci/nightly.py keep-source "$SHA" "$DATE"
+           python3 tools/ci/nightly.py prune --days 7
+-      - name: Publish as the snapshot-<date>-<short> pre-release
+-        if: needs.pick.outputs.dry_run != 'true' && inputs.kind == 'snapshot'
+-        env:
+-          GH_TOKEN: ${{ github.token }}
+-          SHA: ${{ needs.pick.outputs.sha }}
+-          SHORT: ${{ needs.pick.outputs.short }}
+-          DATE: ${{ needs.pick.outputs.date }}
+-          TAG: ${{ needs.pick.outputs.tag }}
+-        run: |
+-          set -euo pipefail
+-          python3 tools/ci/nightly.py require-sdk "$SHA"
+-          # The title is what launchers parse (strictly) into the version SHA256SUMS.v2.sig is signed for: the tag.
+-          [[ "${SHA:0:7}" == "$SHORT" && "$TAG" == "snapshot-$DATE-$SHORT" ]] || { echo "::error::the build's commit isn't the one signed"; exit 1; }
+-          # Archive presence records what was actually built, not an unsupported platform promise.
+-          printf '\n## Platform build results\n\n' >> dist/nightly-notes.md
+-          for archive in horizon-linux-x86_64.tar.gz horizon-server-linux-x86_64.tar.gz horizon-windows-x64.zip \
+-              horizon-macos-arm64.zip horizon-linux-musl-x86_64.tar.gz horizon-windows-arm64.zip horizon-macos-x64.zip; do
+-            if [[ -f "dist/$archive" ]]; then
+-              printf -- '- Built: `%s`.\n' "$archive"
+-            else
+-              printf -- '- Failed or unavailable; not published: `%s`.\n' "$archive"
+-            fi
+-          done >> dist/nightly-notes.md
+-          # Exactly the files SHA256SUMS lists (the sign job left out a missing optional archive), and the signatures.
+-          files=(); while read -r _ name; do files+=("dist/${name#\*}"); done < dist/SHA256SUMS
+-          # A pre-release, never GitHub's latest, under its own tag: no launcher lists or updates to it.
+-          gh release create "$TAG" --prerelease --latest=false --target "$SHA" \
+-            --title "Snapshot $DATE · $SHORT" --notes-file dist/nightly-notes.md \
+-            "${files[@]}" dist/SHA256SUMS dist/SHA256SUMS.sig dist/SHA256SUMS.v2.sig dist/smoke-test.json
+-          python3 tools/ci/nightly.py prune-snapshots --days 7
+       - name: Dry run, the nightly that would be published
+         if: needs.pick.outputs.dry_run == 'true'
+         run: |
+-          echo "Would publish ${{ inputs.kind == 'snapshot' && needs.pick.outputs.tag || 'nightly' }} at ${{ needs.pick.outputs.sha }} (${{ needs.pick.outputs.source }})"
++          echo "Would publish nightly at ${{ needs.pick.outputs.sha }} (${{ needs.pick.outputs.source }})"
+           ls -l dist
+ 
+-  cleanup-dry-run:
+-    # No consumer needs the temporary checkout ref after build/sign/publish finish.
+-    # Derive it independently of pick's outputs: pick may fail after pushing it.
+-    needs: [pick, build, sign, publish]
+-    if: always() && github.event_name == 'workflow_dispatch' && (inputs.dry_run || github.ref != 'refs/heads/main')
+-    runs-on: ubuntu-latest
+-    timeout-minutes: 5
+-    permissions:
+-      contents: write
+-    steps:
+-      - name: Remove this dry run's temporary checkout ref
+-        env:
+-          GH_TOKEN: ${{ github.token }}
+-        run: |
+-          # Re-run failed jobs increments the attempt without rerunning a successful pick.
+-          # Earlier attempts of this same run have no remaining consumers either.
+-          for ((attempt=1; attempt<=GITHUB_RUN_ATTEMPT; attempt++)); do
+-            ref="nightly/dry-run-${GITHUB_RUN_ID}-${attempt}"
+-            status=$(curl --silent --show-error --request DELETE \
+-              --header "Authorization: Bearer $GH_TOKEN" \
+-              --header 'Accept: application/vnd.github+json' \
+-              --output "$RUNNER_TEMP/dry-ref-cleanup.json" --write-out '%{http_code}' \
+-              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/git/refs/heads/$ref")
+-            case "$status" in
+-              204|404) echo "Temporary ref $ref removed or already absent" ;;
+-              *) echo "Temporary ref cleanup failed: HTTP $status"; exit 1 ;;
+-            esac
+-          done
+-
+   answer:
+     # Tells the thread that asked for this build how it ended. A conflict `pick` already explained there.
+     needs: [pick, build, sign, publish]
+diff --git a/.github/workflows/prebuilt-game-build.yml b/.github/workflows/prebuilt-game-build.yml
+index d91576aeb01..1c75bc3d236 100644
+--- a/.github/workflows/prebuilt-game-build.yml
++++ b/.github/workflows/prebuilt-game-build.yml
+@@ -1,5 +1,5 @@
+ name: prebuilt game build
+-# The prebuilt game's build (#589), every OS, called by the daily run (daily.yml, its commit) and by prebuilt-game.yml
++# The prebuilt game's build (#589), every OS, called by nightly-build.yml (the Nightly's commit) and by prebuilt-game.yml
+ # (a hand dispatch). Each leg builds, smokes and packs the SDK's assets (tools/prebuilt_game.py pack: its
+ # `runtime-`, `api-` and `engine-<target>[-server].tar.xz`, build-data.tar.xz and surface.json) as this run's
+ # artifact `sdk-leg-<leg>`, which sdk-publish.yml gathers and publishes: no job here writes anything, so a read-only
+diff --git a/.github/workflows/prebuilt-game.yml b/.github/workflows/prebuilt-game.yml
+index 4710e1b80f1..1d1199d6d68 100644
+--- a/.github/workflows/prebuilt-game.yml
++++ b/.github/workflows/prebuilt-game.yml
+@@ -3,8 +3,8 @@ name: prebuilt game
+ # mods against it with rustc alone, in seconds, instead of rebuilding the game. Built with the pinned Rust
+ # (tools/ci/rust-version, which the launcher builds native mods with), because rustc reads only metadata from its own
+ # version. Only compiler outputs go in: tools/prebuilt_game.py refuses anything else, and nothing here reads vanilla
+-# data. The build is prebuilt-game-build.yml, which the daily run calls for its commit and publishes once every leg is
+-# green (daily.yml, sdk-publish); this workflow is the hand dispatch of the same two steps for main's head. The mod
++# data. The build is prebuilt-game-build.yml, which nightly-build.yml calls for the Nightly's commit and publishes with it
++# (sdk-publish.yml); this workflow is the hand dispatch of the same two steps for main's head. The mod
+ # SDK is published as the signed release sdk-<sha> (sdk-publish.yml), a prerelease never marked latest; exact-SHA
+ # SDKs are retained, as Nightlies and installed games keep referencing older builds. A commit whose sdk-<sha> exists
+ # stops early. A run on another branch builds, smokes, packs and signs with a throwaway key, and publishes nothing.
+diff --git a/.github/workflows/release.yml b/.github/workflows/release.yml
+index f44c69c05a6..e98bfe7e83c 100644
+--- a/.github/workflows/release.yml
++++ b/.github/workflows/release.yml
+@@ -1,57 +1,21 @@
+ name: release
+-# Game builds (docs/release-flow.md). Two kinds go through here (CI tiers, owner 2026-11-13):
+-# - nightly: the daily run (daily.yml) calls this when every leg is green, with that commit, and then publishes
+-#   whenever a player-facing pull request merged since the published Nightly (no batch-size or age rule); by hand it
+-#   defaults to `daily-green` and keeps the batch rules. It refuses any commit but the one `daily-green` points to.
+-# - snapshot: a maintainer's dispatch on main, for main's head or an explicit commit of main; it needs only the checks
+-#   workflow's gate (verify, launcher) passed on that exact commit (pending is not passed). It builds that
+-#   commit's SDK (prebuilt-game-build.yml), publishes it as sdk-<sha> (sdk-publish.yml, skipped when it exists),
+-#   then starts `nightly build` with kind=snapshot, which builds, signs and publishes the game as the pre-release
+-#   snapshot-<date>-<short> on its own tag: never the `nightly` tag or channel, never `daily-green`, no daily tests.
+-# tools/release_train.py decides (`--channel`): a Nightly when a pull request merged since the published Nightly
+-# changed what players run (and the batch rules below), and `nightly build` (nightly-build.yml) builds, signs and
+-# publishes it under the `nightly` tag and channel. RELEASES_PAUSED=1 (repository variable) stops it; so does an
+-# open issue labelled release-blocker, forced runs too (nightly-build.yml checks again before publishing). One
+-# Nightly build at a time, at most 12 a day (release-now and force=true pass the cap). No `vX.Y.Z` game release is
+-# made any more. Only a run on main with dry_run false publishes; a snapshot's dry run builds the SDK and the game
+-# (a `nightly build` dry run, throwaway key) and publishes nothing.
+-#   gh workflow run release --ref <branch> -f kind=nightly            # dry run: checks and decides, starts nothing
+-#   gh workflow run release -f kind=nightly -f dry_run=false          # on main: the Nightly of daily-green
+-#   gh workflow run release -f kind=snapshot -f dry_run=false         # on main: a snapshot of main's head
++# Automatic game releases (docs/release-flow.md). Horizon ships only the Nightly since 2026-10-28 (Ludovic): this
++# workflow is the batch train that decides when a new Nightly goes out, and `nightly build` (nightly-build.yml) builds,
++# signs and publishes it. After every green `checks` run on main, every 10 minutes (so a batch waiting for merges to
++# settle goes out without another merge) and by hand, tools/release_train.py decides, for a commit whose checks and
++# parity-main (the vanilla harnesses on main) both passed: a Nightly when 5 pull requests merged since the published
++# Nightly changed what players run and the newest merged 5 minutes ago, or when the oldest has waited 6 hours, or at
++# once for a pull request labelled release-now. RELEASES_PAUSED=1 (repository variable) stops it; so does an open issue
++# labelled release-blocker, forced runs too (nightly-build.yml checks again before publishing). One Nightly build at a
++# time, at most 12 a day (release-now and force=true pass the cap). No `vX.Y.Z` game release is made any more.
++#   gh workflow run release --ref <branch>                       # dry run: decides, starts nothing
++#   gh workflow run release -f dry_run=false -f force=true       # on main: a Nightly now, whatever the rules say
++# Since 2026-11-15 the train runs only by hand: no Nightly goes out on its own after merges or on a timer.
+ on:
+-  workflow_call:
+-    inputs:
+-      kind:
+-        type: string
+-        default: nightly
+-      commit:
+-        type: string
+-        default: ''
+-      dry_run:
+-        type: boolean
+-        default: true
+-      force:
+-        type: boolean
+-        default: false
+-      daily:
+-        description: The daily run's call for its daily-green commit (no batch-size or age rule)
+-        type: boolean
+-        default: false
+   workflow_dispatch:
+     inputs:
+-      kind:
+-        description: snapshot (main's head, gate green) or nightly (the daily-green commit only)
+-        type: choice
+-        options: [snapshot, nightly]
+-        default: snapshot
+-      commit:
+-        description: The commit to build (default main's head for a snapshot, daily-green for a nightly)
+-        type: string
+-        default: ''
+       dry_run:
+-        description: >-
+-          Publish nothing. A nightly checks and decides only and starts no build; a snapshot also builds the SDK and
+-          the game (a nightly build dry run, throwaway key) and says what it would publish
++        description: Decide only; start no Nightly build
+         type: boolean
+         default: true
+       force:
+@@ -62,23 +26,24 @@ permissions:
+   contents: read
+   # The open release-blocker issues (decide).
+   issues: read
+-  # The checks workflow's gate jobs and the nightly build runs (decide).
++  # The checks, parity-main and nightly build runs (decide).
+   actions: read
+ concurrency:
+-  # One release at a time. A dry run publishes nothing, so it can't race a real release: it gets a group of its own.
+-  # In the shared group, a release queued behind it replaced it as the pending run and GitHub cancelled it (#2779's
+-  # dry run, 2026-10-27).
+-  # Snapshots queue among themselves, never ahead of or behind a nightly.
+-  group: game-release${{ inputs.kind == 'snapshot' && '-snapshot' || '' }}${{ (inputs.dry_run || github.ref != 'refs/heads/main') && '-dry-run' || '' }}
++  # One release at a time. A hand-started dry run publishes nothing, so it can't race a real release: it gets a
++  # group of its own. In the shared group, a release queued behind it replaced it as the pending run and GitHub
++  # cancelled it (#2779's dry run, 2026-10-27), which happens all day while releases go out in batches.
++  group: game-release${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '-dry-run' || '' }}
+   cancel-in-progress: false
+ jobs:
+   decide:
++    if: >-
++      github.event_name != 'workflow_run' ||
++      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+     runs-on: ubuntu-latest
+     timeout-minutes: 10
+     outputs:
+       release: ${{ steps.decide.outputs.release }}
+       head: ${{ steps.decide.outputs.head }}
+-      tag: ${{ steps.decide.outputs.tag }}
+       urgent: ${{ steps.decide.outputs.urgent }}
+       dry_run: ${{ steps.mode.outputs.dry_run }}
+     steps:
+@@ -86,27 +51,25 @@ jobs:
+         with:
+           fetch-depth: 0
+       - id: mode
+-        # A dry run never publishes; a run off main is always one, whatever its input says.
+-        run: echo "dry_run=${{ inputs.dry_run || github.ref != 'refs/heads/main' }}" >> "$GITHUB_OUTPUT"
++        # A dry run never publishes; a hand-started run off main is always one.
++        run: echo "dry_run=${{ github.event_name == 'workflow_dispatch' && (inputs.dry_run || github.ref != 'refs/heads/main') }}" >> "$GITHUB_OUTPUT"
+       - id: decide
+-        shell: bash
+         env:
+           GH_TOKEN: ${{ github.token }}
+           RELEASES_PAUSED: ${{ vars.RELEASES_PAUSED }}
+-          KIND: ${{ inputs.kind }}
+-          # Empty: daily-green for a nightly, main's head for a snapshot (release_train.py --channel).
+-          HEAD_SHA: ${{ inputs.commit }}
++          # The commit whose checks or parity-main just passed; a dry run builds the branch it was started on;
++          # otherwise main's newest commit with green checks and parity-main.
++          HEAD_SHA: ${{ github.event.workflow_run.head_sha || (steps.mode.outputs.dry_run == 'true' && github.sha) || '' }}
+           FORCE: ${{ inputs.force && 'yes' || '' }}
+-          DAILY: ${{ inputs.daily && 'yes' || '' }}
+         run: |
+-          python3 tools/release_train.py decide --kind game --channel "$KIND" ${HEAD_SHA:+--head "$HEAD_SHA"} ${FORCE:+--force} ${DAILY:+--daily} | tee decision.json
+-          echo "### $KIND: $(jq -r '.reason' decision.json)" >> "$GITHUB_STEP_SUMMARY"
++          python3 tools/release_train.py decide --kind game ${HEAD_SHA:+--head "$HEAD_SHA"} ${FORCE:+--force} | tee decision.json
++          echo "### $(jq -r '.reason' decision.json)" >> "$GITHUB_STEP_SUMMARY"
+ 
+   nightly:
+     # The Nightly is the release: nightly-build.yml builds the decided commit plus the reviewers' picks, signs it for
+     # the Nightly channel and publishes it once its smoke test passed and no release-blocker is open.
+     needs: decide
+-    if: inputs.kind == 'nightly' && needs.decide.outputs.release == 'true' && needs.decide.outputs.dry_run != 'true'
++    if: needs.decide.outputs.release == 'true' && needs.decide.outputs.dry_run != 'true'
+     runs-on: ubuntu-latest
+     timeout-minutes: 5
+     permissions:
+@@ -119,51 +82,3 @@ jobs:
+         run: |
+           gh workflow run nightly-build.yml --repo "$GITHUB_REPOSITORY" --ref main -f base="$HEAD_SHA" -f urgent="$URGENT"
+           echo "### Started \`nightly build\` on ${HEAD_SHA:0:9}" >> "$GITHUB_STEP_SUMMARY"
+-
+-  # A snapshot: the commit's SDK, built in this run by prebuilt-game-build.yml's legs and signed and published as
+-  # sdk-<sha> by sdk-publish.yml from their artifacts (a dry run: throwaway key, nothing published), then the game,
+-  # built and published by `nightly build` (kind snapshot) once the SDK is out.
+-  snapshot-sdk:
+-    needs: decide
+-    if: inputs.kind == 'snapshot' && needs.decide.outputs.release == 'true'
+-    uses: ./.github/workflows/prebuilt-game-build.yml
+-    with:
+-      commit: ${{ needs.decide.outputs.head }}
+-
+-  snapshot-sdk-publish:
+-    needs: [decide, snapshot-sdk]
+-    # Not when sdk-<sha> exists already: then the legs built nothing (output `needed` false).
+-    if: inputs.kind == 'snapshot' && needs.decide.outputs.release == 'true' && needs.snapshot-sdk.outputs.needed == 'true'
+-    permissions:
+-      contents: write  # the sdk-<sha> release (its publish job; a dry run writes nothing)
+-    uses: ./.github/workflows/sdk-publish.yml
+-    with:
+-      commit: ${{ needs.decide.outputs.head }}
+-      publish: ${{ needs.decide.outputs.dry_run != 'true' }}
+-    secrets: inherit
+-
+-  snapshot:
+-    needs: [decide, snapshot-sdk, snapshot-sdk-publish]
+-    # The SDK built, and its publish (or dry run) passed, or was skipped because sdk-<sha> exists.
+-    if: >-
+-      always() && inputs.kind == 'snapshot' && needs.decide.outputs.release == 'true' &&
+-      needs.snapshot-sdk.result == 'success' &&
+-      (needs.snapshot-sdk-publish.result == 'success' || needs.snapshot-sdk-publish.result == 'skipped')
+-    runs-on: ubuntu-latest
+-    timeout-minutes: 5
+-    permissions:
+-      actions: write  # starts `nightly build`
+-    steps:
+-      - env:
+-          GH_TOKEN: ${{ github.token }}
+-          HEAD_SHA: ${{ needs.decide.outputs.head }}
+-          TAG: ${{ needs.decide.outputs.tag }}
+-          DRY_RUN: ${{ needs.decide.outputs.dry_run }}
+-        run: |
+-          gh workflow run nightly-build.yml --repo "$GITHUB_REPOSITORY" --ref main -f kind=snapshot -f base="$HEAD_SHA" \
+-            -f dry_run="$DRY_RUN"
+-          if [ "$DRY_RUN" = true ]; then
+-            echo "### Dry run: started \`nightly build\` (kind snapshot, dry run) on ${HEAD_SHA:0:9}; a real run would publish sdk-$HEAD_SHA (unless it exists) and the pre-release $TAG" >> "$GITHUB_STEP_SUMMARY"
+-          else
+-            echo "### Published sdk-$HEAD_SHA (or it existed); started \`nightly build\` (kind snapshot) for $TAG" >> "$GITHUB_STEP_SUMMARY"
+-          fi
+diff --git a/.github/workflows/sdk-publish.yml b/.github/workflows/sdk-publish.yml
+index cf4de15ca42..72a8f7140ce 100644
+--- a/.github/workflows/sdk-publish.yml
++++ b/.github/workflows/sdk-publish.yml
+@@ -1,8 +1,8 @@
+ name: sdk publish
+ # The mod SDK's one publish step (docs/release-flow.md "Mod SDK"; design: the SDK design §3): the
+ # release `sdk-<sha>` from the packing legs of prebuilt-game-build.yml in the caller's run (their `sdk-leg-*`
+-# artifacts). Only `publish` may write; the jobs that read the legs' output have `contents: read`. Called by the daily run
+-# after a green summary (daily.yml, sdk-publish) and by prebuilt-game.yml's hand dispatch.
++# artifacts). Only `publish` may write; the jobs that read the legs' output have `contents: read`. Called by the nightly
++# build once the game is built (nightly-build.yml, sdk-publish) and by prebuilt-game.yml's hand dispatch.
+ # - `index` (no secrets): gathers every leg's assets once, after checking that each copy of the build data and the
+ #   surface is the same (tools/prebuilt_game.py gather), compares the surface with the SDK published before it on
+ #   this commit's history (horizon-stage surface-diff), writes the API source (tools/sdk_api_source.py), and writes
+diff --git a/AGENTS.md b/AGENTS.md
+index bb2b2c7cc59..b6fe69a2cb8 100644
+--- a/AGENTS.md
++++ b/AGENTS.md
+@@ -32,15 +32,15 @@ Feature → files → harness for the most-changed areas: [docs/architecture.md]
+   they would change the vanilla look.
+ - One concern per PR, at whatever size it needs; no line limit on the fork. Labels: `feature` (players get something new), `skip-release` (they see no
+   change), none for a fix. Agents never add `release-now`: the maintainer decides it. Merges reach players through the
+-  nightly, published by the daily run when every leg is green ([docs/release-flow.md](docs/release-flow.md#daily-run)).
++  nightly ([docs/release-flow.md](docs/release-flow.md#game-releases)).
+ - **CI tiers** ([CONTRIBUTING.md](CONTRIBUTING.md#ci-tiers)): every PR push and main push runs `checks`
+   (`verify`: format, lint and unit tests only; `launcher`); the ignored-test shards, the wasm
+-  fixture, `fn-replace-check`, the SDK build and its linkage probe run once a day (`daily.yml`). A new test that needs prepared
++  fixture, `fn-replace-check` and the linkage probe run once a day (`daily.yml`). A new test that needs prepared
+   resources, boots the game, starts a child process, uses the network or a compiled wasm fixture, or takes 2 s or
+   more is `#[ignore]`d with a row in `tools/ci/ignored-tests/`; say in the PR when you could not run it. A daily red
+   becomes an issue listing the suspect PRs, fixed by an ordinary PR. Existing tests still in `verify` that need
+-  resources, a child process or the network are being moved by the next change of #4022. Builds: snapshot (a commit of main, gate green; published as
+-  `snapshot-<date>-<short>`, which no launcher offers), nightly (published by a fully green daily run), release (cut from a nightly).
++  resources, a child process or the network are being moved by the next change of #4022. Builds: nightly (a commit of main with checks and parity-main green,
++  published with its mod SDK), release (cut from a nightly).
+ - **No hardcoded user-facing strings.** Keep UI translation-ready from the start. In the launcher (`launcher/`), wrap visible text with `tr("...")` or `trf("... {arg} ...", &[("arg", &val)])` from `crate::i18n` instead of raw string literals or `format!`. In the game, use translation keys (`Text::tr`, `lang::get`), never hardcoded English strings.
+ - **Claim before you start**: comment `/claim` on the issue (no issue yet: open one, then claim it). An assigned
+   issue is taken, and so is one labelled `in progress` (claimed on Discord): pick another. `/unclaim` when you stop;
+diff --git a/CONTRIBUTING.md b/CONTRIBUTING.md
+index 3f4edbaf36b..7826f423eee 100644
+--- a/CONTRIBUTING.md
++++ b/CONTRIBUTING.md
+@@ -128,7 +128,7 @@ network and are still in `verify` are being moved by the next change of #4022.
+ | Tier | Runs on | What |
+ | --- | --- | --- |
+ | Push | every pull request push, pushes to main | `checks`: `verify` (format, lint, unit tests only, the test-tier and mod API surface checks), `launcher` |
+-| Daily | once a day on main's head | every test that boots the game or needs prepared resources, the wasm fixture, `fn-replace-check`, the SDK build and its linkage probe |
++| Daily | once a day on main's head | every test that boots the game or needs prepared resources, the wasm fixture, `fn-replace-check` and the linkage probe |
+ 
+ **A unit test** uses no prepared resources, boots no game, starts no child process, uses no network and no compiled
+ wasm fixture, and finishes in under 2 seconds. Any other test is a daily test: it carries `#[ignore]` and a row in
+@@ -146,12 +146,11 @@ still fails by binary name. Move a network test with `tools/ci/move_to_daily.py`
+   welcome: mark it `#[ignore]` with its policy row, and say in the pull request that it has not run if you could not
+   run it.
+ - If a daily run fails on a test your pull request added or touched, an issue is filed that names the test, where it
+-  panicked and the pull requests merged since the last green daily run. The fix is an ordinary pull request.
++  panicked. The fix is an ordinary pull request.
+ 
+-Three kinds of build: a **snapshot**, from main's head on request, needs only the gate tier and no in-game tests
+-(it is published as `snapshot-<date>-<short>`, which no launcher offers, to test packages and platforms after a
+-merge); the **nightly** is published by the daily run when every part of it is green; a **release** is cut from a
+-nightly.
++Two kinds of build: the **nightly** is built from a commit of main whose checks and parity-main passed, together with
++the mod SDK of that commit, and is published at once; a **release** is cut from a nightly. The daily run does not
++hold either back.
+ 
+ Reviews on this fork read the diff, the design and CI; they do not run your change. So for anything a player or a
+ mod author can see, please start the game once and try it (single player is enough:
+@@ -209,8 +208,7 @@ it (edited on every push, never repeated): talk to its author in the thread befo
+ Who reviews and merges: the Horizon Team, on CI for ordinary pull requests; risky ones (saves, network, world
+ generation, the launcher's updates) wait for a local proof first ([merging](docs/release-flow.md#merging)).
+ 
+-Merges reach players through the nightly, which the daily run publishes only when every in-game test passed
+-([release flow](docs/release-flow.md)).
++Merges reach players through the nightly ([release flow](docs/release-flow.md)).
+ How agents, checks, releases and signed updates keep this safe: [security](docs/security.md).
+ 
+ ### Large pull requests
+diff --git a/docs/operations.md b/docs/operations.md
+index d8251a88641..54c0d61a024 100644
+--- a/docs/operations.md
++++ b/docs/operations.md
+@@ -44,12 +44,10 @@ the branch.
+ 
+ Everything below runs by itself on GitHub; you only step in when something is wrong.
+ 
+-- **The Nightly** is the only build players get. On the fork the daily run starts it when every leg is green,
+-  whenever a player-facing pull request merged since the published one, with no batch or age rule, and only from the
+-  commit `daily-green` points to ([release-flow](release-flow.md#daily-run)). A hand dispatch of the train
+-  (`release.yml`) keeps the batch rules: one after 5 player-facing merges, or when the oldest has waited 6 hours, or
+-  at once for a pull request labelled `release-now`; upstream ships only a commit where both `checks` and
+-  `parity-main` passed. Who may add `release-now` is the
++- **The Nightly** is the only build players get. The train (`release.yml`, every 10 minutes) starts one after 5
++  player-facing merges, or when the oldest has waited 6 hours, or at once for a pull request labelled
++  `release-now`. Only a commit where both `checks` and `parity-main` passed ships. Its build also builds and
++  publishes the mod SDK of that commit ([release-flow](release-flow.md#mod-sdk)). Who may add `release-now` is the
+   council's choice; until it decides, leave the label to the maintainer.
+ - **Stopping Nightlies:** open an issue about the problem and label it `release-blocker`. Nothing is published
+   while it is open, forced builds included. Close it when the fix is on main.
+diff --git a/docs/release-flow.md b/docs/release-flow.md
+index a81cf60a6b4..d3dc21ff739 100644
+--- a/docs/release-flow.md
++++ b/docs/release-flow.md
+@@ -198,71 +198,10 @@ A pull request still runs its own parity job when it changes a harness script, a
+ 
+ `.github/workflows/release.yml` is the batch train: it decides when a new Nightly goes out and starts
+ `nightly build` (`.github/workflows/nightly-build.yml`, [Nightly channel](#nightly-channel)) on the commit it
+-decided, which builds, signs and publishes it. On the fork it runs only when the [daily run](#daily-run) calls it
+-with a fully green commit, or by hand (`kind`: `nightly` or `snapshot`); it has no schedule and no `workflow_run`
+-trigger since 2026-11-13.
+-
+-Three kinds of game build (CI tiers, owner 2026-11-13):
+-
+-| Build | Who starts it | What it needs | Published as |
+-|---|---|---|---|
+-| [Snapshot](#snapshot) | a maintainer, by dispatching `release.yml -f kind=snapshot -f dry_run=false` on main | the gate (`checks`' `verify` and `launcher`) green on that commit | pre-release `snapshot-<date>-<short>`; no launcher offers it |
+-| Nightly | the [daily run](#daily-run), when every leg is green | `daily-green` on that commit, with its SDK | pre-release `nightly`, every launcher's update |
+-| Release (`v*`) | by hand, from a Nightly | | the release |
+-
+-### Snapshot
+-
+-A snapshot is how a change to packages or platform legs is tested after it merges: none of those jobs runs on a pull
+-request. A maintainer dispatches `release.yml` with `kind=snapshot` on main, for main's head or `-f commit=<sha>` of a
+-commit on main. In order:
+-
+-1. `decide` (`tools/release_train.py decide --channel snapshot`) refuses a commit that is not on main, or whose
+-   newest `checks` main-push run did not pass every gate job (a pending job is not passed). Nothing else holds
+-   it: no daily tests, no `daily-green`, no batch rules, no daily cap, no pause, no release-blocker.
+-2. `snapshot-sdk` builds the commit's prebuilt SDK on every OS (`prebuilt-game-build.yml`; skipped when
+-   `sdk-<sha>` already exists) and `snapshot-sdk-publish` signs and publishes it as `sdk-<sha>` from this run's
+-   artifacts through `sdk-publish.yml`, the one workflow that publishes an SDK (the daily run and `prebuilt-game.yml` call it too).
+-3. `snapshot` starts `nightly build` with `kind=snapshot` and that commit. It re-checks the gate and the SDK, builds
+-   the commit alone (no picked pull requests, no build branch, no nightly-state), as `HORIZON_VERSION`
+-   `snapshot-<date>` so the game calls itself "Snapshot <date> · <short>", signs it for the `snapshot` channel and
+-   for `snapshot-<date>-<short>` (`SHA256SUMS.sig`, `SHA256SUMS.v2.sig`, the Nightly's key), checks the smoke test
+-   and publishes the pre-release `snapshot-<date>-<short>` titled "Snapshot <date> · <short>". A snapshot of a
+-   commit already published that day is skipped. Snapshots older than 7 days are deleted, never the newest one,
+-   and never an `sdk-<sha>` SDK. The snapshot carries its SDK's `sdk.json` in its signed sums, as the Nightly does,
+-   so the launcher reads its build id from it and builds native mods against `sdk-<sha>`.
+-
+-It never touches the `nightly` tag or channel, its rotation, its `nightly-source/` tags or `daily-green`. A dry run
+-(the default for a dispatch, and any run off main) builds, indexes and signs the SDK with a throwaway key
+-(`sdk-publish.yml` with `publish: false`, run only when `sdk-<sha>` does not exist yet), builds the game (a
+-`nightly build` dry run, signed with a throwaway key) and publishes nothing; its summary names what a real run would publish. No launcher lists a
+-snapshot or updates to one; a developer installs one with `horizon-launcher install snapshot-<date>-<short>`, which
+-looks the tag up on its own and checks its signature for exactly that version.
++decided, which builds, signs and publishes it. It starts after every green `checks` or `parity-main` run of a push to
++main, every 10 minutes (so a batch waiting for merges to settle goes out without another merge), and by hand.
+ 
+-### Daily run
+-
+-`.github/workflows/daily.yml` runs the in-game legs once a day, at 09:00 UTC on main's head, and when root
+-dispatches it (`-f commit=<sha>`, `-f dry_run=false` to write). One run runs and at most one waits; a newer waiting
+-dispatch replaces an older waiting one. The schedule stops when main's head already has a completed real daily run;
+-a hand dispatch never does, so it retries a run whose tag move, issues or nightly failed. Its legs are the workflows that left main pushes:
+-the ignored-tests data shards (`ignored-tests.yml`), the wasm fixture and guest stacks (`wasm-mods.yml`),
+-`fn-replace-check.yml`, the native linkage probe (`native-dylib-probe.yml`), the launcher's Windows runtime-lease
+-tests (`launcher-windows-check.yml`) and the prebuilt SDK of the commit
+-(`prebuilt-game-build.yml`; each leg packs its slices, and `sdk-publish` signs and publishes them as the mod SDK's
+-release `sdk-<sha>` (`sdk-publish.yml`) only after a green summary on a real run on main, before the Nightly that
+-needs them; a failed publish files one issue, `Daily: sdk-publish did not complete`), each called
+-with the commit. Its
+-summary (`tools/ci/daily_summary.py`) reads each leg's result and its sanitised verdict file, never a log:
+-
+-- every leg green: the tag `daily-green` moves to the commit, and `release.yml` (kind `nightly`) publishes the
+-  Nightly of that commit whenever a player-facing pull request merged since the published one (no batch-size or
+-  age rule; the pause switch and release-blockers still hold it);
+-- a failing test: one issue `Daily: <crate> <test>` (label `bug`) with its panic location, the first daily run that
+-  saw it and the pull requests merged since the last green daily as suspects; later runs comment on it, and the
+-  first run where it passes closes it. A leg that failed without a test name gets one issue per leg.
+-
+-Only a run on `main` with `dry_run` false moves the tag, files issues or publishes; any other run prints what it
+-would do. A Nightly ships only the commit `daily-green` points to, with its SDK (`release.yml`, `nightly build`).
+-A [snapshot](#snapshot) (`release.yml -f kind=snapshot`) needs only the `checks` gate on its commit of main.
++The Nightly is built and published by `nightly build` alone, with the mod SDK of its commit ([Mod SDK](#mod-sdk)).
+ 
+ ```mermaid
+ flowchart LR
+@@ -271,7 +210,7 @@ flowchart LR
+     merge --> main(["main"])
+     main --> mainchecks{"checks and<br/>parity-main"}
+     mainchecks -- green --> decide{"decide<br/>tools/release_train.py"}
+-    daily(["daily run, every leg green"]) --> decide
++    cron(["every 10 minutes"]) --> decide
+     decide -- "5 player-facing PRs settled 5 min,<br/>the oldest waited 6 h, or release-now" --> nightly["nightly build:<br/>that commit + the reviewers' picks"]
+     decide -- otherwise --> wait(["wait"])
+     nightly --> gate{"smoke test drew a world,<br/>no release-blocker is open"}
+@@ -281,6 +220,40 @@ flowchart LR
+     publish --> kira(["Kira posts it; the first after<br/>20:00 UTC pings, once a day"])
+ ```
+ 
++### Mod SDK
++
++The mod SDK of a Nightly is built inside `nightly build`, for the commit `pick` chose, and published with it:
++
++1. `sdk` builds the commit's prebuilt SDK on every OS (`prebuilt-game-build.yml`; skipped when `sdk-<sha>` already
++   exists), next to the game's own build.
++2. Once the game is built, `sdk-publish` (`sdk-publish.yml`) gathers the legs' assets, signs them with the release
++   keys (the `release` environment, main only) and creates the pre-release `sdk-<sha>`. A dry run signs with a
++   throwaway key and publishes nothing.
++3. `sdk-index` reads that release's `sdk.json`, checked against its signed `SHA256SUMS`; `sign` puts it in the Nightly's
++   `SHA256SUMS`, and `publish` attaches it to the Nightly after `nightly.py require-sdk` has checked that the SDK
++   release is complete. The launcher reads the build id from it and builds native mods against `sdk-<sha>`.
++
++On this repository a Nightly is exactly main's commit (a pick of pull requests is refused): the SDK is built for a
++commit of main. `prebuilt-game.yml` is the hand dispatch of the same build and publish for main's head.
++
++### Daily run
++
++`.github/workflows/daily.yml` runs the in-game legs once a day, at 09:00 UTC on main's head, and when a maintainer
++dispatches it (`-f commit=<sha>`, `-f dry_run=false` to write). One run runs and at most one waits; a newer waiting
++dispatch replaces an older waiting one. The schedule stops when main's head already has a completed real daily run;
++a hand dispatch never does, so it retries a run whose issues failed. Its legs are the workflows that left main pushes:
++the ignored-tests data shards (`ignored-tests.yml`), the wasm fixture and guest stacks (`wasm-mods.yml`),
++`fn-replace-check.yml`, the native linkage probe (`native-dylib-probe.yml`) and the launcher's Windows runtime-lease
++tests (`launcher-windows-check.yml`), each called with the commit. The daily run publishes nothing and gates nothing:
++the Nightly does not wait for it. Its summary (`tools/ci/daily_summary.py`) reads each leg's result and its sanitised
++verdict file, never a log, and files issues:
++
++- a failing test: one issue `Daily: <crate> <test>` (label `bug`) with its panic location and the first daily run that
++  saw it; later runs comment on it, and the first run where it passes closes it. A leg that failed without a test
++  name gets one issue per leg.
++
++Only a run on `main` with `dry_run` false files issues; any other run prints what it would do.
++
+ ### When it releases
+ 
+ `tools/release_train.py decide --kind game` looks at the pull requests merged into main (first-parent merge
+@@ -302,7 +275,6 @@ commits) since the commit the published Nightly was built on:
+   `force=true`.
+ - A scheduled run takes main's newest commit where `checks` and `parity-main` passed (a later failed
+   parity-main batch doesn't change it); after a run of either, the commit it passed on, once both passed there.
+-  On the fork the commit is the daily run's (`daily-green` by default), never a scheduled pick.
+ 
+ ### Nightly only
+ 
+@@ -468,19 +440,19 @@ of downloads or caches belong to #3009; retaining a release does not authenticat
+ 
+ ### Current publication contract
+ 
+-The fork's [Nightly workflow](../.github/workflows/nightly-build.yml) selects an SDK-paired source through
+-[`tools/ci/nightly.py`](../tools/ci/nightly.py), then calls `require-sdk` before rotation and again before
+-publication. A complete SDK means a published, non-draft `sdk-<40 lowercase hex SHA>` release holding every asset
++The [Nightly workflow](../.github/workflows/nightly-build.yml) builds the SDK of its source commit, publishes it as
++`sdk-<sha>` ([sdk-publish.yml](../.github/workflows/sdk-publish.yml)), and calls `require-sdk`
++([`tools/ci/nightly.py`](../tools/ci/nightly.py)) before rotation and again before publication. A complete SDK means a
++published, non-draft `sdk-<40 lowercase hex SHA>` release holding every asset
+ `nightly.py sdk-assets` names: `sdk.json`, `SHA256SUMS` signed for `sdk-<sha>` (`SHA256SUMS.sig`), `surface.json`,
+ `build-data.tar.xz` and the `runtime`, `api` and `engine` slices of the four packages (Linux client, Linux server,
+ Windows GNU and macOS ARM64); its `sdk.json` must match those sums and name that build and this package format. The
+ Nightly carries that `sdk.json` in its own signed sums. The SDK signature's message names `sdk-<sha>`, so it never
+ passes for a game release, nor a game release's for an SDK (`horizon-release-sign`: `signed_digest`, `sdk_digest`).
+-One publish step ([sdk-publish.yml](../.github/workflows/sdk-publish.yml)), called by the daily run (`sdk-publish`
+-in [daily.yml](../.github/workflows/daily.yml)), by a [snapshot](#snapshot) and by the [SDK workflow](../.github/workflows/prebuilt-game.yml)'s
+-hand dispatch, publishes those exact-SHA releases without pruning; it signs through the `release` environment on
+-main only, and any other run signs with a throwaway key and publishes nothing. Older `prebuilt-<sha>` releases are
+-outside it and are removed by hand.
++One publish step ([sdk-publish.yml](../.github/workflows/sdk-publish.yml)), called by the Nightly workflow and by the
++[SDK workflow](../.github/workflows/prebuilt-game.yml)'s hand dispatch, publishes those exact-SHA releases without
++pruning; it signs through the `release` environment on main only, and any other run signs with a throwaway key and
++publishes nothing. Older `prebuilt-<sha>` releases are outside it and are removed by hand.
+ These workflows currently have separate concurrency groups (`nightly-build` and `prebuilt-game`): the two
+ publication-time checks alone would not make concurrent deletion safe.
+ 
+diff --git a/tests/test_daily_summary.py b/tests/test_daily_summary.py
+index f8b286a0792..db0cc3f2d12 100644
+--- a/tests/test_daily_summary.py
++++ b/tests/test_daily_summary.py
+@@ -1,4 +1,4 @@
+-"""The daily summary: the daily-green tag, one issue per failing test, and nothing written outside main."""
++"""The daily summary: one issue per failing test, and nothing written outside main."""
+ import contextlib
+ import io
+ import json
+@@ -27,8 +27,7 @@ GREEN_JOBS = [job("shards / plan"), job("shards / ignored-tests-shards (horizon-
+               job("fn-replace-check / route"), job("fn-replace-check / fn-replace-check"),
+               job("linkage / route"), job("linkage / linkage x86_64-unknown-linux-gnu"),
+               job("windows-runtime-leases / gate"), job("windows-runtime-leases / test", "skipped"),
+-              job("windows-runtime-leases / runtime-leases"), job("windows-runtime-leases / launcher-processes"),
+-              job("sdk / fresh"), job("sdk / build linux"), job("sdk / publish", "skipped")]
++              job("windows-runtime-leases / runtime-leases"), job("windows-runtime-leases / launcher-processes")]
+ # Every other shard of the daily matrix, green (the summary expects each by name: summary.expected_shards).
+ GREEN_JOBS += [job(name) for name in summary.expected_shards() if name != "shards / ignored-tests-shards (horizon-world)"]
+ 
+@@ -45,8 +44,8 @@ def failure(test, panic="crates/horizon-world/src/lib.rs:7:3", kind="failed", pa
+ class Api:
+     """GitHub's REST API as the summary sees it: listings by page, and every write recorded."""
+ 
+-    def __init__(self, jobs, issues=(), tag=False, fail_on=None, comments=None, runs=None):
+-        self.jobs, self.issues, self.tag, self.fail_on, self.writes = jobs, list(issues), tag, fail_on, []
++    def __init__(self, jobs, issues=(), fail_on=None, comments=None, runs=None):
++        self.jobs, self.issues, self.fail_on, self.writes = jobs, list(issues), fail_on, []
+         self.comments = comments if comments is not None else {}
+         self.runs = runs or {}
+ 
+@@ -60,8 +59,6 @@ class Api:
+             elif path == "issues":
+                 self.issues.append({"number": 1000 + len(self.issues), "title": body["title"], "body": body["body"]})
+             return {}
+-        if "matching-refs" in path:
+-            return [{"ref": "refs/tags/daily-green"}] if self.tag else []
+         if re.fullmatch(r"issues/\d+", path):
+             number = int(path.split("/")[1])
+             return {"body": None, **next(issue for issue in self.issues if issue["number"] == number)}
+@@ -74,9 +71,6 @@ class Api:
+         if re.fullmatch(r"issues/\d+/comments\?per_page=100&page=\d+", path):
+             found = self.comments.get(int(path.split("/")[1]), [])
+             return [{"body": text} for text in found[(page - 1) * 100:page * 100]]
+-        if "matching-refs" in path:
+-            return [{"ref": "refs/tags/daily-green"}] if self.tag else []
+-        page = int(path.rsplit("page=", 1)[1])
+         if "/jobs" in path:
+             return {"jobs": self.jobs[(page - 1) * 100:page * 100]}
+         if path.startswith("issues?"):
+@@ -84,16 +78,8 @@ class Api:
+         raise AssertionError(path)
+ 
+ 
+-def git(merged=(), tag=True):
+-    def run(*args):
+-        if args[0] == "rev-parse":
+-            return "d" * 40 if tag else None
+-        return "\n".join(f"Merge pull request #{n} from arismoko/topic" for n in merged) + "\nMerge branch 'x'"
+-    return run
+-
+-
+ class DailySummaryTests(unittest.TestCase):
+-    def run_summary(self, api, reports=(), results=LEGS, ref="refs/heads/main", dry_run="false", merged=(), tag=True):
++    def run_summary(self, api, reports=(), results=LEGS, ref="refs/heads/main", dry_run="false"):
+         with tempfile.TemporaryDirectory() as folder:
+             for index, report in enumerate(reports):
+                 path = Path(folder, "reports", f"daily-report-{index}")
+@@ -102,91 +88,42 @@ class DailySummaryTests(unittest.TestCase):
+             env = {"GITHUB_REPOSITORY": "arismoko/horizon", "GITHUB_RUN_ID": "77", "GITHUB_REF": ref,
+                    "GITHUB_SERVER_URL": "https://github.com", "COMMIT": COMMIT, "DRY_RUN": dry_run,
+                    "RESULTS": json.dumps(results), "REPORTS": str(Path(folder, "reports")),
+-                   "GITHUB_STEP_SUMMARY": str(Path(folder, "summary")), "GITHUB_OUTPUT": str(Path(folder, "out"))}
++                   "GITHUB_STEP_SUMMARY": str(Path(folder, "summary"))}
+             with mock.patch.dict(os.environ, env, clear=True), contextlib.redirect_stdout(io.StringIO()):
+-                summary.main(api, git(merged, tag))
+-            return Path(folder, "summary").read_text(), Path(folder, "out").read_text()
++                summary.main(api)
++            return Path(folder, "summary").read_text()
+ 
+-    def run_after(self, api, result, ref="refs/heads/main", run="77"):
+-        env = {"GITHUB_REPOSITORY": "arismoko/horizon", "GITHUB_RUN_ID": run, "GITHUB_REF": ref,
+-               "GITHUB_SERVER_URL": "https://github.com", "COMMIT": COMMIT, "DRY_RUN": "false"}
+-        with mock.patch.dict(os.environ, env, clear=True), contextlib.redirect_stdout(io.StringIO()):
+-            summary.after("sdk-publish", result, api, git((), True))
+-
+-    def test_a_failed_sdk_publish_files_one_issue_and_its_next_success_closes_it(self):
+-        failed = [job("sdk-publish / index"), job("sdk-publish / publish", "failure", ["Release sdk-<sha>"])]
+-        api = Api(failed)
+-        self.run_after(api, "failure")
+-        created = [body for method, path, body in api.writes if method == "POST" and path == "issues"]
+-        self.assertEqual([body["title"] for body in created], ["Daily: sdk-publish did not complete"])
+-        self.assertIn("`sdk-publish / publish: Release sdk-<sha>`", created[0]["body"])
+-        # A later run's failure comments on that issue instead of filing another.
+-        api.writes.clear()
+-        api.runs = {78: {"jobs": failed}}
+-        self.run_after(api, "failure", run="78")
+-        self.assertEqual([(method, path) for method, path, _ in api.writes], [("POST", "issues/1000/comments")])
+-        api.writes.clear()
+-        self.run_after(api, "success", run="79")
+-        self.assertIn(("PATCH", "issues/1000", {"state": "closed", "state_reason": "completed"}), api.writes)
+-        # Off main nothing is written.
+-        quiet = Api(failed)
+-        self.run_after(quiet, "failure", ref="refs/heads/topic")
+-        self.assertEqual(quiet.writes, [])
+-
+-    def test_all_green_moves_the_tag_and_closes_issues_that_went_green(self):
++    def test_all_green_closes_issues_that_went_green(self):
+         api = Api(GREEN_JOBS, issues=[{"number": 5, "title": "Daily: horizon-world a::b"},
+                                       {"number": 6, "title": "Daily: fn-replace-check / fn-replace-check did not complete"},
+                                       {"number": 7, "title": "Daily: horizon-world still::unseen"},
+-                                      {"number": 8, "title": "Something else"}], tag=True)
+-        text, out = self.run_summary(api, [shard_report(passed=[{"package": "horizon-world", "test": "a::b"}])])
+-        self.assertIn("green=true", out)
+-        self.assertIn(("PATCH", "git/refs/tags/daily-green", {"sha": COMMIT, "force": True}), api.writes)
++                                      {"number": 8, "title": "Something else"}])
++        self.run_summary(api, [shard_report(passed=[{"package": "horizon-world", "test": "a::b"}])])
+         closed = [path for method, path, body in api.writes if method == "PATCH" and path.startswith("issues/")]
+         self.assertCountEqual(closed, ["issues/5", "issues/6"])
+         self.assertFalse(any(path.startswith("issues/7") for _, path, _ in api.writes))
+-        self.assertIn("Move `daily-green`", text)
+ 
+-    def test_a_skipped_sdk_build_or_publish_is_fine_but_a_skipped_shard_is_not(self):
+-        jobs = [job for job in GREEN_JOBS if not job["name"].startswith("sdk")] + [
+-            job("sdk / fresh"), job("sdk / build linux", "skipped"), job("sdk / publish", "skipped")]
+-        _, out = self.run_summary(Api(jobs), [shard_report()])
+-        self.assertIn("green=true", out, "sdk-<sha> already exists, and a dry run publishes nothing")
++    def test_a_skipped_shard_is_missing_coverage(self):
+         jobs = [job("shards / ignored-tests-shards (horizon-world)", "skipped")] + GREEN_JOBS[2:]
+         api = Api(jobs)
+-        _, out = self.run_summary(api, [])
+-        self.assertIn("green=false", out, "a skipped shard is missing coverage")
+-
+-    def test_a_failed_sdk_build_is_red(self):
+-        jobs = [job for job in GREEN_JOBS if not job["name"].startswith("sdk")] + [
+-            job("sdk / fresh"), job("sdk / build windows", "failure", ["Build and collect"])]
+-        api = Api(jobs)
+-        _, out = self.run_summary(api, [shard_report()], results=dict(LEGS, sdk={"result": "failure"}))
+-        self.assertIn("green=false", out)
+-        self.assertEqual([body["title"] for _, path, body in api.writes if path == "issues"],
+-                         ["Daily: sdk / build windows did not complete"])
+-
+-    def test_the_tag_is_created_the_first_time(self):
+-        api = Api(GREEN_JOBS, tag=False)
+-        self.run_summary(api, [shard_report()])
+-        self.assertIn(("POST", "git/refs", {"ref": "refs/tags/daily-green", "sha": COMMIT}), api.writes)
++        self.run_summary(api, [])
++        self.assertIn("Daily: shards / ignored-tests-shards (horizon-world) did not complete",
++                      [body["title"] for _, path, body in api.writes if path == "issues"])
+ 
+-    def test_a_failing_test_gets_one_issue_with_location_run_and_suspects(self):
++    def test_a_failing_test_gets_one_issue_with_location_and_run(self):
+         jobs = GREEN_JOBS[:1] + [job("shards / ignored-tests-shards (horizon-world)", "failure",
+                                      ["Run the ignored tests that need prepared data"])] + GREEN_JOBS[2:]
+         api = Api(jobs)
+         report = shard_report([failure("game::x::tests::broken"), failure("game::x::tests::broken")])
+-        _, out = self.run_summary(api, [report], results=dict(LEGS, shards={"result": "failure"}), merged=[12, 15])
+-        self.assertIn("green=false", out)
++        self.run_summary(api, [report], results=dict(LEGS, shards={"result": "failure"}))
+         created = [body for method, path, body in api.writes if (method, path) == ("POST", "issues")]
+         self.assertEqual(len(created), 1, "one issue per failing test")
+         issue = created[0]
+         self.assertEqual(issue["title"], "Daily: horizon-world game::x::tests::broken")
+         self.assertEqual(issue["labels"], ["bug"])
+         self.assertTrue(issue["body"].startswith(summary.DISCLOSURE + "\n"))
+-        for part in ("`crates/horizon-world/src/lib.rs:7:3`", "https://github.com/arismoko/horizon/actions/runs/77",
+-                     "#12, #15"):
++        for part in ("`crates/horizon-world/src/lib.rs:7:3`", "https://github.com/arismoko/horizon/actions/runs/77"):
+             self.assertIn(part, issue["body"])
+-        self.assertFalse(any("tags" in path for _, path, _ in api.writes), "a red run never moves the tag")
+ 
+     def test_an_open_issue_gets_a_comment_not_a_duplicate(self):
+         jobs = [job("shards / ignored-tests-shards (horizon-world)", "failure", ["Run"])] + GREEN_JOBS[2:]
+@@ -205,14 +142,13 @@ class DailySummaryTests(unittest.TestCase):
+                 job("fn-replace-check / fn-replace-check", "failure", ["Refusals by name"])] + GREEN_JOBS[6:]
+         api = Api(jobs)
+         self.run_summary(api, [], results=dict(LEGS, shards={"result": "cancelled"}, **{"wasm-mods": {"result": "failure"}},
+-                                               **{"fn-replace-check": {"result": "failure"}}), tag=False)
++                                               **{"fn-replace-check": {"result": "failure"}}))
+         titles = sorted(body["title"] for method, path, body in api.writes if path == "issues")
+         self.assertEqual(titles, ["Daily: fn-replace-check / fn-replace-check did not complete",
+                                   "Daily: shards / ignored-tests-shards (horizon-world) did not complete",
+                                   "Daily: wasm-mods / fixture did not complete"])
+         bodies = " ".join(body["body"] for _, path, body in api.writes if path == "issues")
+         self.assertIn("`Refusals by name`", bodies)
+-        self.assertIn("no daily run has been green yet", bodies)
+ 
+     def test_a_shard_killed_for_memory_says_by_what_with_its_memory_time_and_running_tests(self):
+         stuck = [f"game::slow::case_{n}" for n in range(7)]
+@@ -247,19 +183,21 @@ class DailySummaryTests(unittest.TestCase):
+     def test_every_shard_of_the_matrix_must_report_by_name(self):
+         launcher = "shards / ignored-tests-shards (daily-rows-launcher)"
+         self.assertIn(launcher, summary.expected_shards())
+-        _, out = self.run_summary(Api(GREEN_JOBS), [shard_report()])
+-        self.assertIn("green=true", out)
++        api = Api(GREEN_JOBS)
++        self.run_summary(api, [shard_report()])
++        self.assertEqual(api.writes, [])
+         # Every other job green, the launcher's shard absent: red, with one leg issue naming it.
+         api = Api([entry for entry in GREEN_JOBS if entry["name"] != launcher])
+-        _, out = self.run_summary(api, [shard_report()])
+-        self.assertIn("green=false", out)
++        self.run_summary(api, [shard_report()])
+         self.assertEqual([body["title"] for _, path, body in api.writes if path == "issues"],
+                          [f"Daily: {launcher} did not complete"])
+         # A shard renamed in the workflow but not in the matrix's source: the expected name is missing.
+         renamed = [job("shards / ignored-tests-shards (daily-rows-tools)") if entry["name"] == launcher else entry
+                    for entry in GREEN_JOBS]
+-        _, out = self.run_summary(Api(renamed), [shard_report()])
+-        self.assertIn("green=false", out)
++        api = Api(renamed)
++        self.run_summary(api, [shard_report()])
++        self.assertEqual([body["title"] for _, path, body in api.writes if path == "issues"],
++                         [f"Daily: {launcher} did not complete"])
+ 
+     def test_a_stopped_runs_test_names_are_bounded_in_length(self):
+         long = "a" * 301
+@@ -269,8 +207,7 @@ class DailySummaryTests(unittest.TestCase):
+ 
+     def test_a_skipped_leg_with_no_jobs_is_not_green(self):
+         api = Api([job for job in GREEN_JOBS if not job["name"].startswith("shards")])
+-        _, out = self.run_summary(api, [], results=dict(LEGS, shards={"result": "skipped"}))
+-        self.assertIn("green=false", out)
++        self.run_summary(api, [], results=dict(LEGS, shards={"result": "skipped"}))
+         self.assertIn("Daily: shards did not complete", [body["title"] for _, path, body in api.writes if path == "issues"])
+ 
+     def test_fixture_test_failures_are_filed_by_test_name(self):
+@@ -313,27 +250,17 @@ class DailySummaryTests(unittest.TestCase):
+         self.assertEqual([(m, p) for m, p, _ in api.writes], [("POST", "issues/900/comments")])
+ 
+     def test_a_failed_helper_files_one_leg_issue_naming_it(self):
+-        for helper, leg, skipped in (("sdk / fresh", "sdk", ["sdk / build linux"]),
+-                                     ("fn-replace-check / route", "fn-replace-check", ["fn-replace-check / fn-replace-check"])):
++        for helper, leg, skipped in (("fn-replace-check / route", "fn-replace-check", ["fn-replace-check / fn-replace-check"]),
++                                     ("linkage / route", "linkage", ["linkage / linkage x86_64-unknown-linux-gnu"])):
+             with self.subTest(helper=helper):
+                 jobs = [j for j in GREEN_JOBS if not j["name"].startswith(leg + " / ")]
+                 jobs += [job(helper, "failure", ["Set up job"])] + [job(name, "skipped") for name in skipped]
+                 api = Api(jobs)
+-                _, out = self.run_summary(api, [shard_report()], results=dict(LEGS, **{leg: {"result": "failure"}}))
+-                self.assertIn("green=false", out)
++                self.run_summary(api, [shard_report()], results=dict(LEGS, **{leg: {"result": "failure"}}))
+                 created = [body for _, path, body in api.writes if path == "issues"]
+                 self.assertEqual([body["title"] for body in created], [f"Daily: {leg} did not complete"])
+                 self.assertIn(f"`{helper}` failed", created[0]["body"])
+ 
+-    def test_a_skipped_sdk_build_is_green_only_when_fresh_found_the_release(self):
+-        jobs = [j for j in GREEN_JOBS if not j["name"].startswith("sdk / ")] + [
+-            job("sdk / fresh", "cancelled"), job("sdk / build linux", "skipped")]
+-        api = Api(jobs)
+-        _, out = self.run_summary(api, [shard_report()], results=dict(LEGS, sdk={"result": "cancelled"}))
+-        self.assertIn("green=false", out)
+-        self.assertEqual([body["title"] for _, path, body in api.writes if path == "issues"],
+-                         ["Daily: sdk did not complete"])
+-
+     def test_a_rerun_that_turns_a_test_green_still_posts_its_close_comment(self):
+         red_jobs = [job("shards / ignored-tests-shards (horizon-world)", "failure", ["Run"])] + GREEN_JOBS[2:]
+         issues = [{"number": 900, "title": "Daily: horizon-world flaky::one", "body": "> filed earlier"}]
+@@ -350,16 +277,16 @@ class DailySummaryTests(unittest.TestCase):
+         self.assertIn("Green again in the daily run", comment["body"])
+ 
+     def test_a_leg_level_issue_closes_once_the_leg_passes_whole(self):
+-        failed = [j for j in GREEN_JOBS if not j["name"].startswith("sdk / ")] + [
+-            job("sdk / fresh", "failure", ["Set up job"]), job("sdk / build linux", "skipped")]
++        rest = [j for j in GREEN_JOBS if not j["name"].startswith("linkage / ")]
++        failed = rest + [job("linkage / route", "failure", ["Set up job"]), job("linkage / linkage x86_64-unknown-linux-gnu", "skipped")]
+         api = Api(failed)
+-        self.run_summary(api, [shard_report()], results=dict(LEGS, sdk={"result": "failure"}))
++        self.run_summary(api, [shard_report()], results=dict(LEGS, linkage={"result": "failure"}))
+         created = [body["title"] for _, path, body in api.writes if path == "issues"]
+-        self.assertEqual(created, ["Daily: sdk did not complete"])
++        self.assertEqual(created, ["Daily: linkage did not complete"])
+         number = api.issues[-1]["number"]
+         api.writes.clear()
+-        api.jobs = [j for j in GREEN_JOBS if not j["name"].startswith("sdk / ")]
+-        self.run_summary(api, [shard_report()], results=dict(LEGS, sdk={"result": "success"}))
++        api.jobs = rest
++        self.run_summary(api, [shard_report()], results=dict(LEGS, linkage={"result": "success"}))
+         self.assertNotIn(("PATCH", f"issues/{number}"), [(m, p) for m, p, _ in api.writes],
+                          "a run where the leg did not report leaves it open")
+         api.writes.clear()
+@@ -375,8 +302,7 @@ class DailySummaryTests(unittest.TestCase):
+                 ([j for j in GREEN_JOBS if not j["name"].startswith("linkage")], "Daily: linkage did not complete")):
+             with self.subTest(title=title):
+                 api = Api(jobs)
+-                _, out = self.run_summary(api, [shard_report()])
+-                self.assertIn("green=false", out, "never silently green")
++                self.run_summary(api, [shard_report()])
+                 self.assertEqual([body["title"] for _, path, body in api.writes if path == "issues"], [title])
+                 self.assertIn("did not report", api.writes[0][2]["body"])
+ 
+@@ -395,7 +321,7 @@ class DailySummaryTests(unittest.TestCase):
+         for ref, dry_run in (("refs/heads/hotspots-daily", "false"), ("refs/heads/main", "true")):
+             with self.subTest(ref=ref, dry_run=dry_run):
+                 api = Api(jobs)
+-                text, _ = self.run_summary(api, [shard_report([failure("a::b")])], ref=ref, dry_run=dry_run,
++                text = self.run_summary(api, [shard_report([failure("a::b")])], ref=ref, dry_run=dry_run,
+                                            results=dict(LEGS, shards={"result": "failure"}))
+                 self.assertEqual(api.writes, [])
+                 self.assertIn("(dry run: nothing written)", text)
+@@ -431,92 +357,16 @@ class DailyWorkflowTests(unittest.TestCase):
+         jobs = self.workflow["jobs"]
+         step = jobs["resolve"]["steps"][-1]
+         self.assertEqual(step["env"]["DRY_RUN"], "${{ inputs.dry_run || github.ref != 'refs/heads/main' }}")
+-        # A writing run takes only a commit of main: an unmerged commit is never tagged, signed or published.
++        # A writing run takes only a commit of main: an unmerged commit never files issues.
+         self.assertIn('git merge-base --is-ancestor "$sha" refs/remotes/origin/main', step["run"])
+         self.assertEqual(jobs["summary"]["steps"][-1]["env"]["DRY_RUN"], "${{ needs.resolve.outputs.dry_run }}")
+-        self.assertEqual(jobs["nightly"]["if"],
+-                         "always() && needs.summary.outputs.green == 'true' && needs.resolve.outputs.dry_run == 'false'"
+-                         " && (needs.sdk-publish.result == 'success' || needs.sdk-publish.result == 'skipped')")
+         self.assertEqual(self.workflow["concurrency"]["cancel-in-progress"], "false")
+-        self.assertEqual(jobs["sdk"]["with"], {"commit": "${{ needs.resolve.outputs.commit }}"})
+-        self.assertNotIn("permissions", jobs["sdk"], "the build leg publishes nothing")
+-        publish = jobs["sdk-publish"]
+-        self.assertEqual(publish["needs"], ["resolve", "summary", "sdk"])
+-        self.assertEqual(publish["if"], "needs.summary.outputs.green == 'true' && needs.resolve.outputs.dry_run == 'false'"
+-                                        " && needs.sdk.outputs.needed == 'true'")
+-        # The one publish step, signed only on main through the called workflow's `release` environment.
+-        self.assertEqual(publish["uses"], "./.github/workflows/sdk-publish.yml")
+-        self.assertEqual(publish["with"], {"commit": "${{ needs.resolve.outputs.commit }}", "publish": "true"})
+-        self.assertIn("sdk-publish", jobs["nightly"]["needs"])
+-        report = jobs["sdk-publish-report"]
+-        self.assertIn("sdk-publish", report["needs"])
+-        self.assertIn("daily_summary.py --after sdk-publish", report["steps"][-1]["run"])
+-        self.assertEqual(report["steps"][-1]["env"]["DRY_RUN"], "${{ needs.resolve.outputs.dry_run }}")
+-
+-        self.assertEqual(jobs["nightly"]["with"]["daily"], "true")
++        # Nothing the daily run does writes but the issues: no tag, no SDK, no Nightly.
++        self.assertEqual(jobs["summary"]["permissions"], {"issues": "write", "actions": "read"})
++        self.assertEqual(self.workflow["permissions"], {"contents": "read"})
++        self.assertEqual(sorted(jobs), sorted(["schedule-dispatch", "resolve", "summary", *summary.LEGS]))
+         self.assertTrue(jobs["summary"]["name"].startswith("summary ${{ needs.resolve.outputs.commit }}"))
+ 
+-    def test_the_sdk_build_packs_exactly_the_archives_a_release_needs(self):
+-        from tests.test_ci_concurrency import ROOT, yaml
+-        from tools.ci import nightly
+-        build = yaml.load((ROOT / ".github/workflows/prebuilt-game-build.yml").read_text(),
+-                          Loader=yaml.BaseLoader)["jobs"]["build"]
+-        # Each matrix leg packs its three slices; the build data and surface are gathered once from them all.
+-        names = {f"{kind}-{entry['target']}{'-server' if entry.get('server') == 'true' else ''}.tar.xz"
+-                 for entry in build["strategy"]["matrix"]["include"] for kind in ("runtime", "api", "engine")}
+-        self.assertEqual(names | {"api-source.tar.xz", "build-data.tar.xz", "surface.json"}, set(nightly.SDK_ARCHIVES))
+-        self.assertEqual(len(nightly.SDK_ARCHIVES), len(set(nightly.SDK_ARCHIVES)))
+-        steps = {step.get("name") or step.get("uses"): step for step in build["steps"]}
+-        self.assertEqual(steps["Pack the SDK's assets"]["run"], "python tools/prebuilt_game.py pack prebuilt dist")
+-        self.assertEqual(steps["actions/upload-artifact@v4"]["with"]["name"], "sdk-leg-${{ matrix.name }}")
+-        self.assertNotIn("env", build, "no hand-set archive name")
+-
+-        # The launcher and the mod tool ask for horizon_mod_package::sdk::Asset::name(kind, target, side):
+-        # `{kind}-{target}{-server}.tar.xz`, the kinds named runtime, api and engine; and the release's other files
+-        # are its BESIDE_ASSETS. Producer (the legs), publish check (SDK_ARCHIVES, SDK_ASSETS) and launcher agree.
+-        sdk = (ROOT / "crates/horizon-mod-package/src/sdk.rs").read_text()
+-        self.assertIn('format!("{}-{target}{suffix}.tar.xz", kind.name())', sdk)
+-        self.assertIn('let suffix = if side == Side::Server { "-server" } else { "" };', sdk)
+-        for kind in ("runtime", "api", "engine", "build-data", "api-source"):
+-            self.assertIn(f'=> "{kind}",', sdk)
+-        self.assertIn('pub const INDEX: &str = "sdk.json";', sdk)
+-        self.assertIn('pub const BESIDE_ASSETS: [&str; 3] = [INDEX, "SHA256SUMS", "SHA256SUMS.sig"];', sdk)
+-        self.assertEqual(set(nightly.SDK_ASSETS) - set(nightly.SDK_ARCHIVES), {"sdk.json", "SHA256SUMS", "SHA256SUMS.sig"})
+-
+-    def test_the_sdk_is_signed_and_published_only_on_main(self):
+-        from tests.test_ci_concurrency import ROOT, yaml
+-        workflow = yaml.load((ROOT / ".github/workflows/sdk-publish.yml").read_text(), Loader=yaml.BaseLoader)
+-        jobs = workflow["jobs"]
+-        on_main = "inputs.publish && github.ref == 'refs/heads/main'"
+-        self.assertEqual(jobs["sign"]["environment"], f"${{{{ {on_main} && 'release' || '' }}}}")
+-        sign = jobs["sign"]["steps"][-3]
+-        self.assertEqual(sign["run"], 'bash tools/ci/sign_release.sh "$TAG" dist/*')
+-        self.assertEqual(sign["env"]["EPHEMERAL"], f"${{{{ !({on_main}) && 'yes' || '' }}}}")
+-        for key in ("RELEASE_SIGNING_KEY", "RELEASE_SIGNING_KEY_NEXT"):
+-            self.assertEqual(sign["env"][key], f"${{{{ {on_main} && secrets.{key} || '' }}}}")
+-        self.assertEqual(workflow["env"]["TAG"], "sdk-${{ inputs.commit }}")
+-        # Only the sign job sees the key, and it checks out nothing but the signing script; the key signs only a
+-        # commit of main, whatever commit the caller names.
+-        self.assertEqual(jobs["sign"]["steps"][0]["with"]["sparse-checkout"], "tools/ci/sign_release.sh")
+-        on_main_check = jobs["sign"]["steps"][1]
+-        self.assertEqual(on_main_check["if"], f"${{{{ {on_main} }}}}")
+-        self.assertIn('git merge-base --is-ancestor "$COMMIT" refs/remotes/origin/main', on_main_check["run"])
+-        # The jobs that read the legs' output cannot write; the legs' artifacts only, not an earlier attempt's own.
+-        for job in ("index", "sign"):
+-            self.assertEqual(jobs[job]["permissions"], {"contents": "read"}, job)
+-        self.assertEqual(jobs["publish"]["permissions"], {"contents": "write"})
+-        self.assertEqual(jobs["index"]["steps"][4]["with"]["pattern"], "sdk-leg-*")
+-        self.assertNotIn("environment", jobs["index"])
+-        self.assertNotIn("environment", jobs["publish"])
+-        publish = {step.get("name"): step for step in jobs["publish"]["steps"]}
+-        self.assertEqual(jobs["publish"]["env"]["PUBLISH"], f"${{{{ {on_main} }}}}")
+-        self.assertEqual(publish["Release sdk-<sha>"]["if"], "env.PUBLISH == 'true'")
+-        order = [step.get("name") for step in jobs["publish"]["steps"]]
+-        self.assertLess(order.index("The signature, checked as the launcher checks it"), order.index("Release sdk-<sha>"))
+-        self.assertLess(order.index("Exactly the assets a Nightly needs"), order.index("Release sdk-<sha>"))
+-        hand = yaml.load((ROOT / ".github/workflows/prebuilt-game.yml").read_text(), Loader=yaml.BaseLoader)
+-        self.assertEqual(hand["jobs"]["publish"]["with"]["publish"], "${{ github.ref == 'refs/heads/main' }}")
+-
+     def test_every_leg_is_a_called_workflow_with_the_commit(self):
+         jobs = self.workflow["jobs"]
+         for leg in summary.LEGS:
+diff --git a/tests/test_nightly.py b/tests/test_nightly.py
+index e70b86ca501..09f2bc281db 100644
+--- a/tests/test_nightly.py
++++ b/tests/test_nightly.py
+@@ -214,15 +214,15 @@ class PruneBuildsTests(unittest.TestCase):
+         self.assertIn('git archive --format=tar.gz --prefix="horizon-${SHA:0:7}/" -o horizon-source.tar.gz "$SHA"',
+                       pick)
+         sign = build.split("\n  sign:", 1)[1].split("\n  publish:", 1)[0]
+-        self.assertIn("dist/horizon-source.tar.gz", sign.split('sign_release.sh "$KIND"', 1)[1])
++        self.assertIn("dist/horizon-source.tar.gz", sign.split("sign_release.sh nightly", 1)[1])
+         publish = build.split("\n  publish:", 1)[1].split("\n  answer:", 1)[0]
+         self.assertIn('"dist/horizon-source.tar.gz#Source of this Nightly', publish)
+         self.assertIn('nightly.py keep-source "$SHA" "$DATE"', publish)
+ 
+-    def test_the_workflow_prunes_on_real_runs_only(self):
++    def test_the_workflow_prunes_on_schedule_only(self):
+         build = (WORKFLOWS / "nightly-build.yml").read_text()
+         step = build.split("Old nightly/build-* branches deleted", 1)[1].split("- uses:", 1)[0]
+-        self.assertIn("if: steps.mode.outputs.dry_run != 'true'", step)
++        self.assertIn("if: github.event_name == 'schedule'", step)
+         self.assertIn("prune-builds --days 7", step)
+         self.assertIn("GITHUB_STEP_SUMMARY", step)
+ 
+@@ -253,59 +253,31 @@ class SdkPairTests(unittest.TestCase):
+             with self.assertRaises(SystemExit):
+                 nightly.sdk_ready("a" * 40)
+ 
+-    def test_explicit_missing_sdk_stops_without_selecting_another_base(self):
+-        with mock.patch.dict(nightly.os.environ, {"NIGHTLY_BASE": "a" * 40}), \
++    def test_the_base_is_mains_green_commit_and_needs_no_sdk_yet(self):
++        # The SDK of the Nightly's commit is built after this pick (nightly-build.yml), so none is looked for here.
++        with mock.patch.dict(nightly.os.environ, {"NIGHTLY_BASE": ""}), \
++                mock.patch.object(nightly.train, "green_main_head", return_value="a" * 40) as automatic, \
++                mock.patch.object(nightly, "sdk_ready", side_effect=AssertionError("asked")), \
+                 mock.patch.object(nightly, "is_ancestor", return_value=True), \
+-                mock.patch.object(nightly, "git", return_value="a" * 40), \
+-                mock.patch.object(nightly, "sdk_ready", return_value=False), \
+-                mock.patch.object(nightly.train, "daily_green_commit", return_value="a" * 40), \
+-                mock.patch.object(nightly.train, "green_main_head") as automatic:
++                mock.patch.object(nightly, "git", side_effect=["a" * 40, NOW]):
++            self.assertEqual(nightly.green_base("arismoko/horizon", "").sha, "a" * 40)
++            automatic.assert_called_once_with(parity=True)
++        with mock.patch.dict(nightly.os.environ, {"NIGHTLY_BASE": "b" * 40}), \
++                mock.patch.object(nightly.train, "green_main_head") as automatic, \
++                mock.patch.object(nightly, "is_ancestor", return_value=False), \
++                mock.patch.object(nightly, "stop", side_effect=SystemExit):
+             with self.assertRaises(SystemExit):
+                 nightly.green_base("arismoko/horizon", "")
+             automatic.assert_not_called()
+ 
+-    def test_an_explicit_base_must_be_the_daily_green_commit_itself(self):
+-        # "a" is an ancestor of daily-green ("b"), but had no daily run of its own.
+-        with mock.patch.dict(nightly.os.environ, {"NIGHTLY_BASE": "a" * 40}), \
+-                mock.patch.object(nightly, "is_ancestor", return_value=True), \
+-                mock.patch.object(nightly, "git", return_value="a" * 40), \
+-                mock.patch.object(nightly, "sdk_ready", return_value=True), \
+-                mock.patch.object(nightly.train, "daily_green_commit", return_value="b" * 40), \
+-                mock.patch.object(nightly, "stop", side_effect=SystemExit) as stop:
++    def test_a_final_source_that_is_not_mains_commit_stops_before_pushing(self):
++        with mock.patch.dict(nightly.os.environ, {"GITHUB_REPOSITORY": "arismoko/horizon"}), \
++                mock.patch.object(nightly.ns, "fetch_heads", return_value=[]), \
++                mock.patch.object(nightly.ns, "assemble", return_value="b" * 40), \
++                mock.patch.object(nightly.ns, "push") as push:
+             with self.assertRaises(SystemExit):
+-                nightly.green_base("arismoko/horizon", "")
+-        self.assertIn("is not the commit `daily-green` points to", stop.call_args.args[2])
+-
+-    def test_final_sha_change_or_disappearing_sdk_stops_before_pushing(self):
+-        for sha, sdk_ready in (("a" * 40, False), ("b" * 40, True)):
+-            with mock.patch.dict(nightly.os.environ, {"GITHUB_REPOSITORY": "arismoko/horizon"}), \
+-                    mock.patch.object(nightly.ns, "fetch_heads", return_value=[]), \
+-                    mock.patch.object(nightly.ns, "assemble", return_value=sha), \
+-                    mock.patch.object(nightly, "sdk_ready", return_value=sdk_ready), \
+-                    mock.patch.object(nightly.ns, "push") as push:
+-                with self.assertRaises(SystemExit):
+-                    nightly.build_set(nightly.Ref("main", "a" * 40, T), [], [], "2026-11-11", True, False)
+-                push.assert_not_called()
+-
+-    def test_automatic_selection_takes_the_daily_green_commit_with_its_sdk(self):
+-        with mock.patch.dict(nightly.os.environ, {"NIGHTLY_BASE": ""}), \
+-                mock.patch.object(nightly.train, "daily_green_commit", return_value="a" * 40), \
+-                mock.patch.object(nightly, "sdk_ready", return_value=True), \
+-                mock.patch.object(nightly.train, "green_main_head") as automatic, \
+-                mock.patch.object(nightly, "is_ancestor", return_value=True), \
+-                mock.patch.object(nightly, "git", side_effect=["a" * 40, NOW]):
+-            self.assertEqual(nightly.green_base("arismoko/horizon", "").sha, "a" * 40)
+-            automatic.assert_not_called()
+-        for green, ready in (("", True), ("a" * 40, False)):
+-            with self.subTest(green=green, ready=ready), \
+-                    mock.patch.dict(nightly.os.environ, {"NIGHTLY_BASE": ""}), \
+-                    mock.patch.object(nightly.train, "daily_green_commit", return_value=green), \
+-                    mock.patch.object(nightly, "sdk_ready", return_value=ready), \
+-                    mock.patch.object(nightly, "is_ancestor", return_value=True), \
+-                    mock.patch.object(nightly, "git", return_value="a" * 40), \
+-                    mock.patch.object(nightly, "stop", side_effect=SystemExit):
+-                with self.assertRaises(SystemExit):
+-                    nightly.green_base("arismoko/horizon", "")
++                nightly.build_set(nightly.Ref("main", "a" * 40, T), [], [], "2026-11-11", True, False)
++            push.assert_not_called()
+ 
+     def test_publication_checks_fresh_inventory_and_leaves_upstream_unchanged(self):
+         with mock.patch.dict(nightly.os.environ, {"GITHUB_REPOSITORY": "arismoko/horizon"}), \
+diff --git a/tests/test_nightly_dry_state.py b/tests/test_nightly_dry_state.py
+index cd20edf7541..dfb0d7031db 100644
+--- a/tests/test_nightly_dry_state.py
++++ b/tests/test_nightly_dry_state.py
+@@ -66,65 +66,3 @@ class DryStateTests(unittest.TestCase):
+             nightly.pick(True)
+             update.assert_not_called()
+             self.assertIs(build.call_args.args[-1], True)
+-
+-    def test_cleanup_is_independent_of_pick_outputs_and_fails_on_api_errors(self):
+-        workflow = (ROOT / ".github/workflows/nightly-build.yml").read_text()
+-        job = workflow.split("\n  cleanup-dry-run:\n", 1)[1].split("\n  answer:", 1)[0]
+-        self.assertIn("needs: [pick, build, sign, publish]", job)
+-        self.assertIn("if: always() && github.event_name == 'workflow_dispatch' && (inputs.dry_run || github.ref != 'refs/heads/main')", job)
+-        script = textwrap.dedent(job.split("        run: |\n", 1)[1])
+-        with tempfile.TemporaryDirectory() as folder:
+-            path = Path(folder)
+-            curl = path / "curl"
+-            curl.write_text('#!/bin/sh\nprintf "%s\\n" "$@" > "$CAPTURE"\nprintf "%s" "$STATUS"\n')
+-            curl.chmod(0o755)
+-            for status, success in (("204", True), ("404", True), ("403", False), ("500", False)):
+-                with self.subTest(status=status):
+-                    env = {**os.environ, "PATH": folder + os.pathsep + os.environ["PATH"],
+-                           "GITHUB_RUN_ID": "123", "GITHUB_RUN_ATTEMPT": "2", "GH_TOKEN": "test",
+-                           "GITHUB_API_URL": "https://api.github.com", "GITHUB_REPOSITORY": "arismoko/horizon",
+-                           "RUNNER_TEMP": folder, "CAPTURE": str(path / "request"), "STATUS": status}
+-                    result = subprocess.run(["bash", "-euo", "pipefail", "-c", script], env=env, capture_output=True)
+-                    self.assertEqual(result.returncode == 0, success)
+-                    last_attempt = 2 if success else 1
+-                    self.assertIn(f"https://api.github.com/repos/arismoko/horizon/git/refs/heads/nightly/dry-run-123-{last_attempt}",
+-                                  (path / "request").read_text().splitlines())
+-
+-    def test_failed_cleanup_retry_removes_the_producers_earlier_attempt_only(self):
+-        workflow = (ROOT / ".github/workflows/nightly-build.yml").read_text()
+-        job = workflow.split("\n  cleanup-dry-run:\n", 1)[1].split("\n  answer:", 1)[0]
+-        script = textwrap.dedent(job.split("        run: |\n", 1)[1])
+-        with tempfile.TemporaryDirectory() as folder:
+-            path = Path(folder)
+-            original = "nightly/dry-run-123-1"
+-            unrelated = {"nightly/dry-run-1234-1", "nightly/dry-run-124-1", "nightly/build-2026-11-10-1"}
+-            (path / "refs").write_text(json.dumps(sorted(unrelated | {original})))
+-            (path / "fail-once").touch()
+-            curl = path / "curl"
+-            curl.write_text('''#!/usr/bin/env python3
+-import json, os, pathlib, sys
+-root = pathlib.Path(os.environ["RUNNER_TEMP"])
+-ref = sys.argv[-1].split("/git/refs/heads/", 1)[1]
+-if (root / "fail-once").exists():
+-    (root / "fail-once").unlink()
+-    print("500", end="")
+-else:
+-    refs = set(json.loads((root / "refs").read_text()))
+-    status = "204" if ref in refs else "404"
+-    refs.discard(ref)
+-    (root / "refs").write_text(json.dumps(sorted(refs)))
+-    print(status, end="")
+-''')
+-            curl.chmod(0o755)
+-            env = {**os.environ, "PATH": folder + os.pathsep + os.environ["PATH"],
+-                   "GITHUB_RUN_ID": "123", "GITHUB_RUN_ATTEMPT": "1", "GH_TOKEN": "test",
+-                   "GITHUB_API_URL": "https://api.github.com", "GITHUB_REPOSITORY": "arismoko/horizon",
+-                   "RUNNER_TEMP": folder}
+-            first = subprocess.run(["bash", "-euo", "pipefail", "-c", script], env=env, capture_output=True)
+-            self.assertNotEqual(first.returncode, 0)
+-            self.assertIn(original, json.loads((path / "refs").read_text()))
+-            # Successful pick was not rerun: only cleanup has a new attempt number.
+-            env["GITHUB_RUN_ATTEMPT"] = "2"
+-            retry = subprocess.run(["bash", "-euo", "pipefail", "-c", script], env=env, capture_output=True)
+-            self.assertEqual(retry.returncode, 0, retry.stderr)
+-            self.assertEqual(set(json.loads((path / "refs").read_text())), unrelated)
+diff --git a/tests/test_nightly_routing.py b/tests/test_nightly_routing.py
+index b4b5b037d08..72cba7df4d9 100644
+--- a/tests/test_nightly_routing.py
++++ b/tests/test_nightly_routing.py
+@@ -107,21 +107,6 @@ console.log(JSON.stringify(eval(expression)));
+                 expression = condition.replace("runner.environment", repr(environment))
+                 self.assertEqual(eval(expression, {"__builtins__": {}}), environment == "self-hosted")
+ 
+-    @unittest.skipUnless(os.name == "posix", "The pick step runs in Bash on Linux")
+-    def test_pick_failure_preserves_its_error_without_missing_notes_noise(self):
+-        block = NIGHTLY.read_text().split("      - id: pick\n", 1)[1].split("      - name:", 1)[0]
+-        shell = textwrap.dedent(block.split("        run: |\n", 1)[1])
+-        with tempfile.TemporaryDirectory() as folder:
+-            root = Path(folder)
+-            python = root / "python3"
+-            python.write_text("#!/bin/sh\necho 'no green checks main base'\nexit 23\n")
+-            python.chmod(0o755)
+-            summary = root / "summary"
+-            result = subprocess.run(["bash", "-c", shell], cwd=root, env={**os.environ, "FORCE": "", "KIND": "nightly", "GITHUB_STEP_SUMMARY": str(summary), "PATH": str(root) + os.pathsep + os.environ["PATH"]}, text=True, capture_output=True)
+-            self.assertEqual(result.returncode, 23)
+-            self.assertIn("no green checks main base", summary.read_text())
+-            self.assertNotIn("nightly-notes.md", result.stderr)
+-
+     @unittest.skipUnless(shutil.which("bash"), "The runner guard executes in Bash")
+     def test_missing_release_runner_guard_fails_clearly(self):
+         guard = dict(jobs(GAME.read_text()))["runner-configuration"]
+@@ -170,22 +155,6 @@ console.log(JSON.stringify(eval(expression)));
+             self.assertRegex(report["display"], r"^:[0-9]+$")
+             self.assertIsNone(report["wayland"])
+ 
+-    @unittest.skipUnless(os.name == "posix", "The signing gate runs in Bash on Linux")
+-    def test_fork_dry_run_cannot_pass_without_real_smoke_report(self):
+-        text = NIGHTLY.read_text().split("      - name: Ready to publish", 1)[1].split("      - name:", 1)[0]
+-        shell = text.split("        run: |\n", 1)[1]
+-        shell = "\n".join(line[10:] for line in shell.splitlines())
+-        with tempfile.TemporaryDirectory() as folder:
+-            root = Path(folder)
+-            (root / "tools").symlink_to(ROOT / "tools", target_is_directory=True)
+-            # No gh request is needed to prove a missing smoke report fails even in dry-run mode.
+-            stub = root / "gh"
+-            stub.write_text("#!/bin/sh\nprintf '[]'\n")
+-            stub.chmod(0o755)
+-            result = subprocess.run(["bash", "-c", shell], cwd=root, env={**os.environ, "DRY_RUN": "true", "GITHUB_REPOSITORY": "arismoko/horizon", "PATH": str(root) + os.pathsep + os.environ["PATH"]}, text=True, capture_output=True)
+-            self.assertNotEqual(result.returncode, 0)
+-            self.assertIn("smoke", result.stdout.lower())
+-
+ 
+ if __name__ == "__main__":
+     unittest.main()
+diff --git a/tests/test_optional_release_assets.py b/tests/test_optional_release_assets.py
+index 139bd347fcb..8a28a9c1214 100644
+--- a/tests/test_optional_release_assets.py
++++ b/tests/test_optional_release_assets.py
+@@ -36,14 +36,14 @@ def run_step(containing):
+                      "release shell checks require a bash that is not WSL's, OpenSSL and sha256sum")
+ class OptionalReleaseAssetsTests(unittest.TestCase):
+     def test_sign_and_publish_with_each_optional_archive_combination(self):
+-        for repository, mask in product(("arismoko/horizon", "horizon-rust/horizon"), range(4)):
+-            with self.subTest(repository=repository, mask=mask), tempfile.TemporaryDirectory() as folder:
++        for with_sdk, mask in product((False, True), range(4)):
++            with self.subTest(with_sdk=with_sdk, mask=mask), tempfile.TemporaryDirectory() as folder:
+                 root = Path(folder)
+                 dist = root / "dist"
+                 dist.mkdir()
+                 present = REQUIRED | {name for i, name in enumerate(OPTIONAL) if mask & (1 << i)}
+-                # The fork's Nightly carries its SDK's index in its signed sums; upstream's has no SDK.
+-                if repository == "arismoko/horizon":
++                # The Nightly carries its SDK's index in its signed sums (the sdk-index job's artifact).
++                if with_sdk:
+                     present |= {"sdk.json"}
+                 for name in present:
+                     (dist / name).write_text(name)
+@@ -52,13 +52,13 @@ class OptionalReleaseAssetsTests(unittest.TestCase):
+                 shutil.copy(ROOT / "tools/ci/sign_release.sh", script_dir)
+                 # The steps' own env from nightly-build.yml: SHORT is the commit the title and
+                 # SHA256SUMS.v2.sig name (ALSO_FOR, nightly-<date>-<short>).
+-                env = dict(os.environ, GITHUB_REPOSITORY=repository, EPHEMERAL="yes", SHA="0123456789abcdef", SHORT="0123456", DATE="2026-11-04",
+-                           KIND="nightly", ALSO_FOR="nightly-2026-11-04-0123456", SOURCE_TAG="nightly-test",
++                env = dict(os.environ, EPHEMERAL="yes", SHA="0123456789abcdef", SHORT="0123456", DATE="2026-11-04",
++                           ALSO_FOR="nightly-2026-11-04-0123456", SOURCE_TAG="nightly-test",
+                            RELEASE_SIGNING_KEY="", RELEASE_SIGNING_KEY_NEXT="")
+-                signed = subprocess.run([BASH, "-e", "-c", run_step('sign_release.sh "$KIND"')],
++                signed = subprocess.run([BASH, "-e", "-c", run_step("sign_release.sh nightly")],
+                                         cwd=root, env=env, text=True, capture_output=True)
+                 self.assertEqual(signed.returncode, 0, signed.stderr)
+-                # Windows' sha256sum defaults to binary mode, marked by a * before each name.
++                # `name` or `*name`: sha256sum on Windows (Git Bash) marks binary mode with `*`.
+                 sums = {name.removeprefix("*"): digest for digest, name in
+                         (line.split() for line in (dist / "SHA256SUMS").read_text().splitlines())}
+                 self.assertEqual(sums, {name: hashlib.sha256(name.encode()).hexdigest() for name in present})
+@@ -89,41 +89,3 @@ gh() {
+                 for name in set(OPTIONAL) - present:
+                     self.assertIn(f"::warning::{name} is missing", signed.stdout)
+                     self.assertIn(f"::warning::{name} is missing", published.stdout)
+-
+-    def test_a_snapshot_is_signed_for_its_channel_and_published_under_its_own_tag(self):
+-        with tempfile.TemporaryDirectory() as folder:
+-            root = Path(folder)
+-            dist = root / "dist"
+-            dist.mkdir()
+-            present = REQUIRED | {OPTIONAL[0]}
+-            for name in present:
+-                (dist / name).write_text(name)
+-            (root / "tools/ci").mkdir(parents=True)
+-            shutil.copy(ROOT / "tools/ci/sign_release.sh", root / "tools/ci")
+-            env = dict(os.environ, GITHUB_REPOSITORY="horizon-rust/horizon", EPHEMERAL="yes", SHA="0123456789abcdef",
+-                       SHORT="0123456", DATE="2026-11-13", KIND="snapshot", ALSO_FOR="snapshot-2026-11-13-0123456",
+-                       TAG="snapshot-2026-11-13-0123456", RELEASE_SIGNING_KEY="", RELEASE_SIGNING_KEY_NEXT="")
+-            signed = subprocess.run([BASH, "-e", "-c", run_step('sign_release.sh "$KIND"')],
+-                                    cwd=root, env=env, text=True, capture_output=True)
+-            self.assertEqual(signed.returncode, 0, signed.stderr)
+-            (dist / "smoke-test.json").write_text("{}")
+-            (dist / "nightly-notes.md").write_text("test")
+-            stubs = """
+-python3() { :; }
+-gh() { printf '%s\\n' "$@" > gh-args; for arg in "$@"; do case "$arg" in dist/*) test -f "$arg" || return 1; esac; done; }
+-"""
+-            published = subprocess.run([BASH, "-e", "-c", stubs + run_step('gh release create "$TAG"')],
+-                                       cwd=root, env=env, text=True, capture_output=True)
+-            self.assertEqual(published.returncode, 0, published.stderr)
+-            args = (root / "gh-args").read_text().splitlines()
+-            self.assertEqual(args[:3], ["release", "create", "snapshot-2026-11-13-0123456"])
+-            self.assertIn("Snapshot 2026-11-13 · 0123456", args)
+-            self.assertIn("--prerelease", args)
+-            self.assertNotIn("nightly", args)
+-            files = {Path(arg).name for arg in args if arg.startswith("dist/")}
+-            self.assertEqual(files, present | {"SHA256SUMS", "SHA256SUMS.sig", "SHA256SUMS.v2.sig", "smoke-test.json",
+-                                               "nightly-notes.md"})
+-            # A snapshot's version signed beside the nightly channel is refused before anything is signed.
+-            refused = subprocess.run([BASH, "-e", "-c", run_step('sign_release.sh "$KIND"')], cwd=root,
+-                                     env=dict(env, KIND="nightly"), text=True, capture_output=True)
+-            self.assertNotEqual(refused.returncode, 0)
+diff --git a/tests/test_release_train.py b/tests/test_release_train.py
+index 226e21f2733..f5490582fd2 100644
+--- a/tests/test_release_train.py
++++ b/tests/test_release_train.py
+@@ -343,116 +343,6 @@ class ReleaseTrainTests(unittest.TestCase):
+             self.assertEqual(select(event="push").stdout, topic)
+             self.assertEqual(select(dry_run="true").stdout, topic)
+ 
+-    @mock.patch.object(train, "REPO", "arismoko/horizon")
+-    def test_fork_base_requires_same_sha_main_push_gate_jobs(self):
+-        def record(sha, ident, event="push", branch="main"):
+-            return dict(head_sha=sha, id=ident, event=event, head_branch=branch,
+-                        status="completed", conclusion="failure")
+-        def job(name, status="completed", conclusion="success"):
+-            return dict(name=name, status=status, conclusion=conclusion)
+-        gates = [job(name) for name in ("verify", "launcher")]
+-        records = [record("pr", 1, "pull_request"), record("topic", 2, branch="topic"),
+-                   record("new", 3), record("good", 4), record("old", 5)]
+-        jobs = {3: gates[:-1], 4: gates + [job("client-data", conclusion="failure")]}
+-        def api(*arguments):
+-            self.assertEqual(arguments[:4], ("api", "--paginate", "--slurp", arguments[3]))
+-            path = arguments[3]
+-            self.assertNotIn("wasm-mods.yml", path, "the fixture runs in the daily run, not on main pushes")
+-            if "/ci.yml/runs?" in path:
+-                self.assertIn("branch=main&event=push", path)
+-                return [{"workflow_runs": records[:3]}, {"workflow_runs": records[3:]}]
+-            ident = int(path.split("/runs/")[1].split("/")[0])
+-            self.assertIn("filter=latest", path)
+-            return [{"jobs": jobs[ident][:1]}, {"jobs": jobs[ident][1:]}]
+-        with mock.patch.object(train, "REPO", "arismoko/horizon"), \
+-                mock.patch.object(train, "gh_json", side_effect=api) as requests:
+-            self.assertEqual(train.green_main_head(parity=True), "good", "missing gate is not success")
+-            self.assertEqual(train.green_main_head(), "good", "non-gate failure must not reject a build")
+-            jobs[3] = gates
+-            self.assertEqual(train.green_main_head(), "new")
+-            requests.reset_mock()
+-            self.assertEqual(train.green_main_head(eligible=lambda sha: sha == "good"), "good")
+-            paths = [call.args[3] for call in requests.call_args_list]
+-            self.assertFalse(any("/runs/3/jobs" in path for path in paths))
+-            self.assertTrue(any("/runs/4/jobs" in path for path in paths))
+-            for name in ("verify", "launcher"):
+-                for status, conclusion in [("queued", None), ("in_progress", "success"),
+-                                           ("completed", "skipped"), ("completed", "cancelled"),
+-                                           ("completed", "failure"), ("completed", "timed_out")]:
+-                    with self.subTest(gate=name, status=status, conclusion=conclusion):
+-                        jobs[3] = [entry for entry in gates if entry["name"] != name] + [job(name, status, conclusion)]
+-                        self.assertEqual(train.green_main_head(), "good")
+-            records.insert(3, record("new", 99))
+-            jobs[99] = gates
+-            self.assertEqual(train.green_main_head(), "good", "an older run cannot override the latest run")
+-            records[:] = records[:2]
+-            self.assertIsNone(train.green_main_head(), "PR checks cannot supply a release base")
+-
+-    def test_the_daily_nightly_skips_only_the_batch_rules(self):
+-        fresh = [{"number": 7, "labels": [], "paths": ["crates/horizon-world/src/lib.rs"],
+-                  "merged_at": NOW - dt.timedelta(minutes=1)}]
+-        self.assertFalse(train.decision("game", fresh, NOW)[0], "the batch train waits for more")
+-        release, reason = train.decision("game", fresh, NOW, daily=True)
+-        self.assertTrue(release, "one fresh player-facing pull request publishes from a green daily")
+-        self.assertIn("daily run", reason)
+-        self.assertEqual(train.decision("game", fresh, NOW, paused=True, daily=True),
+-                         (False, "RELEASES_PAUSED is set"))
+-        self.assertEqual(train.decision("game", [], NOW, daily=True),
+-                         (False, "no merged pull request changed what players run"),
+-                         "the commit the published nightly was built on: nothing to publish")
+-        self.assertFalse(train.decision("game", fresh, NOW, blockers=[4], daily=True)[0])
+-
+-    def test_fork_channels_check_daily_green_or_the_gate(self):
+-        with tempfile.TemporaryDirectory() as folder:
+-            def git(*args):
+-                return subprocess.check_output(["git", *args], cwd=folder, text=True, stderr=subprocess.DEVNULL).strip()
+-            git("init", "-q", "-b", "main")
+-            git("config", "user.name", "Test")
+-            git("config", "user.email", "test@example.invalid")
+-            commits = []
+-            for n in range(3):
+-                git("commit", "-q", "--allow-empty", "-m", str(n))
+-                commits.append(git("rev-parse", "HEAD"))
+-            git("tag", "daily-green", commits[1])
+-            with mock.patch.object(train, "ROOT", Path(folder)):
+-                self.assertEqual(train.channel_head("nightly", ""), commits[1], "the default is daily-green itself")
+-                self.assertEqual(train.channel_head("nightly", "daily-green"), commits[1])
+-                for other in (commits[0], commits[2]):
+-                    with self.assertRaisesRegex(SystemExit, "is not the commit `daily-green` points to"):
+-                        train.channel_head("nightly", other)
+-                git("tag", "-d", "daily-green")
+-                with self.assertRaisesRegex(SystemExit, "no `daily-green` tag yet"):
+-                    train.channel_head("nightly", "")
+-                # A snapshot: main's head by default, or any commit of main, with the gate green on it.
+-                git("update-ref", "refs/remotes/origin/main", commits[1])
+-                head = commits[1]
+-                green = {"workflow_runs": [dict(head_sha=head, head_branch="main", event="push", id=7)]}
+-                done = dict(status="completed", conclusion="success")
+-                gates = [{"jobs": [dict(name=name, **done) for name in ("verify", "launcher")]}]
+-                with mock.patch.object(train, "REPO", "arismoko/horizon"), \
+-                        mock.patch.object(train, "gh_json", side_effect=[[green], gates]):
+-                    self.assertEqual(train.channel_head("snapshot", ""), head, "a snapshot needs the gate only")
+-                with mock.patch.object(train, "REPO", "arismoko/horizon"), \
+-                        mock.patch.object(train, "gh_json", side_effect=[[green], [{"jobs": gates[0]["jobs"][:1]}]]):
+-                    with self.assertRaisesRegex(SystemExit, "a snapshot needs the gate green"):
+-                        train.channel_head("snapshot", head)
+-                pending = [{"jobs": gates[0]["jobs"][:1] + [dict(name="launcher", status="in_progress", conclusion=None)]}]
+-                with mock.patch.object(train, "REPO", "arismoko/horizon"), \
+-                        mock.patch.object(train, "gh_json", side_effect=[[green], pending]):
+-                    with self.assertRaisesRegex(SystemExit, "a snapshot needs the gate green"):
+-                        train.channel_head("snapshot", head)
+-                # Not on main (newer than main's head here), or not a commit: refused before any gate lookup.
+-                with mock.patch.object(train, "gh_json", side_effect=AssertionError("no lookup")):
+-                    with self.assertRaisesRegex(SystemExit, "is not on main"):
+-                        train.channel_head("snapshot", commits[2])
+-                    with self.assertRaisesRegex(SystemExit, "not a commit of this repository"):
+-                        train.channel_head("snapshot", "f" * 40)
+-
+-    def test_a_snapshot_is_tagged_by_kind_date_and_commit(self):
+-        sha = "0c02067" + "a" * 33
+-        self.assertEqual(train.build_tag("snapshot", "2026-11-13", sha), "snapshot-2026-11-13-0c02067")
+-        self.assertEqual(train.build_tag("nightly", "2026-11-13", sha), "nightly-2026-11-13-0c02067")
+-
+     def test_a_release_is_published_only_after_its_smoke_test_and_with_no_blocker(self):
+         drew = {"error": None, "frames": 12710, "chunks": 81, "meshed_sections": 550, "player": [160.5, 71.0, 156.5]}
+         self.assertIsNone(train.gate(drew, []))
+@@ -580,35 +470,6 @@ class NightlyTrainTests(unittest.TestCase):
+         self.assertTrue(train.nightly_decision(True, "forced", self.PRS, None, 30, force=True)[0])
+         self.assertFalse(train.nightly_decision(True, "forced", self.PRS, 7, 0, force=True)[0])
+ 
+-    def test_a_snapshot_build_never_holds_the_nightly_back(self):
+-        def runs(*entries):
+-            return [dict(databaseId=n, status=status, displayTitle=title) for n, (status, title) in enumerate(entries, 1)]
+-        snapshot = ("in_progress", "snapshot build " + "a" * 40)
+-        with mock.patch.object(train, "gh_json", return_value=runs(snapshot, ("queued", "snapshot build "))):
+-            self.assertIsNone(train.nightly_building(), "an active snapshot, real or dry, is no Nightly")
+-        with mock.patch.object(train, "gh_json", return_value=runs(snapshot, ("queued", "nightly build"))):
+-            self.assertEqual(train.nightly_building(), 2)
+-        with mock.patch.object(train, "gh_json", return_value=runs(("in_progress", "nightly build (request 7)"))):
+-            self.assertEqual(train.nightly_building(), 1)
+-        with mock.patch.object(train, "gh_json", return_value=runs(("completed", "nightly build"), snapshot)):
+-            self.assertIsNone(train.nightly_building())
+-        # The workflow names a snapshot's run exactly so, and a Nightly's never so.
+-        run_name = (train.ROOT / ".github/workflows/nightly-build.yml").read_text().split("\nrun-name: ", 1)[1].split("\n", 1)[0]
+-        self.assertIn("inputs.kind == 'snapshot' && format('snapshot build {0}', inputs.base)", run_name)
+-        self.assertIn("format('nightly build{0}'", run_name)
+-
+-    def test_a_running_nightly_never_holds_a_snapshot_back(self):
+-        sha = "a" * 40
+-        argv = ["release_train.py", "decide", "--kind", "game", "--channel", "snapshot"]
+-        with mock.patch("sys.argv", argv), mock.patch.object(train, "channel_head", return_value=sha), \
+-                mock.patch.object(train, "run", return_value=sha + "\n"), \
+-                mock.patch.object(train, "nightly_building", side_effect=AssertionError("asked")), \
+-                mock.patch.object(train, "write_outputs") as outputs, mock.patch("sys.stdout"):
+-            self.assertEqual(train.main(), 0)
+-        values = outputs.call_args.args[0]
+-        self.assertEqual(values["release"], "true")
+-        self.assertTrue(values["tag"].startswith("snapshot-") and values["tag"].endswith("-aaaaaaa"))
+-
+     def test_the_cap_is_the_nightly_sets(self):
+         from tools.ci import nightly_set
+         self.assertEqual(train.NIGHTLY_CAP, nightly_set.MAX_BUILDS_PER_DAY)
+diff --git a/tests/test_sdk_publish.py b/tests/test_sdk_publish.py
+index e409c960080..bc8a2f6f2ec 100644
+--- a/tests/test_sdk_publish.py
++++ b/tests/test_sdk_publish.py
+@@ -19,17 +19,82 @@ class SdkPublishTests(unittest.TestCase):
+             for name, job in load(path.name)["jobs"].items():
+                 if job.get("uses") == "./.github/workflows/sdk-publish.yml":
+                     callers[path.name] = job
+-        self.assertEqual(sorted(callers), ["daily.yml", "prebuilt-game.yml", "release.yml"])
++        self.assertEqual(sorted(callers), ["nightly-build.yml", "prebuilt-game.yml"])
+         for name, job in callers.items():
+             with self.subTest(caller=name):
+                 self.assertEqual(job["secrets"], "inherit")
+                 self.assertEqual(job["permissions"]["contents"], "write")
+                 self.assertEqual(set(job["with"]), {"commit", "publish"})
+ 
+-    def test_a_snapshot_publishes_its_sdk_only_when_it_is_no_dry_run(self):
+-        job = load("release.yml")["jobs"]["snapshot-sdk-publish"]
+-        self.assertEqual(job["with"]["publish"], "${{ needs.decide.outputs.dry_run != 'true' }}")
+-        self.assertIn("needs.snapshot-sdk.outputs.needed == 'true'", job["if"])
++    def test_the_nightly_publishes_its_sdk_after_the_build_and_never_on_a_dry_run(self):
++        jobs = load("nightly-build.yml")["jobs"]
++        self.assertEqual(jobs["sdk"]["uses"], "./.github/workflows/prebuilt-game-build.yml")
++        self.assertEqual(jobs["sdk"]["with"], {"commit": "${{ needs.pick.outputs.sha }}"})
++        publish = jobs["sdk-publish"]
++        self.assertEqual(publish["needs"], ["pick", "build", "sdk"])
++        self.assertEqual(publish["if"], "needs.sdk.outputs.needed == 'true'")
++        self.assertEqual(publish["with"], {"commit": "${{ needs.pick.outputs.sha }}",
++                                           "publish": "${{ needs.pick.outputs.dry_run != 'true' }}"})
++        self.assertIn("sdk-index", jobs["sign"]["needs"])
++
++    def test_the_sdk_build_packs_exactly_the_archives_a_release_needs(self):
++        from tools.ci import nightly
++        build = yaml.load((ROOT / ".github/workflows/prebuilt-game-build.yml").read_text(),
++                          Loader=yaml.BaseLoader)["jobs"]["build"]
++        # Each matrix leg packs its three slices; the build data and surface are gathered once from them all.
++        names = {f"{kind}-{entry['target']}{'-server' if entry.get('server') == 'true' else ''}.tar.xz"
++                 for entry in build["strategy"]["matrix"]["include"] for kind in ("runtime", "api", "engine")}
++        self.assertEqual(names | {"api-source.tar.xz", "build-data.tar.xz", "surface.json"}, set(nightly.SDK_ARCHIVES))
++        self.assertEqual(len(nightly.SDK_ARCHIVES), len(set(nightly.SDK_ARCHIVES)))
++        steps = {step.get("name") or step.get("uses"): step for step in build["steps"]}
++        self.assertEqual(steps["Pack the SDK's assets"]["run"], "python tools/prebuilt_game.py pack prebuilt dist")
++        self.assertEqual(steps["actions/upload-artifact@v4"]["with"]["name"], "sdk-leg-${{ matrix.name }}")
++        self.assertNotIn("env", build, "no hand-set archive name")
++
++        # The launcher and the mod tool ask for horizon_mod_package::sdk::Asset::name(kind, target, side):
++        # `{kind}-{target}{-server}.tar.xz`, the kinds named runtime, api and engine; and the release's other files
++        # are its BESIDE_ASSETS. Producer (the legs), publish check (SDK_ARCHIVES, SDK_ASSETS) and launcher agree.
++        sdk = (ROOT / "crates/horizon-mod-package/src/sdk.rs").read_text()
++        self.assertIn('format!("{}-{target}{suffix}.tar.xz", kind.name())', sdk)
++        self.assertIn('let suffix = if side == Side::Server { "-server" } else { "" };', sdk)
++        for kind in ("runtime", "api", "engine", "build-data", "api-source"):
++            self.assertIn(f'=> "{kind}",', sdk)
++        self.assertIn('pub const INDEX: &str = "sdk.json";', sdk)
++        self.assertIn('pub const BESIDE_ASSETS: [&str; 3] = [INDEX, "SHA256SUMS", "SHA256SUMS.sig"];', sdk)
++        self.assertEqual(set(nightly.SDK_ASSETS) - set(nightly.SDK_ARCHIVES), {"sdk.json", "SHA256SUMS", "SHA256SUMS.sig"})
++
++    def test_the_sdk_is_signed_and_published_only_on_main(self):
++        workflow = yaml.load((ROOT / ".github/workflows/sdk-publish.yml").read_text(), Loader=yaml.BaseLoader)
++        jobs = workflow["jobs"]
++        on_main = "inputs.publish && github.ref == 'refs/heads/main'"
++        self.assertEqual(jobs["sign"]["environment"], f"${{{{ {on_main} && 'release' || '' }}}}")
++        sign = jobs["sign"]["steps"][-3]
++        self.assertEqual(sign["run"], 'bash tools/ci/sign_release.sh "$TAG" dist/*')
++        self.assertEqual(sign["env"]["EPHEMERAL"], f"${{{{ !({on_main}) && 'yes' || '' }}}}")
++        for key in ("RELEASE_SIGNING_KEY", "RELEASE_SIGNING_KEY_NEXT"):
++            self.assertEqual(sign["env"][key], f"${{{{ {on_main} && secrets.{key} || '' }}}}")
++        self.assertEqual(workflow["env"]["TAG"], "sdk-${{ inputs.commit }}")
++        # Only the sign job sees the key, and it checks out nothing but the signing script; the key signs only a
++        # commit of main, whatever commit the caller names.
++        self.assertEqual(jobs["sign"]["steps"][0]["with"]["sparse-checkout"], "tools/ci/sign_release.sh")
++        on_main_check = jobs["sign"]["steps"][1]
++        self.assertEqual(on_main_check["if"], f"${{{{ {on_main} }}}}")
++        self.assertIn('git merge-base --is-ancestor "$COMMIT" refs/remotes/origin/main', on_main_check["run"])
++        # The jobs that read the legs' output cannot write; the legs' artifacts only, not an earlier attempt's own.
++        for job in ("index", "sign"):
++            self.assertEqual(jobs[job]["permissions"], {"contents": "read"}, job)
++        self.assertEqual(jobs["publish"]["permissions"], {"contents": "write"})
++        self.assertEqual(jobs["index"]["steps"][4]["with"]["pattern"], "sdk-leg-*")
++        self.assertNotIn("environment", jobs["index"])
++        self.assertNotIn("environment", jobs["publish"])
++        publish = {step.get("name"): step for step in jobs["publish"]["steps"]}
++        self.assertEqual(jobs["publish"]["env"]["PUBLISH"], f"${{{{ {on_main} }}}}")
++        self.assertEqual(publish["Release sdk-<sha>"]["if"], "env.PUBLISH == 'true'")
++        order = [step.get("name") for step in jobs["publish"]["steps"]]
++        self.assertLess(order.index("The signature, checked as the launcher checks it"), order.index("Release sdk-<sha>"))
++        self.assertLess(order.index("Exactly the assets a Nightly needs"), order.index("Release sdk-<sha>"))
++        hand = yaml.load((ROOT / ".github/workflows/prebuilt-game.yml").read_text(), Loader=yaml.BaseLoader)
++        self.assertEqual(hand["jobs"]["publish"]["with"]["publish"], "${{ github.ref == 'refs/heads/main' }}")
+ 
+ 
+ if __name__ == "__main__":
+diff --git a/tests/test_snapshot.py b/tests/test_snapshot.py
+deleted file mode 100644
+index 4dd52358776..00000000000
+--- a/tests/test_snapshot.py
++++ /dev/null
+@@ -1,203 +0,0 @@
+-"""Snapshots (#4022): release.yml kind snapshot builds a commit of main with the gate green and publishes it under its
+-own tag, never as the Nightly and never moving `daily-green`."""
+-import datetime as dt
+-import os
+-import subprocess
+-import tempfile
+-import unittest
+-from pathlib import Path
+-from unittest import mock
+-
+-from tests.test_ci_concurrency import ROOT, yaml
+-from tools.ci import nightly
+-
+-WORKFLOWS = ROOT / ".github/workflows"
+-
+-
+-def load(name):
+-    return yaml.load((WORKFLOWS / name).read_text(), Loader=yaml.BaseLoader)
+-
+-
+-class ReleaseSnapshotTests(unittest.TestCase):
+-    def setUp(self):
+-        self.workflow = load("release.yml")
+-        self.jobs = self.workflow["jobs"]
+-        self.snapshot = {name: job for name, job in self.jobs.items() if name.startswith("snapshot")}
+-
+-    def test_only_main_without_dry_run_publishes(self):
+-        mode = self.jobs["decide"]["steps"][1]
+-        self.assertEqual(mode["run"],
+-                         "echo \"dry_run=${{ inputs.dry_run || github.ref != 'refs/heads/main' }}\" >> \"$GITHUB_OUTPUT\"")
+-        self.assertEqual(self.workflow["on"]["workflow_dispatch"]["inputs"]["dry_run"]["default"], "true")
+-        publish = self.snapshot["snapshot-sdk-publish"]
+-        self.assertEqual(publish["with"]["publish"], "${{ needs.decide.outputs.dry_run != 'true' }}")
+-        self.assertEqual(publish["uses"], "./.github/workflows/sdk-publish.yml")
+-        # The game is built by `nightly build`, which publishes only when its own dry_run is false: it gets ours.
+-        run = self.snapshot["snapshot"]["steps"][0]["run"]
+-        self.assertIn('-f dry_run="$DRY_RUN"', run)
+-        self.assertEqual(self.snapshot["snapshot"]["steps"][0]["env"]["DRY_RUN"], "${{ needs.decide.outputs.dry_run }}")
+-
+-    def test_a_snapshot_never_moves_daily_green_or_writes_the_nightly(self):
+-        text = yaml.safe_dump(self.snapshot)
+-        self.assertNotIn("daily-green", text)
+-        self.assertNotIn("git tag", text)
+-        self.assertNotIn("gh release", text)
+-        run = self.snapshot["snapshot"]["steps"][0]["run"]
+-        self.assertIn("gh workflow run nightly-build.yml --repo \"$GITHUB_REPOSITORY\" --ref main -f kind=snapshot", run)
+-        for name, job in self.snapshot.items():
+-            self.assertIn("inputs.kind == 'snapshot'", job["if"], name)
+-        self.assertIn("inputs.kind == 'nightly'", self.jobs["nightly"]["if"])
+-
+-    def test_the_sdk_is_built_and_published_in_this_run_before_the_game(self):
+-        self.assertEqual(self.snapshot["snapshot-sdk"]["uses"], "./.github/workflows/prebuilt-game-build.yml")
+-        self.assertEqual(self.snapshot["snapshot-sdk"]["with"], {"commit": "${{ needs.decide.outputs.head }}"})
+-        self.assertEqual(self.snapshot["snapshot-sdk-publish"]["with"],
+-                         {"commit": "${{ needs.decide.outputs.head }}",
+-                          "publish": "${{ needs.decide.outputs.dry_run != 'true' }}"})
+-        game = self.snapshot["snapshot"]
+-        self.assertEqual(game["needs"], ["decide", "snapshot-sdk", "snapshot-sdk-publish"])
+-        self.assertIn("needs.snapshot-sdk.result == 'success'", game["if"])
+-        self.assertIn("(needs.snapshot-sdk-publish.result == 'success' || needs.snapshot-sdk-publish.result == 'skipped')",
+-                      game["if"].replace("\n", " "))
+-
+-    def test_snapshots_never_queue_with_nightlies(self):
+-        self.assertIn("inputs.kind == 'snapshot' && '-snapshot'", self.workflow["concurrency"]["group"])
+-
+-
+-class NightlyBuildSnapshotTests(unittest.TestCase):
+-    def setUp(self):
+-        self.workflow = load("nightly-build.yml")
+-        self.steps = {step.get("name"): step for step in self.workflow["jobs"]["publish"]["steps"]}
+-
+-    def test_a_snapshot_publishes_only_its_own_tag(self):
+-        nightly_step = self.steps["Publish as the `nightly` pre-release"]
+-        snapshot_step = self.steps["Publish as the snapshot-<date>-<short> pre-release"]
+-        self.assertIn("inputs.kind == 'nightly'", nightly_step["if"])
+-        self.assertIn("inputs.kind == 'snapshot'", snapshot_step["if"])
+-        self.assertIn("needs.pick.outputs.dry_run != 'true'", snapshot_step["if"])
+-        run = snapshot_step["run"]
+-        self.assertIn('gh release create "$TAG"', run)
+-        for never in ("rotate", "keep-source", "daily-green", "release create nightly", "prune --days", "release edit"):
+-            self.assertNotIn(never, run)
+-        self.assertIn('--title "Snapshot $DATE · $SHORT"', run)
+-        self.assertLess(run.index("require-sdk"), run.index("gh release create"))
+-
+-    def test_the_channel_signed_and_checked_is_the_kind(self):
+-        sign = self.workflow["jobs"]["sign"]["steps"][2]
+-        self.assertEqual(sign["env"]["KIND"], "${{ inputs.kind }}")
+-        self.assertEqual(sign["env"]["ALSO_FOR"],
+-                         "${{ inputs.kind }}-${{ needs.pick.outputs.date }}-${{ needs.pick.outputs.short }}")
+-        verify = self.steps["The signatures, checked as launchers check them"]["run"]
+-        self.assertIn('--tag "$KIND" --publishing', verify)
+-        self.assertIn('--tag "${KIND}-${DATE}-${SHORT}"', verify)
+-        self.assertEqual(self.workflow["on"]["workflow_dispatch"]["inputs"]["kind"]["default"], "nightly")
+-
+-    def test_snapshot_optional_platforms_keep_nightly_and_release_requirements(self):
+-        game = load("game-build.yml")
+-        build = game["jobs"]["build"]
+-        expression = build["continue-on-error"].removeprefix("${{").removesuffix("}}").strip()
+-        self.assertEqual(game["on"]["workflow_call"]["inputs"]["kind"]["default"], "release")
+-        self.assertEqual(self.workflow["jobs"]["build"]["with"]["kind"], "${{ inputs.kind }}")
+-        for kind in ("snapshot", "nightly", "release"):
+-            optional = set()
+-            for row in build["strategy"]["matrix"]["include"]:
+-                condition = expression.replace("matrix.name", repr(row["name"])).replace("inputs.kind", repr(kind))
+-                if eval(condition.replace("||", "or").replace("&&", "and"), {"__builtins__": {}}):
+-                    optional.add(row["name"])
+-            self.assertEqual(optional, {"windows-arm64", "linux-musl"} | ({"macos-x64"} if kind == "snapshot" else set()))
+-        self.assertEqual(self.workflow["jobs"]["sign"]["needs"], ["pick", "build"])
+-        self.assertEqual(self.workflow["jobs"]["publish"]["needs"], ["pick", "build", "sign"])
+-
+-    @unittest.skipIf(os.name == "nt", "executes the POSIX signing step")
+-    def test_missing_intel_mac_is_signed_only_for_snapshot_and_notes_name_missing_assets(self):
+-        sign = self.workflow["jobs"]["sign"]["steps"][2]["run"]
+-        with tempfile.TemporaryDirectory() as folder:
+-            root = Path(folder)
+-            (root / "dist").mkdir()
+-            (root / "tools/ci").mkdir(parents=True)
+-            (root / "tools/ci/sign_release.sh").write_text(
+-                'for file in "${@:2}"; do test -f "$file" || exit 9; done\nprintf "%s\\n" "$@" > signed\n')
+-            for name in ("horizon-linux-x86_64.tar.gz", "horizon-windows-x64.zip", "horizon-macos-arm64.zip",
+-                         "horizon-server-linux-x86_64.tar.gz", "horizon-source.tar.gz"):
+-                (root / "dist" / name).touch()
+-            for kind, code in (("snapshot", 0), ("nightly", 9)):
+-                result = subprocess.run(["bash", "-e", "-o", "pipefail", "-c", sign], cwd=root,
+-                                        env=dict(os.environ, KIND=kind, GITHUB_REPOSITORY="example/test"),
+-                                        capture_output=True, text=True)
+-                self.assertEqual(result.returncode, code, result.stdout + result.stderr)
+-            published = self.steps["Publish as the snapshot-<date>-<short> pre-release"]["run"]
+-            notes = published[published.index("# Archive presence"):].split("# Exactly the files", 1)[0]
+-            subprocess.run(["bash", "-e", "-o", "pipefail", "-c", notes], cwd=root, check=True)
+-            body = (root / "dist/nightly-notes.md").read_text()
+-            self.assertIn("Built: `horizon-macos-arm64.zip`", body)
+-            for missing in ("horizon-macos-x64.zip", "horizon-windows-arm64.zip", "horizon-linux-musl-x86_64.tar.gz"):
+-                self.assertIn(f"Failed or unavailable; not published: `{missing}`", body)
+-
+-    def test_snapshots_never_replace_a_waiting_nightly(self):
+-        group = self.workflow["concurrency"]["group"]
+-        self.assertIn("'nightly-build'", group)
+-        self.assertIn("format('snapshot-build{0}'", group)
+-
+-
+-class SnapshotToolsTests(unittest.TestCase):
+-    def test_old_snapshots_go_but_the_newest_and_everything_else_stay(self):
+-        tags = [{"tagName": "snapshot-2026-11-01-aaaaaaa", "isPrerelease": True},
+-                {"tagName": "snapshot-2026-11-02-bbbbbbb", "isPrerelease": True},
+-                {"tagName": "snapshot-2026-11-12-ccccccc", "isPrerelease": True},
+-                {"tagName": "prebuilt-" + "d" * 40, "isPrerelease": True},
+-                {"tagName": "sdk-" + "d" * 40, "isPrerelease": True},
+-                {"tagName": "nightly-2026-11-01", "isPrerelease": True},
+-                {"tagName": "snapshot-2026-11-01", "isPrerelease": True},
+-                {"tagName": "snapshot-2026-11-01-eeeeeee", "isPrerelease": False}]
+-        today = dt.date(2026, 11, 13)
+-        self.assertEqual(nightly.stale_snapshots(tags, today, 7),
+-                         ["snapshot-2026-11-01-aaaaaaa", "snapshot-2026-11-02-bbbbbbb"])
+-        # A long quiet spell: the newest stays however old.
+-        self.assertEqual(nightly.stale_snapshots(tags[:2], dt.date(2027, 1, 1), 7), ["snapshot-2026-11-01-aaaaaaa"])
+-
+-    def test_pick_checks_the_gate_and_names_the_snapshot(self):
+-        sha = "0c02067" + "a" * 33
+-        with tempfile.TemporaryDirectory() as folder:
+-            out = Path(folder) / "out"
+-            back = os.getcwd()
+-            os.chdir(folder)
+-            try:
+-                env = {"GITHUB_REPOSITORY": "arismoko/horizon", "GITHUB_OUTPUT": str(out), "NIGHTLY_BASE": sha}
+-                with mock.patch.dict(os.environ, env), mock.patch.object(nightly, "git"), \
+-                        mock.patch.object(nightly.train, "channel_head", return_value=sha) as gate, \
+-                        mock.patch.object(nightly, "sdk_ready", return_value=True), \
+-                        mock.patch.object(nightly, "gh", return_value=""):
+-                    nightly.pick_snapshot()
+-                gate.assert_called_once_with("snapshot", sha)
+-                values = dict(line.split("=", 1) for line in out.read_text().splitlines())
+-                today = dt.datetime.now(dt.timezone.utc).date().isoformat()
+-                self.assertEqual(values["tag"], f"snapshot-{today}-0c02067")
+-                self.assertEqual(values["version"], f"snapshot-{today}")
+-                self.assertEqual(values["build"], "true")
+-                self.assertIn(f"horizon-launcher install snapshot-{today}-0c02067", Path("nightly-notes.md").read_text())
+-                # Published already (the same commit the same day): skipped, never replaced.
+-                with mock.patch.dict(os.environ, env), mock.patch.object(nightly, "git"), \
+-                        mock.patch.object(nightly.train, "channel_head", return_value=sha), \
+-                        mock.patch.object(nightly, "sdk_ready", return_value=True), \
+-                        mock.patch.object(nightly, "gh", return_value='{"tagName": "x"}'):
+-                    nightly.pick_snapshot()
+-                self.assertIn("build=false", out.read_text().splitlines()[-10:])
+-                self.assertIn("sdk=true", out.read_text().splitlines()[-10:])
+-                # No published SDK: a dry run builds without it (sdk=false: no sdk.json), a real snapshot stops.
+-                with mock.patch.dict(os.environ, {**env, "DRY_RUN": "true"}), mock.patch.object(nightly, "git"), \
+-                        mock.patch.object(nightly.train, "channel_head", return_value=sha), \
+-                        mock.patch.object(nightly, "sdk_ready", return_value=False):
+-                    nightly.pick_snapshot()
+-                self.assertIn("sdk=false", out.read_text().splitlines()[-10:])
+-                # No published SDK: a real snapshot stops.
+-                with mock.patch.dict(os.environ, env), mock.patch.object(nightly, "git"), \
+-                        mock.patch.object(nightly.train, "channel_head", return_value=sha), \
+-                        mock.patch.object(nightly, "sdk_ready", return_value=False):
+-                    with self.assertRaises(SystemExit):
+-                        nightly.pick_snapshot()
+-            finally:
+-                os.chdir(back)
+-
+-
+-if __name__ == "__main__":
+-    unittest.main()
+diff --git a/tools/ci/daily_summary.py b/tools/ci/daily_summary.py
+index 3a0dc80c117..3f143f2e404 100644
+--- a/tools/ci/daily_summary.py
++++ b/tools/ci/daily_summary.py
+@@ -1,11 +1,10 @@
+ #!/usr/bin/env python3
+-"""The daily run's summary (.github/workflows/daily.yml): the `daily-green` tag and one issue per failing test.
++"""The daily run's summary (.github/workflows/daily.yml): one issue per failing test.
+ 
+ Reads this run's jobs (names, conclusions and step names from the Actions API, never a log) and the legs' verdict
+ files (tools/ci/ignored_tests.py --report: test identity, kind, panic location, policy file), then:
+-- every leg green: moves the tag `daily-green` to the commit;
+-- a failing test: files `Daily: <crate> <test>` (label `bug`) with its panic location, this run as the first that
+-  saw it and the pull requests merged since the last green daily as suspects, or comments on the open one;
++- a failing test: files `Daily: <crate> <test>` (label `bug`) with its panic location and this run as the first
++  that saw it, or comments on the open one;
+ - a leg that failed without a test name (build error, timeout, killed, cancelled, skipped, or a leg with no
+   sanitised verdict): one issue per leg, `Daily: <leg> did not complete`, naming the failed steps and, for a shard,
+   why each run stopped as its verdict file says (signal or exit status, memory peak and limit, wall time, the tests
+@@ -15,22 +14,18 @@ A job it does not know, or an expected leg with no job, is a red leg ("did not r
+ shard of the matrix (tools/ci/ignored_shards.py, which builds it) with no job of its name. Each comment
+ names this run's URL, and none is posted twice for one run (a rerun of failed jobs, or a retry after a partial
+ write, completes what is missing). `daily_summary.py --seen SHA` prints a completed real daily run of SHA, if any.
+-`daily_summary.py --after JOB RESULT` reports a job that runs after the summary (the SDK's publish, `sdk-publish`) the
+-same way: not `success` files or comments on `Daily: JOB did not complete`, naming its failed steps; `success` closes
+-it.
+ Only a run on refs/heads/main with DRY_RUN=false writes; otherwise it prints what it would do to the job summary.
+ Lookups come first and fail the job on any API error (a rate limit included), so a failed lookup never files
+ duplicates.
+ 
+ Environment: GITHUB_REPOSITORY, GITHUB_RUN_ID, GITHUB_REF, GITHUB_SERVER_URL, GH_TOKEN, COMMIT, DRY_RUN,
+-RESULTS (toJSON(needs)), REPORTS (the downloaded daily-report-* artifacts), GITHUB_STEP_SUMMARY, GITHUB_OUTPUT.
++RESULTS (toJSON(needs)), REPORTS (the downloaded daily-report-* artifacts), GITHUB_STEP_SUMMARY.
+ """
+ 
+ import datetime as dt
+ import json
+ import os
+ import re
+-import subprocess
+ import sys
+ import urllib.error
+ import urllib.request
+@@ -39,22 +34,17 @@ from pathlib import Path
+ sys.path.append(str(Path(__file__).resolve().parents[2]))
+ from tools.ci import ignored_shards  # noqa: E402
+ 
+-TAG = "daily-green"
+ LABEL = "bug"
+ PREFIX = "Daily: "
+ UNFINISHED = " did not complete"
+ DISCLOSURE = "> 🤖 Filed by the daily run."
+ # daily.yml's leg jobs (each a called workflow), and the called workflows' own routing jobs, which test nothing.
+-LEGS = ("shards", "wasm-mods", "fn-replace-check", "linkage", "windows-runtime-leases", "sdk")
++LEGS = ("shards", "wasm-mods", "fn-replace-check", "linkage", "windows-runtime-leases")
+ HELPERS = ("plan", "route", "fresh", "gate")
+ # Jobs of a called workflow that the daily run does not use: launcher-windows-check's push and pull-request tests.
+ NOT_DAILY = ("windows-runtime-leases / test",)
+-# The one green skip: the SDK build skips when sdk-<sha> already exists, which `sdk / fresh` found (it
+-# succeeded). Any other skip of an expected job is red.
+-FRESH = "sdk / fresh"
+ # The wasm fixture step whose failures its verdict file names test by test.
+ FIXTURE_TESTS_STEP = "Run the client tests that load the compiled fixture"
+-MERGE = re.compile(r"^Merge pull request #(\d+) from ")
+ MAX_PAGES = 100
+ 
+ 
+@@ -101,9 +91,8 @@ def expected_shards():
+             for shard in [*ignored_shards.expand(ignored_shards.SHARDS), *ignored_shards.DAILY_ROWS_LEGS.values()]]
+ 
+ 
+-def job_green(job, fresh_ok):
+-    return job["conclusion"] == "success" or (
+-        job["conclusion"] == "skipped" and job["name"].startswith("sdk / ") and fresh_ok)
++def job_green(job):
++    return job["conclusion"] == "success"
+ 
+ 
+ def failed_helpers(jobs):
+@@ -134,8 +123,7 @@ def report_for(job, reports):
+ 
+ def known(name):
+     """daily.yml's own jobs and its legs' jobs; any other job is one the summary cannot judge."""
+-    return (name in ("resolve", "schedule-dispatch", "sdk-publish-report")
+-            or name.startswith(("summary ", "nightly / ", "sdk-publish / "))
++    return (name in ("resolve", "schedule-dispatch") or name.startswith("summary ")
+             or name.split(" / ", 1)[0] in LEGS and " / " in name)
+ 
+ 
+@@ -199,13 +187,12 @@ def verdicts(jobs, reports, results):
+     A failing test is a dict of package, test, kind, panic, policy and leg; an unfinished leg is (leg, conclusion,
+     failed steps, reason). Green means every leg job and every called workflow concluded success."""
+     tests, unfinished, passed, green_legs = [], [], set(), set()
+-    fresh_ok = any(job["name"] == FRESH and job["conclusion"] == "success" for job in jobs)
+     helpers = failed_helpers(jobs)
+     for job in leg_jobs(jobs):
+         report = report_for(job, reports)
+         if report:
+             passed |= {(item["package"], item["test"]) for item in report["passed"]}
+-        if job_green(job, fresh_ok):
++        if job_green(job):
+             green_legs.add(job["name"])
+             continue
+         if job["conclusion"] == "skipped" and job["name"].split(" / ", 1)[0] in helpers:
+@@ -250,26 +237,8 @@ def verdicts(jobs, reports, results):
+             unfinished.append((leg, result, [], "did not complete, and no job or test of it says why"))
+         elif result == "success" and not accounted:
+             green_legs.add(leg)  # a whole leg that reported and passed closes its leg-level issue
+-    green = (all(results.get(leg, {}).get("result") == "success" for leg in LEGS)
+-             and all(job_green(job, fresh_ok) for job in leg_jobs(jobs)) and not tests and not unfinished)
+     failing = {(item["package"], item["test"]) for item in tests}
+-    return tests, unfinished, passed - failing, green_legs, green
+-
+-
+-def suspects(commit, git):
+-    """The pull requests merged since the last green daily (`daily-green..commit`), or None with no green daily yet."""
+-    if git("rev-parse", "--verify", "--quiet", f"refs/tags/{TAG}^{{commit}}") is None:
+-        return None
+-    log = git("log", "--merges", "--format=%s", f"refs/tags/{TAG}..{commit}") or ""
+-    return sorted({int(found[1]) for line in log.splitlines() if (found := MERGE.match(line))})
+-
+-
+-def suspect_line(numbers, commit):
+-    if numbers is None:
+-        return f"Suspects: no daily run has been green yet, so every merge before `{commit[:9]}` is a suspect."
+-    if not numbers:
+-        return f"Suspects: no pull request merged between `{TAG}` and `{commit[:9]}` (a direct push or an older break)."
+-    return f"Suspects, merged since the last green daily (`{TAG}`..`{commit[:9]}`): " + ", ".join(f"#{n}" for n in numbers)
++    return tests, unfinished, passed - failing, green_legs
+ 
+ 
+ def test_title(item):
+@@ -296,13 +265,10 @@ def leg_detail(leg, conclusion, steps, reason):
+     return f"Leg `{leg}` ended `{conclusion}`: {reason}. Failed steps: {named_steps}."
+ 
+ 
+-def plan(commit, run_url, tests, unfinished, passed, green_legs, green, open_issues, numbers):
+-    """Every write this run makes, in order: ("tag", sha) / ("create", title, body) / ("comment", number, title, body)
++def plan(commit, run_url, tests, unfinished, passed, green_legs, open_issues):
++    """Every write this run makes, in order: ("create", title, body) / ("comment", number, title, body)
+     / ("close", number, title, body)."""
+     actions = []
+-    if green:
+-        actions.append(("tag", commit))
+-    line = suspect_line(numbers, commit)
+     reds = [(test_title(item), detail(item)) for item in tests]
+     reds += [(leg_title(leg), leg_detail(leg, conclusion, steps, reason)) for leg, conclusion, steps, reason in unfinished]
+     filed = set()
+@@ -312,11 +278,11 @@ def plan(commit, run_url, tests, unfinished, passed, green_legs, green, open_iss
+         filed.add(title)
+         if title in open_issues:
+             actions.append(("comment", open_issues[title], title,
+-                            f"🤖 Agent: {red_marks(run_url)[1]} on `{commit[:9]}`.\n\n{text}\n\n{line}\n"))
++                            f"🤖 Agent: {red_marks(run_url)[1]} on `{commit[:9]}`.\n\n{text}\n"))
+         else:
+             actions.append(("create", title,
+                             f"{DISCLOSURE}\n\n{text}\n\n{red_marks(run_url)[0]} on `{commit[:9]}`.\n\n"
+-                            f"{line}\n\nThis issue gets a comment from each later daily run that still sees it and is "
++                            f"This issue gets a comment from each later daily run that still sees it and is "
+                             "closed by the first that does not.\n"))
+     for title, number in sorted(open_issues.items()):
+         if title in filed:
+@@ -336,15 +302,11 @@ def plan(commit, run_url, tests, unfinished, passed, green_legs, green, open_iss
+ def render(actions, writes):
+     lead = "## Daily summary" + ("" if writes else " (dry run: nothing written)")
+     lines = [lead, ""]
+-    if any(action[0] == "tag" for action in actions):
+-        lines.append("Every leg is green: then publish the nightly of this commit (release.yml, kind nightly).")
+     if not actions:
+         lines.append("Nothing to do: no leg is red and no open daily issue went green.")
+     for action in actions:
+-        verb = {"tag": "Move", "create": "File", "comment": "Comment on", "close": "Close"}[action[0]]
+-        if action[0] == "tag":
+-            lines.append(f"- {verb} `{TAG}` to `{action[1]}`")
+-        elif action[0] == "create":
++        verb = {"create": "File", "comment": "Comment on", "close": "Close"}[action[0]]
++        if action[0] == "create":
+             lines += [f"- {verb} **{action[1]}**", "", "  " + action[2].strip().replace("\n", "\n  "), ""]
+         else:
+             lines += [f"- {verb} #{action[1]} **{action[2]}**", "", "  " + action[3].strip().replace("\n", "\n  "), ""]
+@@ -370,13 +332,7 @@ def already_said(number, marks, call):
+ 
+ def apply(actions, call, run_url):
+     for action in actions:
+-        if action[0] == "tag":
+-            # Force-update the one tag; create it the first time.
+-            if any(ref["ref"] == f"refs/tags/{TAG}" for ref in call("GET", f"git/matching-refs/tags/{TAG}")):
+-                call("PATCH", f"git/refs/tags/{TAG}", {"sha": action[1], "force": True})
+-            else:
+-                call("POST", "git/refs", {"ref": f"refs/tags/{TAG}", "sha": action[1]})
+-        elif action[0] == "create":
++        if action[0] == "create":
+             call("POST", "issues", {"title": action[1], "body": action[2], "labels": [LABEL]})
+         elif action[0] == "comment":
+             if not already_said(action[1], red_marks(run_url), call):
+@@ -387,12 +343,7 @@ def apply(actions, call, run_url):
+             call("PATCH", f"issues/{action[1]}", {"state": "closed", "state_reason": "completed"})
+ 
+ 
+-def git(*args):
+-    result = subprocess.run(["git", *args], capture_output=True, text=True)
+-    return result.stdout.strip() if result.returncode == 0 else None
+-
+-
+-def main(call=api, run_git=git):
++def main(call=api):
+     env = os.environ
+     commit = env["COMMIT"]
+     # Only main writes, whatever the input says: a branch's run is always a dry run.
+@@ -401,44 +352,11 @@ def main(call=api, run_git=git):
+     reports = [json.loads(path.read_text()) for path in sorted(Path(env["REPORTS"]).glob("*/*.json"))] \
+         if Path(env.get("REPORTS", "")).is_dir() else []
+     jobs = pages(call, f"actions/runs/{env['GITHUB_RUN_ID']}/jobs?filter=latest", "jobs")
+-    tests, unfinished, passed, green_legs, green = verdicts(jobs, reports, json.loads(env["RESULTS"]))
++    tests, unfinished, passed, green_legs = verdicts(jobs, reports, json.loads(env["RESULTS"]))
+     open_issues = {issue["title"]: issue["number"]
+                    for issue in pages(call, f"issues?state=open&labels={LABEL}")
+                    if "pull_request" not in issue and issue["title"].startswith(PREFIX)}
+-    numbers = suspects(commit, run_git) if tests or unfinished else []
+-    actions = plan(commit, run_url, tests, unfinished, passed, green_legs, green, open_issues, numbers)
+-    text = render(actions, writes)
+-    print(text)
+-    if env.get("GITHUB_STEP_SUMMARY"):
+-        with open(env["GITHUB_STEP_SUMMARY"], "a") as summary:
+-            summary.write(text)
+-    if env.get("GITHUB_OUTPUT"):
+-        with open(env["GITHUB_OUTPUT"], "a") as out:
+-            out.write(f"green={str(green).lower()}\n")
+-    if writes:
+-        apply(actions, call, run_url)
+-    return 0
+-
+-
+-def after(name, result, call=api, run_git=git):
+-    """Reports the job `name` that ran after the summary, which concluded `result` (`needs.<name>.result`): one
+-    issue for it while it fails, closed by its next success. Writes only where the summary would."""
+-    env = os.environ
+-    writes = env.get("GITHUB_REF") == "refs/heads/main" and env.get("DRY_RUN") == "false"
+-    run_url = f"{env.get('GITHUB_SERVER_URL', 'https://github.com')}/{env['GITHUB_REPOSITORY']}/actions/runs/{env['GITHUB_RUN_ID']}"
+-    commit = env["COMMIT"]
+-    open_issues = {issue["title"]: issue["number"]
+-                   for issue in pages(call, f"issues?state=open&labels={LABEL}")
+-                   if "pull_request" not in issue and issue["title"] == leg_title(name)}
+-    if result == "success":
+-        actions = plan(commit, run_url, [], [], set(), {name}, False, open_issues, [])
+-    else:
+-        jobs = pages(call, f"actions/runs/{env['GITHUB_RUN_ID']}/jobs?filter=latest", "jobs")
+-        steps = [f"{job['name']}: {step}" for job in jobs if job["name"].startswith(f"{name} / ")
+-                 for step in failed_steps(job)]
+-        unfinished = [(name, result, steps, "nothing was published, so no Nightly follows")]
+-        actions = plan(commit, run_url, [], unfinished, set(), set(), False, open_issues,
+-                       suspects(commit, run_git))
++    actions = plan(commit, run_url, tests, unfinished, passed, green_legs, open_issues)
+     text = render(actions, writes)
+     print(text)
+     if env.get("GITHUB_STEP_SUMMARY"):
+@@ -467,6 +385,4 @@ if __name__ == "__main__":
+     if sys.argv[1:2] == ["--seen"]:
+         print(seen(sys.argv[2]))
+         sys.exit(0)
+-    if sys.argv[1:2] == ["--after"]:
+-        sys.exit(after(sys.argv[2], sys.argv[3]))
+     sys.exit(main())
+diff --git a/tools/ci/fn_replace_check.sh b/tools/ci/fn_replace_check.sh
+index 3f903268de5..fa61f02beee 100755
+--- a/tools/ci/fn_replace_check.sh
++++ b/tools/ci/fn_replace_check.sh
+@@ -8,7 +8,7 @@
+ # its exported layout fingerprint is changed to zero, and its integrity hash is updated.
+ # SDK_BASE is a folder holding one `sdk-<commit>/` release folder (the SDK's archives, `sdk.json`, `SHA256SUMS` and its
+ # signature) of this checkout's HEAD: the launcher reads its SDK from there (HORIZON_SDK_BASE), checking the signature
+-# as it does a release's. The daily run signs its own SDK with a throwaway key and passes the public key in
++# as it does a release's. The daily run signs the SDK it builds with a throwaway key and passes the public key in
+ # HORIZON_SDK_TRUSTED_KEY, which only a launcher built with debug_assertions trusts (horizon_release_sign::sdk_keys_for);
+ # a published release needs no key. With RESOURCES (a prepared `horizon-client/26.3` folder), the server starts, takes `/tick` commands
+ # and stops; every mixin helper prints a line starting `fnr:`.
+diff --git a/tools/ci/nightly.py b/tools/ci/nightly.py
+index beb959850e9..373f20ecc4f 100644
+--- a/tools/ci/nightly.py
++++ b/tools/ci/nightly.py
+@@ -2,12 +2,8 @@
+ """The Nightly, the only build Horizon ships (.github/workflows/nightly-build.yml, docs/release-flow.md "Nightly").
+ 
+     nightly.py pick [--force]      which commit tonight's nightly builds: GitHub outputs and nightly-notes.md
+-    nightly.py pick --kind snapshot   a snapshot of NIGHTLY_BASE (default main's head), a commit of main
+-                                   with the gate green: built alone, published as snapshot-<date>-<short>
+     nightly.py rotate              renames the current `nightly` pre-release to nightly-<its date>, frees the tag
+     nightly.py prune [--days 7]    deletes the nightly-<date> pre-releases and tags older than that, nothing else
+-    nightly.py prune-snapshots [--days 7]   deletes the snapshot-<date>-<short> pre-releases older than that, but
+-                                   the newest; never an sdk-<sha> SDK (snapshots and nightlies reference those)
+     nightly.py prune-builds [--days 7]   deletes the nightly/build-<date>-<n> branches older than that, but the
+                                    newest and any a published nightly points to (Ludovic, 2026-10-27)
+     nightly.py keep-source <sha> <date>  tags the nightly's commit nightly-source/<date>-<short>, for good
+@@ -22,10 +18,8 @@ in their order and pushed as nightly/build-<date>-<n>; with no set, main alone.
+ this repository's checks passed (`checks` and `parity-main`), as for a release
+ (release_train.green_main_head), or NIGHTLY_BASE when the caller gives that commit. It is published as the
+ `nightly` pre-release; the previous one stays a week as nightly-<date>.
+-On arismoko/horizon only, the base is the commit `daily-green` points to (the newest daily run that passed every
+-leg, which also published its SDK: release_train.daily_green_commit), with a complete published `sdk-<sha>` release
+-of the current package format for that exact SHA, whose sdk.json the Nightly carries in its signed sums. An explicit base that is any other commit, or has no SDK, fails; PR picks are
+-disabled, and the final SHA is rechecked before pushing.
++On arismoko/horizon the Nightly is exactly main's commit (PR picks are refused), and the SDK built for that commit
++(`sdk-<sha>`, published first by nightly-build.yml) is its pair: its sdk.json goes into the Nightly's signed sums.
+ Its notes list what reached main since the previous nightly, then the picked pull requests. Runs from main's
+ checkout with `gh`; it reads and merges the branches with git and never runs anything from them.
+ 
+@@ -196,8 +190,8 @@ def build_set(main: Ref, prs: list[dict], left_out: list[str], today: str, force
+         state, _, _ = ns.load_state()
+         asked_in = issue or next((x["issue"] for x in reversed(state.get("log", [])) if x.get("issue")), "")
+         stop(repo, asked_in, f"the build stopped: {c.text()}")
+-    if repo == "arismoko/horizon" and (sha != main.sha or not sdk_ready(sha)):
+-        stop(repo, issue, f"the build stopped: final source {sha} is not the SDK-paired main commit.")
++    if repo == "arismoko/horizon" and sha != main.sha:
++        stop(repo, issue, f"the build stopped: final source {sha} is not main's commit {main.sha}, the one an SDK is built for.")
+     previous = git("ls-remote", "--tags", "origin", "refs/tags/nightly").split("\t")[0] or None
+     build = force or previous != sha
+     name = "(unchanged)"
+@@ -342,28 +336,15 @@ def require_sdk(sha: str) -> None:
+ 
+ 
+ def green_base(repo: str, issue: str) -> Ref:
+-    """NIGHTLY_BASE, else a green main commit from this repository's checks
+-    (checks plus parity-main), never an untested fallback."""
+-    explicit = os.environ.get("NIGHTLY_BASE", "").strip()
+-    fork = repo == "arismoko/horizon"
+-    if explicit:
+-        sha = explicit
+-    elif fork:
+-        sha = train.daily_green_commit()
+-    else:
+-        sha = train.green_main_head(parity=True)
++    """The main commit a nightly builds on: NIGHTLY_BASE, else main's newest commit where checks and parity-main
++    passed (what releases ship), so a merge that breaks main never reaches a nightly: it builds on the commit before."""
++    sha = os.environ.get("NIGHTLY_BASE", "").strip() or train.green_main_head(parity=True)
+     if not sha:
+-        checks = "every leg of a daily run (no `daily-green` tag yet)" if fork else "checks and parity-main"
+-        stop(repo, issue, f"the build stopped: no recent commit of main passed {checks}, so "
++        stop(repo, issue, "the build stopped: no recent commit of main passed both checks and parity-main, so "
+                           "none is green to build on. The next build after they pass takes it.")
+     if not is_ancestor(sha, "refs/remotes/origin/main"):
+         stop(repo, issue, f"the build stopped: {sha[:9]} is not on main.")
+     sha = git("rev-parse", sha)
+-    if fork and explicit and sha != train.daily_green_commit():
+-        stop(repo, issue, f"the build stopped: {sha} is not the commit `daily-green` points to; a nightly builds "
+-                          "only the newest fully green daily run's commit, never an older one without its own daily run.")
+-    if fork and not sdk_ready(sha):
+-        stop(repo, issue, f"the build stopped: {sha} has no complete published sdk-{sha} release.")
+     return Ref("main", sha, dt.datetime.fromisoformat(git("show", "-s", "--format=%cI", sha)))
+ 
+ 
+@@ -380,7 +361,7 @@ def pick(force: bool) -> None:
+     dry_run = os.environ.get("DRY_RUN") == "true"
+     if repo == "arismoko/horizon":
+         if os.environ.get("NIGHTLY_PRS", "").strip():
+-            stop(repo, os.environ.get("NIGHTLY_ISSUE", ""), "fork Nightlies require an SDK-paired main commit, not PR picks")
++            stop(repo, os.environ.get("NIGHTLY_ISSUE", ""), "fork Nightlies build main's commit, which their SDK is built for, not PR picks")
+         return build_set(main, [], [], today, force, dry_run)
+     if spec := os.environ.get("NIGHTLY_PRS", "").strip():  # a dry run's own set; the saved one stays
+         return build_set(main, requested(spec, ns.lookup(repo)), [], today, force, dry_run)
+@@ -400,33 +381,6 @@ def pick(force: bool) -> None:
+     build_set(main, prs, left_out, today, force, dry_run)
+ 
+ 
+-def pick_snapshot() -> None:
+-    """A snapshot (release.yml kind snapshot, docs/release-flow.md "Snapshot"): a commit of main whose gate passed
+-    (checked again here, so a hand dispatch can't skip it), with its SDK published, built alone: no picked pull
+-    requests, no build branch, no nightly-state record, no daily cap. Unchanged since the same day's snapshot of the
+-    same commit, it is skipped (a tag is never replaced). It is published as snapshot-<date>-<short>, its own tag and version."""
+-    git("fetch", "--quiet", "origin", "+refs/heads/main:refs/remotes/origin/main")
+-    repo, dry_run = os.environ.get("GITHUB_REPOSITORY", ""), os.environ.get("DRY_RUN") == "true"
+-    sha = train.channel_head("snapshot", os.environ.get("NIGHTLY_BASE", "").strip())
+-    sdk = repo != "arismoko/horizon" or sdk_ready(sha)
+-    if not sdk:
+-        if not dry_run:
+-            stop(repo, "", f"the snapshot stopped: {sha} has no complete published SDK (release.yml publishes it first).")
+-        print(f"::warning::{sha} has no published SDK yet: a real snapshot publishes sdk-{sha} first; this dry run "
+-              "carries no sdk.json")
+-    today = dt.datetime.now(dt.timezone.utc).date().isoformat()
+-    tag = train.build_tag("snapshot", today, sha)
+-    # A tag is never replaced: the same day's snapshot of the same commit is that build already (a dry run builds).
+-    build = dry_run or not gh("release", "view", tag, "--json", "tagName", check=False)
+-    with open("nightly-notes.md", "w") as f:
+-        f.write(f"Snapshot {today} · {sha[:7]}: main at {sha}, built to test it after merge. Not a Nightly: no "
+-                "launcher offers or updates to it; a developer installs it with "
+-                f"`horizon-launcher install {tag}`. Its SDK is the release sdk-{sha}.\n\n{train.DISCLAIMER}\n")
+-    output(build=str(build).lower(), sha=sha, short=sha[:7], source="main", date=today, version=f"snapshot-{today}",
+-           nightly=f"{today} {sha[:7]}", source_tag="", tag=tag, sdk=str(sdk).lower())
+-    print(f"{'build' if build else f'skip ({tag} is already published)'}: {tag} {sha}")
+-
+-
+ def rotate() -> None:
+     """The current `nightly` becomes nightly-<its date>, so tonight's can take the tag."""
+     current = gh("release", "view", "nightly", "--json", "name", check=False)
+@@ -455,28 +409,6 @@ def prune(days: int) -> None:
+         print(f"deleted {tag}")
+ 
+ 
+-SNAPSHOT = re.compile(r"^snapshot-(\d{4}-\d{2}-\d{2})-[0-9a-f]{7,40}$")
+-
+-
+-def stale_snapshots(tags: list[dict], today: dt.date, days: int) -> list[str]:
+-    """The snapshot pre-releases older than `days`, never the newest one, never anything not named
+-    snapshot-<date>-<short> (an sdk-<sha> SDK above all)."""
+-    snapshots = [r["tagName"] for r in tags if r["isPrerelease"] and SNAPSHOT.match(r["tagName"])]
+-    if not snapshots:
+-        return []
+-    newest = max(snapshots, key=lambda tag: SNAPSHOT.match(tag).group(1))
+-    cutoff = today - dt.timedelta(days=days)
+-    return [tag for tag in snapshots
+-            if tag != newest and dt.date.fromisoformat(SNAPSHOT.match(tag).group(1)) < cutoff]
+-
+-
+-def prune_snapshots(days: int) -> None:
+-    tags = json.loads(gh("release", "list", "--limit", "200", "--json", "tagName,isPrerelease"))
+-    for tag in stale_snapshots(tags, dt.datetime.now(dt.timezone.utc).date(), days):
+-        gh("release", "delete", tag, "--cleanup-tag", "--yes")
+-        print(f"deleted {tag}")
+-
+-
+ BUILD = re.compile(r"^nightly/build-(\d{4}-\d{2}-\d{2})-(\d+)$")
+ 
+ 
+@@ -536,9 +468,7 @@ def keep_source(sha: str, today: str) -> None:
+ def main() -> None:
+     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+     sub = ap.add_subparsers(dest="cmd", required=True)
+-    picker = sub.add_parser("pick")
+-    picker.add_argument("--force", action="store_true")
+-    picker.add_argument("--kind", choices=["nightly", "snapshot"], default="nightly")
++    sub.add_parser("pick").add_argument("--force", action="store_true")
+     sub.add_parser("rotate")
+     sub.add_parser("require-sdk").add_argument("sha")
+     sub.add_parser("sdk-archives")
+@@ -550,17 +480,13 @@ def main() -> None:
+     previous.add_argument("sha")
+     previous.add_argument("out", type=Path)
+     sub.add_parser("prune").add_argument("--days", type=int, default=7)
+-    sub.add_parser("prune-snapshots").add_argument("--days", type=int, default=7)
+     sub.add_parser("prune-builds").add_argument("--days", type=int, default=7)
+     keep = sub.add_parser("keep-source")
+     keep.add_argument("sha")
+     keep.add_argument("date")
+     args = ap.parse_args()
+     if args.cmd == "pick":
+-        if args.kind == "snapshot":
+-            pick_snapshot()
+-        else:
+-            pick(args.force)
++        pick(args.force)
+     elif args.cmd == "require-sdk":
+         require_sdk(args.sha)
+     elif args.cmd == "sdk-archives":
+@@ -577,8 +503,6 @@ def main() -> None:
+         rotate()
+     elif args.cmd == "prune-builds":
+         prune_builds(args.days)
+-    elif args.cmd == "prune-snapshots":
+-        prune_snapshots(args.days)
+     elif args.cmd == "keep-source":
+         keep_source(args.sha, args.date)
+     else:
+diff --git a/tools/ci/sign_release.sh b/tools/ci/sign_release.sh
+index 9ef2d893426..781d78b1809 100755
+--- a/tools/ci/sign_release.sh
++++ b/tools/ci/sign_release.sh
+@@ -6,13 +6,11 @@
+ # but this file, which calls only the runner's sha256sum and OpenSSL; the publish job then checks the result
+ # with horizon-release-sign, as launchers do.
+ # EPHEMERAL=yes (dry runs) signs with a throwaway key instead and writes its public key to ephemeral.pub.
+-# ALSO_FOR=<version> (Nightlies and snapshots) signs the same SHA256SUMS a second time, for
+-# "horizon release <ALSO_FOR>\n", into SHA256SUMS.v2.sig, with the same key(s): the build's own version
+-# (nightly-<date>-<commit> on the nightly channel, snapshot-<date>-<commit> on the snapshot channel), which current
++# ALSO_FOR=<tag> (Nightlies) signs the same SHA256SUMS a second time, for "horizon release <ALSO_FOR>\n", into
++# SHA256SUMS.v2.sig, with the same key(s): the Nightly's own version (nightly-<date>-<commit>), which current
+ # launchers require, while SHA256SUMS.sig stays signed for the channel for launchers from before (docs/security.md).
+ #   tools/ci/sign_release.sh v2026.10.19 dist/horizon-linux-x86_64.tar.gz dist/horizon-windows-x64.zip ...
+ #   ALSO_FOR=nightly-2026-10-28-0c02067 tools/ci/sign_release.sh nightly dist/...
+-#   ALSO_FOR=snapshot-2026-11-13-0c02067 tools/ci/sign_release.sh snapshot dist/...
+ set -euo pipefail
+ tag=$1; shift
+ dir=$(dirname "$1")
+@@ -28,10 +26,8 @@ for file in "$@"; do
+   names+=("$(basename "$file")")
+ done
+ also=${ALSO_FOR:-}
+-# A build's version is <channel>-<date>-<commit> for the channel signed above it (nightly or snapshot), so a
+-# snapshot's version is never signed beside the nightly channel, nor the reverse.
+-if [[ -n "$also" && ! ( "$tag" =~ ^(nightly|snapshot)$ && "$also" =~ ^$tag-[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9a-f]{7,40}$ ) ]]; then
+-  echo "ALSO_FOR=$also: not a $tag-<date>-<commit> build of the nightly or snapshot channel" >&2; exit 1
++if [[ -n "$also" && ! "$also" =~ ^nightly-[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9a-f]{7,40}$ ]]; then
++  echo "ALSO_FOR=$also: not a Nightly's nightly-<date>-<commit>" >&2; exit 1
+ fi
+ (cd "$dir" && "${sha[@]}" -- "${names[@]}") > "$dir/SHA256SUMS"
+ { printf 'horizon release %s\n' "$tag"; cat "$dir/SHA256SUMS"; } > "$work/message"
+diff --git a/tools/release_train.py b/tools/release_train.py
+index 1d719622937..b91bf56b7a4 100644
+--- a/tools/release_train.py
++++ b/tools/release_train.py
+@@ -2,19 +2,12 @@
+ """Decides when Horizon releases, names the release and writes its notes (.github/workflows/release.yml).
+ 
+     python3 tools/release_train.py decide --kind game [--head SHA] [--force]
+-    python3 tools/release_train.py decide --kind game --channel nightly|snapshot [--head SHA] [--force] [--daily]
+     python3 tools/release_train.py decide --kind launcher
+     python3 tools/release_train.py notes --kind game --tag v2026.10.15 --out dist/notes
+     python3 tools/release_train.py gate --kind game --smoke dist/smoke-test.json [--blockers]   # before publishing
+ 
+ The game ships only the Nightly since 2026-10-28 (Ludovic): when `decide --kind game` says so, release.yml starts
+ `nightly build` on the commit it decided (tools/ci/nightly.py), and "the last release" is the published Nightly.
+-On the fork (CI tiers, owner 2026-11-13) `--channel` names the kind of build: `nightly` takes `daily-green` and
+-refuses any other --head (an older commit had no daily run of its own, and no SDK); `snapshot` takes main's head (or
+-a --head on main) and refuses a commit whose gate jobs (the checks workflow's main-push verify and launcher)
+-did not all pass (pending is not passed); otherwise it always builds, as snapshot-<date>-<short> (no batch rules,
+-cap, pause or release-blocker: a snapshot is for testing main, never for players).
+-
+ A kind releases when a pull request merged into main since its last published release changed one of its
+ player-facing paths (GAME_PATHS, LAUNCHER_PATHS), once BATCH of them are waiting and the newest merged at least
+ DEBOUNCE ago (a burst of merges becomes one release), or once the oldest has waited MAX_WAIT (a lone fix still ships),
+@@ -318,12 +311,11 @@ def last_release(releases, kind):
+     return max(ours, key=lambda release: tag_key(release["tag_name"]), default=None)
+ 
+ 
+-def decision(kind, prs, now, paused=False, force=False, new_line=None, blockers=(), daily=False):
++def decision(kind, prs, now, paused=False, force=False, new_line=None, blockers=()):
+     """Whether to release now, and why. prs: the merged pull requests since the last release, each with the
+     files it changed under "paths" (player-facing ones only) and when it merged ("merged_at"). new_line: the
+     release line ("0.2") when it has no release of this kind yet; its first goes out at once. blockers: the open
+-    release-blocker issues; they hold every release, forced ones too. daily: the daily run's call for its
+-    daily-green commit, published without the batch-size and age rules (it comes once a day, with no retry)."""
++    release-blocker issues; they hold every release, forced ones too."""
+     counted = [pr for pr in prs if pr["paths"] and "skip-release" not in pr["labels"]]
+     urgent = [pr for pr in counted if "release-now" in pr["labels"]]
+     merged = [pr["merged_at"] for pr in counted if pr.get("merged_at")]
+@@ -339,8 +331,6 @@ def decision(kind, prs, now, paused=False, force=False, new_line=None, blockers=
+         return False, "no merged pull request changed what players run"
+     if urgent:
+         return True, "release-now: " + ", ".join(f"#{pr['number']}" for pr in urgent)
+-    if daily:
+-        return True, f"{len(counted)} pull requests changed what players run; the daily run passed this commit whole"
+     if merged and now - min(merged) >= MAX_WAIT:
+         return True, f"{len(counted)} pull requests changed what players run; the oldest has waited {MAX_WAIT.seconds // 3600} hours"
+     if len(counted) < BATCH:
+@@ -480,18 +470,12 @@ def published_nightly():
+     return json.loads(out) if out.strip() else None
+ 
+ 
+-SNAPSHOT_RUN = "snapshot build"
+-
+-
+ def nightly_building():
+-    """The Nightly's run of `nightly build` under way or waiting, if any: the train starts no second one. A
+-    snapshot's run (named `snapshot build <commit>` by nightly-build.yml's run-name) has its own concurrency group
+-    and never holds a Nightly back; every other run of the workflow is a Nightly's."""
+-    runs = gh_json("run", "list", "--repo", REPO, "--workflow", NIGHTLY_WORKFLOW, "--limit", "20",
+-                   "--json", "databaseId,status,displayTitle")
+-    return next((entry["databaseId"] for entry in runs
+-                 if entry["status"] in ("queued", "in_progress", "waiting", "pending", "requested")
+-                 and entry["displayTitle"].split(" ", 2)[:2] != SNAPSHOT_RUN.split()), None)
++    """The run of `nightly build` under way or waiting, if any: the train starts no second one."""
++    runs = gh_json("run", "list", "--repo", REPO, "--workflow", NIGHTLY_WORKFLOW, "--limit", "10",
++                   "--json", "databaseId,status")
++    return next((entry["databaseId"] for entry in runs if entry["status"] in ("queued", "in_progress", "waiting",
++                                                                              "pending", "requested")), None)
+ 
+ 
+ def nightly_builds_today(today):
+@@ -549,88 +533,11 @@ def passed_on(workflow, sha):
+     return bool(done) and done[0]["conclusion"] == "success"
+ 
+ 
+-def gate_jobs_passed(run_id, required):
+-    """Require every named gate on the latest attempt, regardless of non-gate failures."""
+-    pages = gh_json("api", "--paginate", "--slurp",
+-                    f"repos/{REPO}/actions/runs/{run_id}/jobs?filter=latest&per_page=100")
+-    jobs = [job for page in pages for job in page["jobs"] if job["name"] in required]
+-    return (required == {job["name"] for job in jobs}
+-            and all(job["status"] == "completed" and job["conclusion"] == "success" for job in jobs))
+-
+-
+-DAILY_GREEN = "daily-green"
+-FORK_GATE = {"verify", "launcher"}
+-SNAPSHOT_GATE = {"verify", "launcher"}
+-
+-
+-def daily_green_commit():
+-    """The commit the tag `daily-green` points to (the newest fully green daily run), freshly fetched, or ""."""
+-    run("git", "fetch", "--quiet", "--force", "origin", f"+refs/tags/{DAILY_GREEN}:refs/tags/{DAILY_GREEN}", check=False)
+-    return run("git", "rev-parse", "--verify", "--quiet", f"refs/tags/{DAILY_GREEN}^{{commit}}", check=False).strip()
+-
+-
+-def fork_gate_passed(sha):
+-    """Whether the newest checks main-push run on sha passed every gate job (the snapshot's check)."""
+-    pages = gh_json("api", "--paginate", "--slurp",
+-                    f"repos/{REPO}/actions/workflows/ci.yml/runs?branch=main&event=push&head_sha={sha}&per_page=100")
+-    runs = [entry for page in pages for entry in page["workflow_runs"]
+-            if entry["head_sha"] == sha and entry["head_branch"] == "main" and entry["event"] == "push"]
+-    return bool(runs) and gate_jobs_passed(runs[0]["id"], SNAPSHOT_GATE)
+-
+-
+-def channel_head(channel, head):
+-    """The commit a fork channel builds, or exits naming the check it failed."""
+-    if channel == "nightly":
+-        green = daily_green_commit()
+-        if not green:
+-            raise SystemExit(f"::error::refused: no `{DAILY_GREEN}` tag yet; a nightly ships only a commit whose "
+-                             "daily run was fully green")
+-        sha = run("git", "rev-parse", "--verify", "--quiet", f"{head}^{{commit}}", check=False).strip() if head else green
+-        if sha != green:
+-            raise SystemExit(f"::error::refused: {head} is not the commit `{DAILY_GREEN}` points to ({green}); "
+-                             "a nightly ships only the commit of the newest fully green daily run, with its SDK")
+-        return sha
+-    sha = run("git", "rev-parse", "--verify", "--quiet", f"{head or 'refs/remotes/origin/main'}^{{commit}}",
+-              check=False).strip()
+-    if not sha:
+-        raise SystemExit(f"::error::refused: {head} is not a commit of this repository")
+-    if subprocess.run(["git", "merge-base", "--is-ancestor", sha, "refs/remotes/origin/main"], cwd=ROOT).returncode:
+-        raise SystemExit(f"::error::refused: {sha} is not on main; a snapshot builds only a commit of main")
+-    if not fork_gate_passed(sha):
+-        raise SystemExit(f"::error::refused: the checks gate jobs ({', '.join(sorted(SNAPSHOT_GATE))}) "
+-                         f"did not all pass on a main push of {sha}; a snapshot needs the gate green on its commit")
+-    return sha
+-
+-
+-def build_tag(channel, date, sha):
+-    """A build's tag and the version it installs as: `nightly-<date>-<short>` or `snapshot-<date>-<short>`
+-    (horizon_release_sign::Channel parses it; the launcher installs under it)."""
+-    return f"{channel}-{date}-{sha[:7]}"
+-
+-
+-def green_main_head(parity=False, eligible=None):
++def green_main_head(parity=False):
+     """The newest commit on main whose checks passed: what an automatic release builds. With parity (game
+     releases), the newest commit parity-main passed on whose checks passed too: parity-main runs on batches of
+     merges, so the commits a run skipped are covered by the next one, and a superseded run counts for nothing. A
+     later batch that failed holds only the merges after that commit, which the green one doesn't contain."""
+-    if REPO == "arismoko/horizon":
+-        # Runs are ordered by creation, not completion: a late old run must not
+-        # displace a newer push. Paginate beyond bursts of cancelled main runs.
+-        pages = gh_json("api", "--paginate", "--slurp",
+-                        f"repos/{REPO}/actions/workflows/ci.yml/runs?branch=main&event=push&per_page=100")
+-        seen = set()
+-        for page in pages:
+-            for entry in page["workflow_runs"]:
+-                sha = entry["head_sha"]
+-                if entry["head_branch"] != "main" or entry["event"] != "push" or sha in seen:
+-                    continue
+-                seen.add(sha)
+-                if eligible is not None and not eligible(sha):
+-                    continue
+-                # The wasm fixture left main pushes for the daily run (daily-green), so the gate alone counts here.
+-                if gate_jobs_passed(entry["id"], FORK_GATE):
+-                    return sha
+-        return None
+     if parity:
+         # Only the successful runs: while merges land, one run at a time finishes (the pending one is replaced at
+         # every push), and a later failed or timed-out batch must not starve the Nightly of the commit an earlier
+@@ -662,10 +569,6 @@ def main():
+     parser.add_argument("command", choices=["decide", "notes", "gate"])
+     parser.add_argument("--kind", choices=["game", "launcher"], required=True)
+     parser.add_argument("--head", help="the commit to release (default: the newest commit on main whose checks passed)")
+-    parser.add_argument("--daily", action="store_true",
+-                        help="decide: the daily run's nightly, without the batch-size and age rules")
+-    parser.add_argument("--channel", choices=["nightly", "snapshot"],
+-                        help="decide: the fork's kind of build, which picks and checks the commit (see above)")
+     parser.add_argument("--tag", help="notes: the release's tag")
+     parser.add_argument("--force", action="store_true", help="release even without player-facing changes, before merges settle, while paused or before parity-main passed")
+     parser.add_argument("--out", type=Path, help="notes: write title.txt and body.md here")
+@@ -688,7 +591,7 @@ def main():
+ 
+     # Game releases ship only a commit the vanilla harnesses passed on (parity-main, docs/release-flow.md).
+     parity = args.kind == "game" and args.command == "decide" and not args.force
+-    head = channel_head(args.channel, args.head) if args.channel else args.head or green_main_head(parity)
++    head = args.head or green_main_head(parity)
+     if not head:
+         result = {"release": False, "reason": "main's latest checks did not pass" + (
+             " or parity-main did not pass on them" if parity else "")}
+@@ -696,15 +599,6 @@ def main():
+         write_outputs({"release": "false", "reason": result["reason"]})
+         return 0
+     head = run("git", "rev-parse", head).strip()
+-    if args.channel == "snapshot" and args.command == "decide":
+-        # A snapshot is for testing a commit of main, never for players: the gate on its commit is its only rule (no
+-        # batch, cap, pause or release-blocker), and its tag is its own (never `nightly`).
+-        tag = build_tag("snapshot", now.date().isoformat(), head)
+-        result = {"release": True, "reason": f"the gate passed on {head[:9]}: snapshot {tag}", "tag": tag,
+-                  "head": head, "urgent": False}
+-        print(json.dumps(result, indent=1))
+-        write_outputs({"release": "true", "reason": result["reason"], "tag": tag, "head": head, "urgent": "false"})
+-        return 0
+     nightly = published_nightly() if args.kind == "game" else None
+     if nightly:
+         run("git", "fetch", "--quiet", "--force", "origin", "refs/tags/nightly:refs/tags/nightly")
+@@ -728,8 +622,8 @@ def main():
+     new_line = f"{line[0]}.{line[1]}" if line and first_on_line(tags, prefix, line) and not nightly else None
+     blockers = open_blockers() if args.kind == "game" else []
+     release, reason = decision(args.kind, prs, now, os.environ.get("RELEASES_PAUSED") == "1", args.force, new_line,
+-                               blockers, daily=args.daily)
+-    if release and args.head and parity and not args.channel and not (passed_on("parity-main", head) and passed_on("checks", head)):
++                               blockers)
++    if release and args.head and parity and not (passed_on("parity-main", head) and passed_on("checks", head)):
+         release, reason = False, f"waiting for checks and parity-main to pass on {head[:9]}"
+     urgent = False
+     if args.kind == "game":

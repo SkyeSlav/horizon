@@ -1,31 +1,36 @@
 # upstream-prep: report
 
-Branch `upstream-prep` on arismoko/horizon, head `dde1fa4f9a2`, = main `77b62ef6b60` + 19 commits (no trailers).
+Branch `upstream-prep` on arismoko/horizon, head `9faf40e5af7`, = main `1151e8d700e` + 23 commits (no trailers).
 Built by `prep.sh` from the inputs in this folder; the same folder is the orphan branch `upstream-prep-tools`.
-Fork main is untouched. Draft pull request description for the owner: `pr-body.md`.
+Fork main is untouched. Upstream's files come from the upstream commit main contains (`7785026e88`, prep.sh's
+UPSTREAM_REF). The pull request description's source is the private draft repository; `pr-body.md` is a copy.
 
-| # | Commit | Files | + / − |
-| --- | --- | --- | --- |
-| | CI: run the kept workflows without the fork's runner pool and gate | 38 | +163 / −584 |
-| | Docs and comments: drop the fork's own process and names | 19 | +30 / −39 |
-| | Reword comments and a test mod id (also PR #4432; skipped once main has it) | 3 | +10 / −9 |
-| | Remove the fork's CI gate, runner pool and boat plumbing | 26 | −4158 |
-| | Remove the fork's board, roadmap and Discord automation | 8 | −602 |
-| | Remove the fork's upstream-sync tools and records | 34 | −2849 |
-| | Remove the conflict-measurement scripts | 9 | −1307 |
-| | Remove the shm-scene bench scratch crate | 3 | −189 |
-| 2 | README: upstream's text, without the fork notice | 1 | +3 / −14 |
-| 3 | Launcher: build only upstream's identity (scripted) | 18 | +99 / −396 |
-| 3 | Launcher: drop the fork's names, icons, keys and packaging | 46 | +139 / −1096 |
-| 5 | CI: upstream's telemetry-server and mod-registry workflows | 2 | +27 / −9 |
-| 6 | Claims: upstream's claim command and limit | 4 | +73 / −484 |
-| 7 | CI: restore upstream's runner watch | 1 | +34 |
-| 9 | CI: stop building the external machine sample | 16 | +21 / −214 |
-| 8 | Docs and tools: drop the remaining local paths and agent-runner names | 11 | +26 / −153 |
-| | Remove the fork's changelog digest | 5 | −568 |
-| 1 | Point every repository reference at horizon-rust/horizon (scripted) | 58 | +147 / −145 |
-| 1 | Repository references: corrections after the rename | 8 | +16 / −17 |
-| | Total | 258 | +752 / −12797 |
+| Commit | Files | + / − |
+| --- | --- | --- |
+| CI: run the kept workflows without the fork's runner pool and gate | 38 | +254 / −584 |
+| Docs and comments: drop the fork's own process and names | 18 | +29 / −38 |
+| Remove the fork's CI gate, runner pool and boat plumbing | 27 | −4189 |
+| Remove the fork's board, roadmap and Discord automation | 8 | −602 |
+| Remove the fork's upstream-sync tools and records | 36 | −2967 |
+| Remove the conflict-measurement scripts | 9 | −1307 |
+| Remove the shm-scene bench scratch crate | 3 | −189 |
+| README: upstream's text, without the fork notice | 1 | −11 |
+| Launcher: build only upstream's identity (scripted) | 19 | +85 / −412 |
+| Launcher: drop the fork's names, icons, keys and packaging | 44 | +144 / −1135 |
+| CI: upstream's telemetry-server and mod-registry workflows | 2 | +32 / −35 |
+| Claims: upstream's claim command and limit | 4 | +73 / −484 |
+| CI: upstream's runner watch, nightly audit, parity-main, pack-bench and run-parity | 5 | +55 / −12 |
+| CI: stop building the external machine sample | 16 | +21 / −214 |
+| Docs and tools: drop the remaining local paths and agent-runner names | 8 | +25 / −22 |
+| CI: upstream's ci.yml, plus the mod API's wasm32 check | 1 | +249 / −393 |
+| Release: the SDK built and published by the Nightly; no snapshot or daily-green flow | 25 | +387 / −1501 |
+| Daily tests on GitHub's runners, outside the gate | 15 | +116 / −153 |
+| Point every repository reference at horizon-rust/horizon (scripted) | 50 | +120 / −118 |
+| Repository references: corrections after the rename | 7 | +10 / −11 |
+| Modding book: read in the repository, not published to Pages | 11 | +35 / −77 |
+| Write the fork's issue references as arismoko/horizon#N (scripted) | 506 | +1245 / −1243 |
+| Issue references: corrections after the rewrite | 1 | +1 / −1 |
+| Total | 741 | +2752 / −15569 |
 
 Item 4 (Microsoft application id) needed no commit: the launcher already reads `HORIZON_MSA_CLIENT_ID` exactly as
 upstream's does (`vars.HORIZON_MSA_CLIENT_ID` in launcher.yml, `account::client_id()`); the only fork handling was the
@@ -35,11 +40,11 @@ README and launcher README text, gone with items 2 and 3.
 
 1. Nothing kept names a path the branch deleted (every `D` against main, by path and file name): 0 hits.
 2. `actionlint` on every workflow: clean. 2b. `tools/check_addresses.py` (ci.yml verify): passed.
-3. `python3 -m unittest discover -s tests` + `tools/ci` prepared-data tests, Python 3.12 (CI's): OK, 1706 tests.
+3. `python3 -m unittest discover -s tests` + `tools/ci` prepared-data tests, Python 3.12 (CI's): OK, 1657 + 2 tests.
 4. Rust/Cargo files changed, by commit: naming 3, shm-scene 2, launcher identity script 18 and hand pass 12,
    repository rename 10 (strings and doc comments only).
 5. Scrub: portizon, `/box/`, Dyna (word and identifiers), host names and the agent-swarm line are 0 (`scrub.md`).
-6. `arismoko` left: 174 lines, all allowed kinds (below); unexpected: 0.
+6. `arismoko` left: 1296 lines (mostly `arismoko/horizon#N` references), all allowed kinds; unexpected: 0.
 7. `cargo check --workspace --all-targets --locked` and the launcher workspace's `cargo check --all-targets`: OK.
    Compile only; no clippy or tests were run on the Rust changes.
 

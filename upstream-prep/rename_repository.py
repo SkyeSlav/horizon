@@ -12,6 +12,7 @@ Left alone, by design:
   fork from upstream's side; the maintainers word those lines);
 - third_party/.
 """
+import os
 import re
 import subprocess
 import sys
@@ -19,6 +20,7 @@ from pathlib import Path
 
 REPOSITORY = re.compile(r"arismoko/horizon(?!-machine-sample)(?!#\d)(?!/(?:issues|pull)/\d)")
 PAGES = re.compile(r"arismoko\.github\.io/horizon")
+UPSTREAM = os.environ.get("UPSTREAM_REF", "upstream/main")
 
 
 def main() -> int:
@@ -28,7 +30,7 @@ def main() -> int:
     for name in files:
         path = Path(name)
         original = path.read_text()
-        upstream = set(subprocess.run(["git", "show", f"upstream/main:{name}"], capture_output=True,
+        upstream = set(subprocess.run(["git", "show", f"{UPSTREAM}:{name}"], capture_output=True,
                                       text=True).stdout.splitlines())
         lines = []
         for line in original.splitlines(keepends=True):

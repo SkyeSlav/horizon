@@ -1,0 +1,603 @@
+diff --git a/.github/workflows/daily.yml b/.github/workflows/daily.yml
+index 6413705b610..fca9b74f80e 100644
+--- a/.github/workflows/daily.yml
++++ b/.github/workflows/daily.yml
+@@ -1,9 +1,9 @@
+ name: daily
+ run-name: daily ${{ inputs.commit || github.sha }}${{ github.event_name == 'workflow_dispatch' && (inputs.dry_run || github.ref != 'refs/heads/main') && ' (dry run)' || '' }}
+-# The daily tier (CI tiers, owner 2026-11-13; docs/release-flow.md "Daily run"): every in-game test, once a day on
+-# main's head and by a maintainer's dispatch. Its legs are the workflows that used to run on main pushes, called unchanged:
+-# the ignored-tests data shards, the wasm fixture and guest stacks, fn-replace-check and the native linkage probe,
+-# plus the launcher's Windows runtime-lease tests (launcher-windows-check.yml). The summary files one issue per
++# The daily tier (CI tiers, owner 2026-11-13; docs/release-flow.md "Daily run"): the tests `verify` doesn't run, once a
++# day on main's head and by a maintainer's dispatch, on GitHub's runners with no vanilla data. Its legs are the
++# workflows that used to run on main pushes: the ignored-tests shards without data, the wasm guest stacks,
++# fn-replace-check and the native linkage probe, plus the launcher's Windows runtime-lease tests (launcher-windows-check.yml). The summary files one issue per
+ # failing test (tools/ci/daily_summary.py). The Nightly and its SDK are built by nightly-build.yml, not here.
+ # Only a run on main with dry_run false writes anything: issues.
+ #   gh workflow run daily.yml --ref main -f dry_run=false             # the real run, as the schedule starts it
+diff --git a/.github/workflows/hot-paths.yml b/.github/workflows/hot-paths.yml
+index f7351d74afd..f7d4cc54b3e 100644
+--- a/.github/workflows/hot-paths.yml
++++ b/.github/workflows/hot-paths.yml
+@@ -2,15 +2,13 @@ name: hot-paths
+ # Performance trends of the game's hot paths (docs/hot-path-trends.md): the server tick over mobs and hoppers,
+ # command and selector resolution, hook dispatch and attachment access, each on a fixed, seeded workload in the
+ # release game as shipped (ThinLTO). tools/hot_paths.py counts instructions and allocator calls per operation
+-# under Callgrind, which do not depend on the runner's speed, and takes wall time beside them. A run on main is
+-# recorded on the `perf-history` branch, whose index.html is the trend page.
++# under Callgrind, which do not depend on the runner's speed, and takes wall time beside them. A run
++# prints its measurement in the run's summary and uploads it as an artifact.
+ #
+-# It measures; it never judges. No threshold fails this workflow, and it never runs on a pull request.
+-# Once a day on main, and by dispatch. A dispatch may name a commit to measure instead of the branch's head, to
+-# narrow a step in the trend to one commit; such a run, like any run off main, uploads its result and records nothing.
++# It measures; it never judges. No threshold fails this workflow, and it never runs on a pull request or on a
++# schedule: by dispatch only, on a machine that holds the prepared vanilla data. A dispatch may name a commit to
++# measure instead of the branch's head.
+ on:
+-  schedule:
+-    - cron: '43 8 * * *'
+   workflow_dispatch:
+     inputs:
+       commit:
+@@ -81,44 +79,3 @@ jobs:
+           name: hot-paths
+           path: ${{ runner.temp }}/hot-paths.json
+           if-no-files-found: error
+-
+-  # The only job that may write, and only results of main's head: it checks the result against the record's schema,
+-  # keeps the known fields and nothing else, and commits to the `perf-history` branch, which it creates the first time.
+-  record:
+-    needs: measure
+-    if: github.ref == 'refs/heads/main' && !inputs.commit
+-    runs-on: ubuntu-latest
+-    timeout-minutes: 10
+-    permissions:
+-      contents: write
+-    concurrency:
+-      group: hot-paths-record
+-      cancel-in-progress: false
+-    steps:
+-      - uses: actions/checkout@v4
+-        with:
+-          sparse-checkout: tools/hot_paths.py
+-          sparse-checkout-cone-mode: false
+-      - uses: actions/download-artifact@v4
+-        with:
+-          name: hot-paths
+-          path: ${{ runner.temp }}/result
+-      - name: Record the run and redraw the page
+-        run: |
+-          set -euo pipefail
+-          history="$RUNNER_TEMP/history"
+-          url="https://x-access-token:${{ github.token }}@github.com/$GITHUB_REPOSITORY.git"
+-          if git ls-remote --exit-code --heads "$url" perf-history > /dev/null; then
+-            git clone --quiet --depth 1 --branch perf-history "$url" "$history"
+-          else
+-            git init --quiet --initial-branch perf-history "$history"
+-            git -C "$history" remote add origin "$url"
+-          fi
+-          python3 tools/hot_paths.py record "$RUNNER_TEMP/result/hot-paths.json" "$history"
+-          python3 tools/hot_paths.py page "$history"
+-          git -C "$history" add runs index.html README.md
+-          git -C "$history" -c user.name="github-actions[bot]" \
+-            -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+-            commit --quiet -m "Hot paths at ${GITHUB_SHA::12}"
+-          git -C "$history" push --quiet origin perf-history
+-          echo "Recorded. Trend page: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/perf-history/index.html (history: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/tree/perf-history)" >> "$GITHUB_STEP_SUMMARY"
+diff --git a/.github/workflows/ignored-tests.yml b/.github/workflows/ignored-tests.yml
+index 0de0e9a3515..ec44c52728e 100644
+--- a/.github/workflows/ignored-tests.yml
++++ b/.github/workflows/ignored-tests.yml
+@@ -1,6 +1,8 @@
+ name: ignored-tests
+-# The #[ignore]d library tests that need the prepared vanilla data, which verify doesn't have. Run by the daily run
+-# (daily.yml) and by hand, never on pull requests or main pushes (CI tiers, owner 2026-11-13).
++# The #[ignore]d tests that verify doesn't run (slow, child process, network), on GitHub's runners. GitHub's runners have
++# no prepared vanilla data and Horizon never downloads it, so a shard runs only the tests that need none
++# (tools/ci/ignored_tests.py --without-data, which prints how many it left out). Run by the daily run (daily.yml) and by
++# hand, never on pull requests or main pushes (CI tiers, owner 2026-11-13).
+ #   gh workflow run ignored-tests.yml --ref <branch>
+ on:
+   workflow_call:
+@@ -31,21 +33,15 @@ jobs:
+       - name: The ignored-tests shard matrix
+         id: matrix
+         run: python3 tools/ci/ignored_shards.py --matrix --all >> "$GITHUB_OUTPUT"
+-  # A self-hosted Linux runner holding the maintainer's own Minecraft files (label horizon-game, as ci.yml's
+-  # vanilla-parity) runs them with the prepared vanilla data. Every shard runs, with one package per shard (the plan
+-  # lives in tools/ci/ignored_shards.py). tools/ci/ignored_tests.py fails on a new failure and on a known one that
+-  # passes, and prints only test names and results: the data is Mojang's.
++  # One package per shard (the plan lives in tools/ci/ignored_shards.py). tools/ci/ignored_tests.py fails on a new
++  # failure and on a known one that passes, and prints only test names and results.
+   ignored-tests-shards:
+     needs: plan
+     strategy:
+       fail-fast: false
+       matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+-    # Owner-approved stopgap: #2944 removes this when the legs run under 15 minutes.
+-    runs-on: [self-hosted, linux, horizon-game]
+-    # Temporary: #2944 brings client data legs under 15 minutes and restores the 60-minute cap.
+-    # Interim: 180 so the client legs finish and report at all (the 2026-11-13 dry run's #1of2 was killed at 90 with
+-    # 61 tests past 60 s). Cutting the slow client tests (#4022's next change) brings it back down.
+-    timeout-minutes: ${{ (matrix.shard == 'horizon-client#1of2' || matrix.shard == 'horizon-client#2of2') && 180 || 60 }}
++    runs-on: ubuntu-latest
++    timeout-minutes: 120
+     permissions:
+       contents: read
+     steps:
+@@ -54,54 +50,22 @@ jobs:
+           persist-credentials: false
+           # The daily run's commit; empty (this event's commit) on a dispatch of this workflow.
+           ref: ${{ inputs.commit }}
++      - name: ALSA and udev headers, and a virtual display
++        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libasound2-dev libudev-dev xvfb
+       - name: Install Rust toolchain
+         run: bash tools/ci/rustup_install.sh --profile minimal
+-      - name: Tools from the runner
+-        run: bash tools/ci/runner-env.sh
+-      - uses: actions/setup-java@v4
+-        with:
+-          distribution: temurin
+-          java-version: '25'
+       - name: Record data-leg start and compiler cache
+         run: |
+           date -u '+data-leg start utc=%Y-%m-%dT%H:%M:%SZ'
+           sccache --show-stats || echo 'data-leg compiler-cache statistics unavailable'
+-      # Every job that builds in this runner's persistent target keeps its source snapshot true: a
+-      # build of another tree without it left artifacts that a later job judged fresh (stale generated
+-      # sources, 2026-11-13). Only byte-identical Git objects regain their previous timestamps.
+-      - name: Restore unchanged source timestamps
+-        run: python3 tools/ci/source_mtimes.py "${CARGO_TARGET_DIR:-target}/ci-source-mtimes-v2.json"
+       # Every build and test in this job runs at the runner's size, not the host's (tools/ci/cargo_jobs.py).
+       - name: Cap build parallelism to the runner
+         run: python3 tools/ci/cargo_jobs.py --job-mib 3072 --cap
+-      # Missing data fails the leg.
+-      - name: Prepare checkout-keyed vanilla data
+-        id: data
+-        run: bash tools/ci/vanilla-data.sh
+-      - name: Retain typed preparation diagnostics only
+-        if: failure() && steps.data.outcome == 'failure'
+-        uses: actions/upload-artifact@v4
+-        with:
+-          name: preparation-diagnostic-${{ strategy.job-index }}
+-          path: |
+-            ${{ runner.temp }}/prepare-build.diagnostic.json
+-            ${{ runner.temp }}/prepare.diagnostic.json
+-            ${{ runner.temp }}/seed-extras.diagnostic.json
+-          if-no-files-found: ignore
+-          retention-days: 3
+-      - name: Generate the fishing test's vanilla reference inputs
+-        if: steps.data.outputs.present != 'false' && (matrix.shard == 'horizon-client' || startsWith(matrix.shard, 'horizon-client#'))
+-        run: |
+-          reference=$(mktemp -d "$RUNNER_TEMP/fishing-reference.XXXXXX")
+-          python3 tools/test_fishing_rng_parity.py --prepare-reference "$reference" --env-file "$GITHUB_ENV"
+-      - name: Run the ignored tests that need prepared data
+-        if: steps.data.outputs.present != 'false'
++      - name: Run the ignored tests that need no vanilla data
+         env:
+           SHARD: ${{ matrix.shard }}
+           HORIZON_DATA_LEG_TIMING: '1'
+-        run: |
+-          export HORIZON_TEST_RESOURCES="$PWD/.local/horizon-client/26.3"
+-          python3 tools/ci/with_xvfb.py python3 tools/ci/ignored_tests.py --report "$RUNNER_TEMP/daily-report.json" "$SHARD"
++        run: python3 tools/ci/with_xvfb.py python3 tools/ci/ignored_tests.py --without-data --report "$RUNNER_TEMP/daily-report.json" "$SHARD"
+       # The leg's verdict for the daily summary: test names, panic locations and policy only (ignored_tests.py --report).
+       - name: Upload the leg report
+         if: always()
+diff --git a/.github/workflows/paper-parity.yml b/.github/workflows/paper-parity.yml
+index 2ebca4e987b..332a501ec06 100644
+--- a/.github/workflows/paper-parity.yml
++++ b/.github/workflows/paper-parity.yml
+@@ -2,8 +2,6 @@ name: Paper event parity
+ # Informational only; never add push or pull_request triggers (issue #2090).
+ on:
+   workflow_dispatch:
+-  schedule:
+-    - cron: '37 4 * * *'
+ permissions:
+   contents: read
+ concurrency:
+@@ -12,7 +10,7 @@ concurrency:
+ jobs:
+   paper-parity:
+     # Upstream's Mac runner holds the Paper server and Mojang files it compares with; this fork has no
+-    # runner with that label, so its scheduled run only sat queued until GitHub cancelled it.
++    # runner with that label.
+     if: github.repository == 'horizon-rust/horizon'
+     runs-on: [self-hosted, horizon-game, macOS]
+     timeout-minutes: 240
+diff --git a/.github/workflows/wasm-coverage.yml b/.github/workflows/wasm-coverage.yml
+index 18f19320c28..09dadd4171e 100644
+--- a/.github/workflows/wasm-coverage.yml
++++ b/.github/workflows/wasm-coverage.yml
+@@ -1,11 +1,9 @@
+ name: wasm-coverage
+ # The full internals coverage (#1659): every crossable real internal has a compiling host binding and guest
+ # binding, generated from the real catalog and checked in one universal crate each. It alone takes about an
+-# hour on a large runner, so it runs once a day and on dispatch instead of on every main push (wasm-mods keeps
+-# the fast checks). A red run is a main break. Same shape as the daily prebuilt game.
++# hour on a large runner, so it runs on dispatch only, not on every main push (wasm-mods keeps the fast checks).
++# A red run is a main break.
+ on:
+-  schedule:
+-    - cron: '0 6 * * *'
+   workflow_dispatch:
+ permissions:
+   contents: read
+diff --git a/.github/workflows/wasm-mods.yml b/.github/workflows/wasm-mods.yml
+index 66c76f71783..67d35baa342 100644
+--- a/.github/workflows/wasm-mods.yml
++++ b/.github/workflows/wasm-mods.yml
+@@ -1,5 +1,7 @@
+ name: wasm-mods
+ # The daily run and manual dispatch only, never pull requests or main pushes (owner, 2026-11-12; CI tiers 2026-11-13).
++# The daily run calls only `guest-stack`, on GitHub's runners. `fixture` needs the prepared vanilla data, which
++# GitHub's runners don't have: it runs by hand (a dispatch of this workflow) on a machine that has it.
+ on:
+   # The daily run (daily.yml) calls it with the commit to check; a maintainer dispatches it on a branch that changes
+   # what it builds.
+@@ -21,7 +23,9 @@ concurrency:
+ jobs:
+   fixture:
+     # The client tests below need the prepared vanilla data: a self-hosted Linux runner holding the maintainer's
+-    # own Minecraft files (label horizon-game, as ci.yml's vanilla-parity).
++    # own Minecraft files (label horizon-game, as ci.yml's vanilla-parity). A call from the daily run passes a
++    # commit; only a dispatch (no commit) runs it.
++    if: inputs.commit == ''
+     runs-on: [self-hosted, linux, horizon-game]
+     timeout-minutes: 120
+     env:
+diff --git a/CONTRIBUTING.md b/CONTRIBUTING.md
+index 7826f423eee..b77b5085cdf 100644
+--- a/CONTRIBUTING.md
++++ b/CONTRIBUTING.md
+@@ -128,7 +128,7 @@ network and are still in `verify` are being moved by the next change of #4022.
+ | Tier | Runs on | What |
+ | --- | --- | --- |
+ | Push | every pull request push, pushes to main | `checks`: `verify` (format, lint, unit tests only, the test-tier and mod API surface checks), `launcher` |
+-| Daily | once a day on main's head | every test that boots the game or needs prepared resources, the wasm fixture, `fn-replace-check` and the linkage probe |
++| Daily | once a day on main's head | the ignored tests that need no vanilla data (slow, child process, network), the wasm guest stacks, `fn-replace-check` and the linkage probe, on GitHub's runners; those that need the data run when a machine with it runs the shards without `--without-data` |
+ 
+ **A unit test** uses no prepared resources, boots no game, starts no child process, uses no network and no compiled
+ wasm fixture, and finishes in under 2 seconds. Any other test is a daily test: it carries `#[ignore]` and a row in
+diff --git a/docs/README.md b/docs/README.md
+index 2e1938a66d1..279ac0db122 100644
+--- a/docs/README.md
++++ b/docs/README.md
+@@ -43,7 +43,7 @@ To play, use [the launcher](../launcher/README.md); the project site is [playhor
+ - [Resource packs](resource-packs.md): everything a 26.3 resource pack can change, whether Horizon honours it, and the proof.
+ - [Horizon sends nothing](telemetry.md): no telemetry; crash, benchmark and bug reports stay local files.
+ - [Benchmark report format](benchmark-report.md): the versioned JSON every benchmark writes (game, launcher, `tools/perf_bench.py`) and the local log.
+-- [Hot-path performance trends](hot-path-trends.md): the main-only job that counts instructions and allocations of the tick, commands, chunk saving and mod dispatch on fixed workloads, and where its trend page is.
++- [Hot-path performance trends](hot-path-trends.md): the dispatch-only job that counts instructions and allocations of the tick, commands, chunk saving and mod dispatch on fixed workloads, and how to compare two runs.
+ - [Security](security.md): how Horizon protects code, CI and automatic releases against untrusted input while work is performed by AI agents.
+ - [Known issues](known-issues.md): player-facing issues listed in each game release and removed as pull requests fix them.
+ - [Horizon APIs](api/README.md): every surface other programs build on (mods, shaders, agent control, servers, the launcher, data formats), each with its guide, generated reference, stability and changelog, and the [stability and versioning policy](api/stability.md).
+diff --git a/docs/hot-path-trends.md b/docs/hot-path-trends.md
+index 933b4c9b628..83a85a37b6a 100644
+--- a/docs/hot-path-trends.md
++++ b/docs/hot-path-trends.md
+@@ -1,11 +1,9 @@
+ # Hot-path performance trends
+ 
+-The `hot-paths` workflow measures the game's hot paths on main once a day and records the result, so a slow drift over many
+-small merges shows up as a trend. It measures; it never judges: nothing in it fails on a slow result, it never runs
+-on a pull request, and no contributor has to run it.
+-
+-The trend page is `index.html` on the [`perf-history`](https://github.com/arismoko/horizon/tree/perf-history) branch
+-(download it, or read the run's summary in Actions); `runs/` beside it holds one small JSON record per run.
++The `hot-paths` workflow measures the game's hot paths when a maintainer dispatches it, on a machine that holds the
++prepared resources, and prints the measurement in the run's summary. It measures; it never judges: nothing in it fails on a
++slow result, it never runs on a pull request or on a schedule, and no contributor has to run it. It records nothing:
++keep the results of two runs to compare them (below).
+ 
+ ## What is measured
+ 
+@@ -66,8 +64,8 @@ python3 tools/hot_paths.py measure --game target/release/horizon-hot-paths-game
+ python3 tools/hot_paths.py measure ... --only server.tick.mobs      # some workloads only
+ ```
+ 
+-In CI, dispatch the workflow with a commit to measure that commit on a runner: the result is the run's `hot-paths`
+-artifact and its summary, and nothing is recorded. That narrows a step between two daily runs to one commit.
++In CI, dispatch the workflow, with a commit to measure that commit: the result is the run's `hot-paths` artifact and
++its summary.
+ 
+ To compare two commits, measure each and read the two tables; `record` and `page` build a page from any folder of
+ results:
+diff --git a/docs/release-flow.md b/docs/release-flow.md
+index d3dc21ff739..cfba73c1a54 100644
+--- a/docs/release-flow.md
++++ b/docs/release-flow.md
+@@ -238,12 +238,13 @@ commit of main. `prebuilt-game.yml` is the hand dispatch of the same build and p
+ 
+ ### Daily run
+ 
+-`.github/workflows/daily.yml` runs the in-game legs once a day, at 09:00 UTC on main's head, and when a maintainer
++`.github/workflows/daily.yml` runs its legs once a day, at 09:00 UTC on main's head, and when a maintainer
+ dispatches it (`-f commit=<sha>`, `-f dry_run=false` to write). One run runs and at most one waits; a newer waiting
+ dispatch replaces an older waiting one. The schedule stops when main's head already has a completed real daily run;
+ a hand dispatch never does, so it retries a run whose issues failed. Its legs are the workflows that left main pushes:
+-the ignored-tests data shards (`ignored-tests.yml`), the wasm fixture and guest stacks (`wasm-mods.yml`),
+-`fn-replace-check.yml`, the native linkage probe (`native-dylib-probe.yml`) and the launcher's Windows runtime-lease
++the ignored-tests shards (`ignored-tests.yml`: on GitHub's runners, with no vanilla data, so `--without-data` leaves out
++the tests that need it and says how many), the wasm guest stacks (`wasm-mods.yml`; its fixture job needs the data and
++runs by dispatch only), `fn-replace-check.yml`, the native linkage probe (`native-dylib-probe.yml`) and the launcher's Windows runtime-lease
+ tests (`launcher-windows-check.yml`), each called with the commit. The daily run publishes nothing and gates nothing:
+ the Nightly does not wait for it. Its summary (`tools/ci/daily_summary.py`) reads each leg's result and its sanitised
+ verdict file, never a log, and files issues:
+@@ -254,6 +255,9 @@ verdict file, never a log, and files issues:
+ 
+ Only a run on `main` with `dry_run` false files issues; any other run prints what it would do.
+ 
++The tests that need the vanilla data run nowhere in the daily run, as no GitHub runner holds it. `hot-paths.yml`,
++`paper-parity.yml` and `wasm-coverage.yml` have no schedule either: they run when a maintainer dispatches them.
++
+ ### When it releases
+ 
+ `tools/release_train.py decide --kind game` looks at the pull requests merged into main (first-parent merge
+diff --git a/tests/test_daily_summary.py b/tests/test_daily_summary.py
+index db0cc3f2d12..c37c7d4324f 100644
+--- a/tests/test_daily_summary.py
++++ b/tests/test_daily_summary.py
+@@ -23,7 +23,7 @@ def job(name, conclusion="success", failed=()):
+ 
+ 
+ GREEN_JOBS = [job("shards / plan"), job("shards / ignored-tests-shards (horizon-world)"),
+-              job("wasm-mods / fixture"), job("wasm-mods / Guest stack / ubuntu-latest"),
++              job("wasm-mods / fixture", "skipped"), job("wasm-mods / Guest stack / ubuntu-latest"),
+               job("fn-replace-check / route"), job("fn-replace-check / fn-replace-check"),
+               job("linkage / route"), job("linkage / linkage x86_64-unknown-linux-gnu"),
+               job("windows-runtime-leases / gate"), job("windows-runtime-leases / test", "skipped"),
+@@ -137,8 +137,8 @@ class DailySummaryTests(unittest.TestCase):
+         self.assertTrue(api.writes[0][2]["body"].startswith("🤖 Agent: "))
+ 
+     def test_a_leg_that_failed_without_test_names_gets_one_issue_per_leg(self):
+-        jobs = [job("shards / ignored-tests-shards (horizon-world)", "cancelled", ["Prepare checkout-keyed vanilla data"]),
+-                job("wasm-mods / fixture", "failure", ["Build tool and shared member"]),
++        jobs = [job("shards / ignored-tests-shards (horizon-world)", "cancelled", ["Run the ignored tests that need no vanilla data"]),
++                job("wasm-mods / Guest stack / ubuntu-latest", "failure", ["Build tool and shared member"]),
+                 job("fn-replace-check / fn-replace-check", "failure", ["Refusals by name"])] + GREEN_JOBS[6:]
+         api = Api(jobs)
+         self.run_summary(api, [], results=dict(LEGS, shards={"result": "cancelled"}, **{"wasm-mods": {"result": "failure"}},
+@@ -146,7 +146,7 @@ class DailySummaryTests(unittest.TestCase):
+         titles = sorted(body["title"] for method, path, body in api.writes if path == "issues")
+         self.assertEqual(titles, ["Daily: fn-replace-check / fn-replace-check did not complete",
+                                   "Daily: shards / ignored-tests-shards (horizon-world) did not complete",
+-                                  "Daily: wasm-mods / fixture did not complete"])
++                                  "Daily: wasm-mods / Guest stack / ubuntu-latest did not complete"])
+         bodies = " ".join(body["body"] for _, path, body in api.writes if path == "issues")
+         self.assertIn("`Refusals by name`", bodies)
+ 
+@@ -210,15 +210,6 @@ class DailySummaryTests(unittest.TestCase):
+         self.run_summary(api, [], results=dict(LEGS, shards={"result": "skipped"}))
+         self.assertIn("Daily: shards did not complete", [body["title"] for _, path, body in api.writes if path == "issues"])
+ 
+-    def test_fixture_test_failures_are_filed_by_test_name(self):
+-        jobs = GREEN_JOBS[:2] + [job("wasm-mods / fixture", "failure", [summary.FIXTURE_TESTS_STEP])] + GREEN_JOBS[3:]
+-        report = {"needs": "HORIZON_WASM_FIXTURE", "incomplete": [], "passed": [],
+-                  "problems": [failure("game::wasm::wasm_interaction_shared_matrix", None, package="horizon-client")]}
+-        api = Api(jobs)
+-        self.run_summary(api, [report], results=dict(LEGS, **{"wasm-mods": {"result": "failure"}}))
+-        titles = [body["title"] for _, path, body in api.writes if path == "issues"]
+-        self.assertEqual(titles, ["Daily: horizon-client game::wasm::wasm_interaction_shared_matrix"])
+-
+     def test_a_second_invocation_for_one_run_posts_nothing_twice(self):
+         jobs = [job("shards / ignored-tests-shards (horizon-world)", "failure", ["Run"])] + GREEN_JOBS[2:]
+         red = dict(LEGS, shards={"result": "failure"})
+diff --git a/tests/test_data_leg_timing.py b/tests/test_data_leg_timing.py
+index 3329a82e40b..52a77f42428 100644
+--- a/tests/test_data_leg_timing.py
++++ b/tests/test_data_leg_timing.py
+@@ -18,17 +18,14 @@ class DataLegTimingTests(unittest.TestCase):
+         steps = yaml.safe_load((ROOT / ".github/workflows/ignored-tests.yml").read_text())["jobs"]["ignored-tests-shards"]["steps"]
+         start = next(i for i, s in enumerate(steps) if s.get("name") == "Record data-leg start and compiler cache")
+         end = next(i for i, s in enumerate(steps) if s.get("name") == "Record data-leg end and compiler cache")
+-        run = next(i for i, s in enumerate(steps) if s.get("name") == "Run the ignored tests that need prepared data")
++        run = next(i for i, s in enumerate(steps) if s.get("name") == "Run the ignored tests that need no vanilla data")
+         self.assertLess(start, run)
+         self.assertLess(run, end)
+         self.assertEqual(steps[end]["if"], "always()")
+         self.assertEqual(steps[run]["env"]["HORIZON_DATA_LEG_TIMING"], "1")
+         # The workflow may invoke only the existing filtered runner, not raw cargo
+         # or a tee/cat pipeline forwarding its captured output.
+-        lines = steps[run]["run"].strip().splitlines()
+-        self.assertEqual(len(lines), 2)
+-        self.assertTrue(lines[0].startswith("export HORIZON_TEST_RESOURCES="))
+-        self.assertEqual(shlex.split(lines[1]), ["python3", "tools/ci/with_xvfb.py", "python3", "tools/ci/ignored_tests.py", "--report", "$RUNNER_TEMP/daily-report.json", "$SHARD"])
++        self.assertEqual(shlex.split(steps[run]["run"]), ["python3", "tools/ci/with_xvfb.py", "python3", "tools/ci/ignored_tests.py", "--without-data", "--report", "$RUNNER_TEMP/daily-report.json", "$SHARD"])
+         with tempfile.TemporaryDirectory() as directory:
+             fake = Path(directory) / "sccache"
+             fake.write_text("#!/bin/sh\n[ \"$1\" = --show-stats ] || exit 1\necho 'Compile requests 0'\necho 'Cache hits 0'\n")
+diff --git a/tests/test_ignored_test_completion.py b/tests/test_ignored_test_completion.py
+index 3f21f2d81fc..ed462df107f 100644
+--- a/tests/test_ignored_test_completion.py
++++ b/tests/test_ignored_test_completion.py
+@@ -193,6 +193,35 @@ class IgnoredTests(unittest.TestCase):
+             self.assertRegex(variable, r"^[A-Z][A-Z0-9_]*$")
+             self.assertNotIn((package, test), ignored_tests.known_failures())
+ 
++    def test_without_data_leaves_out_the_tests_that_need_it_and_says_how_many(self):
++        def row(name, reason):
++            return ignored_tests.Row("example", name, "lib", "daily", "daily-example.txt", reason)
++        rows = [row("slow_one", "slow"), row("needs_files", "resources"), row("boots", "game-boot")]
++        known = {("example", "harness_step"): "harness", ("example", "gpu_draw"): "gpu"}
++        inputs = {("example", "needs_input"): "HORIZON_EXAMPLE_INPUT"}
++        with patch.object(ignored_tests, "known_failures", return_value=known), \
++                patch.object(ignored_tests, "harness_inputs", return_value=inputs), \
++                patch.object(ignored_tests, "daily_rows", return_value=rows), \
++                patch.object(ignored_tests, "has_vulkan", return_value=True), \
++                patch.object(ignored_tests, "run", return_value={"slow_one": True}) as execute, \
++                contextlib.redirect_stdout(io.StringIO()) as log:
++            self.assertEqual(ignored_tests.main(["example"], None, True), 0)
++        self.assertCountEqual(execute.call_args.args[1], ["needs_files", "boots", "harness_step", "gpu_draw", "needs_input"])
++        self.assertIn("--without-data: 5 tests left out", log.getvalue())
++        self.assertNotIn("refused", log.getvalue())
++
++    def test_without_data_does_not_hide_what_runs(self):
++        rows = [ignored_tests.Row("example", "needs_files", "lib", "daily", "daily-example.txt", "resources"),
++                ignored_tests.Row("example", "child", "lib", "daily", "daily-example.txt", "child-process")]
++        with patch.object(ignored_tests, "known_failures", return_value={}), \
++                patch.object(ignored_tests, "harness_inputs", return_value={}), \
++                patch.object(ignored_tests, "daily_rows", return_value=rows), \
++                patch.object(ignored_tests, "run", return_value={"child": False}), \
++                contextlib.redirect_stdout(io.StringIO()) as log:
++            self.assertEqual(ignored_tests.main(["example"], None, True), 1)
++        self.assertIn("example child: failed, and isn't a known failure", log.getvalue())
++        self.assertNotIn("needs_files", log.getvalue().replace("1 tests left out", ""))
++
+     def test_explicit_client_lib_selection_is_not_split_again(self):
+         with patch.object(ignored_tests, "known_failures", return_value={}), \
+                 patch.object(ignored_tests, "daily_rows", return_value=[]), \
+diff --git a/tools/ci/daily_summary.py b/tools/ci/daily_summary.py
+index 3f143f2e404..8f0f337447a 100644
+--- a/tools/ci/daily_summary.py
++++ b/tools/ci/daily_summary.py
+@@ -41,10 +41,9 @@ DISCLOSURE = "> 🤖 Filed by the daily run."
+ # daily.yml's leg jobs (each a called workflow), and the called workflows' own routing jobs, which test nothing.
+ LEGS = ("shards", "wasm-mods", "fn-replace-check", "linkage", "windows-runtime-leases")
+ HELPERS = ("plan", "route", "fresh", "gate")
+-# Jobs of a called workflow that the daily run does not use: launcher-windows-check's push and pull-request tests.
+-NOT_DAILY = ("windows-runtime-leases / test",)
+-# The wasm fixture step whose failures its verdict file names test by test.
+-FIXTURE_TESTS_STEP = "Run the client tests that load the compiled fixture"
++# Jobs of a called workflow that the daily run does not use: launcher-windows-check's push and pull-request tests,
++# and the wasm fixture, which needs the vanilla data and runs by dispatch only (wasm-mods.yml).
++NOT_DAILY = ("windows-runtime-leases / test", "wasm-mods / fixture")
+ MAX_PAGES = 100
+ 
+ 
+@@ -111,13 +110,11 @@ def failed_steps(job):
+ 
+ 
+ def report_for(job, reports):
+-    """The verdict file a leg job wrote: a shard's names its shard, the fixture's its `needs` variable."""
++    """The verdict file a leg job wrote: a shard's names its shard."""
+     name = job["name"]
+     for report in reports:
+         if any(name.endswith(f"({shard})") for shard in report.get("shards", ())):
+             return report
+-        if report.get("needs") and name == "wasm-mods / fixture":
+-            return report
+     return None
+ 
+ 
+@@ -210,8 +207,6 @@ def verdicts(jobs, reports, results):
+                           if report["incomplete"] else
+                           "failed tests whose names are withheld" if problems else "failed outside its tests")
+                 unfinished.append((job["name"], job["conclusion"], steps, reason))
+-        elif job["name"] == "wasm-mods / fixture" and steps == [FIXTURE_TESTS_STEP] and by_name:
+-            tests += by_name
+         else:
+             unfinished.append((job["name"], job["conclusion"], steps, "failed at the steps named"))
+     for job in jobs:
+diff --git a/tools/ci/ignored_tests.py b/tools/ci/ignored_tests.py
+index d9a53d0bca8..38b3e2ed20c 100644
+--- a/tools/ci/ignored_tests.py
++++ b/tools/ci/ignored_tests.py
+@@ -1,7 +1,7 @@
+ #!/usr/bin/env python3
+ """Run every library test, ignored or not, with the prepared vanilla data, against a list of known failures.
+ 
+-Usage: ignored_tests.py SHARD...  (HORIZON_TEST_RESOURCES points at the prepared 26.3 data)
++Usage: ignored_tests.py [--without-data] SHARD...  (HORIZON_TEST_RESOURCES points at the prepared 26.3 data)
+        ignored_tests.py --needs VARIABLE (--one-process-each | --list) [--jobs N]
+ 
+ A SHARD is a package, or one leg of it written `PACKAGE#NofM` (tools/ci/ignored_shards.py splits the biggest
+@@ -24,6 +24,10 @@ the runner has a Vulkan driver (an ICD file), and must pass there.
+ 
+ `needs-plain` is like `needs`, but selects a plain test without `--ignored`.
+ 
++`--without-data` is for a machine with no prepared vanilla data (GitHub's runners): it leaves out the daily rows whose
++reason is `resources` or `game-boot` and every `harness`, `needs`, `needs-plain` and `gpu` row, and prints how many
++tests it left out. The tests left out run nowhere until a machine with the data runs the shards without the flag.
++
+ A row marked `daily` (`PACKAGE TEST TARGET daily REASON`, in `daily-<package>.txt`) is a test moved out of
+ `verify` into the daily run with `#[ignore = "daily"]` (tools/ci/move_to_daily.py): not a known failure, it must
+ pass, and its row must name a test that still runs. A package's shard runs the daily rows of the targets it
+@@ -106,6 +110,9 @@ DAILY_REASONS = ("slow", "game-boot", "resources", "child-process", "network", "
+ # a workflow of .github/workflows/ by file name.
+ MANUAL_RUNNERS = re.compile(r"^(?:by-hand|subprocess|[\w.-]+\.ya?ml)$")
+ WORKFLOWS = Path(__file__).resolve().parents[2] / ".github" / "workflows"
++# The daily reasons that need the prepared vanilla data, and the other marks that do (`--without-data` leaves them out).
++DATA_REASONS = ("resources", "game-boot")
++DATA_MARKS = ("harness", "gpu")
+ ICD_DIRS = ("/usr/share/vulkan/icd.d", "/etc/vulkan/icd.d")
+ # The largest tracked Rust file read to check a panic location's line: above every source in the tree (the largest
+ # are near 0.7 MB), so a location in any tracked source of any package is reported, while a blob stays bounded.
+@@ -911,7 +918,7 @@ def run(package, skip, number=None, count=None, only=None):
+     return results
+ 
+ 
+-def main(shards, report=None):
++def main(shards, report=None, without_data=False):
+     global _active_budget
+     _active_budget = [FAILURE_TOTAL_BYTES]
+     _panic_locations.clear()
+@@ -923,8 +930,8 @@ def main(shards, report=None):
+     known = known_failures()
+     inputs = harness_inputs()
+     files = {(row.package, row.test): row.file for row in listed_entries()}
+-    skipped = {"harness", "manual"} if has_vulkan() else {"harness", "manual", "gpu"}
+-    if "gpu" in skipped:
++    skipped = {"harness", "manual"} if has_vulkan() and not without_data else {"harness", "manual", "gpu"}
++    if "gpu" in skipped and not without_data:
+         print("no Vulkan driver on this runner: the tests marked `gpu` are skipped")
+     problems = []
+     accepted_unshown = 0
+@@ -932,6 +939,19 @@ def main(shards, report=None):
+     # Resource-backed client-lib families retain registries across tests; releasing
+     # the process between halves bounds that retention without another CI leg.
+     daily = daily_rows()
++    # With --without-data: every test that needs the vanilla data, as (package, test); none otherwise.
++    left_out, left_out_count = set(), 0
++    if without_data:
++        left_out = ({key for key, mark in known.items() if mark in DATA_MARKS} | set(inputs)
++                    | {(row.package, row.test) for row in daily if row.reason in DATA_REASONS})
++        # The daily-rows legs' own rows that go with it (a package shard counts its tests below).
++        if set(shards) & set(ignored_shards.DAILY_ROWS_LEGS.values()):
++            left_out_count = sum(1 for row in daily if (row.package, row.test) in left_out
++                                 and not shard_runs(row.package, row.reference)
++                                 and ignored_shards.daily_rows_leg(row.package) in shards)
++        daily = [row for row in daily if (row.package, row.test) not in left_out]
++        known = {key: mark for key, mark in known.items() if key not in left_out}
++        inputs = {}
+     groups = daily_rows_groups(daily)
+     selections = [
+         selection
+@@ -961,6 +981,9 @@ def main(shards, report=None):
+             expected_daily = [row.test for row in daily if row.package == package
+                               and shard_runs(package, row.reference) and in_leg(row.test, number, count)]
+             skip = [test for (listed, test), mark in known.items() if listed == package and mark in skipped]
++            out = sorted(test for listed, test in left_out if listed == package and in_leg(test, number, count))
++            skip += out
++            left_out_count += len(out)
+             for (listed, test), variable in sorted(inputs.items()):
+                 if listed == package and in_leg(test, number, count) and not os.environ.get(variable):
+                     print(f"{package} {safe_identity(test)}: refused, needs {variable}; run by the parity harness")
+@@ -1002,6 +1025,9 @@ def main(shards, report=None):
+             if listed == package and mark not in skipped and in_leg(test, number, count) and test not in results:
+                 problems.append(f"{package} {safe_identity(test)}: listed in {files.get((package, test), POLICY_PATH)} but no longer runs")
+                 problem(package, test, "no-longer-runs", files.get((package, test), POLICY_PATH))
++    if without_data:
++        print(f"--without-data: {left_out_count} tests left out, they need the vanilla data "
++              f"(daily rows with reason {' or '.join(DATA_REASONS)}, and {', '.join(DATA_MARKS)}, needs and needs-plain rows)")
+     shown = 0
+     for problem in problems:
+         emitted, _ = bounded_record(f"::error::{problem}\n", _active_budget)
+@@ -1024,6 +1050,8 @@ if __name__ == "__main__":
+     each.add_argument("--list", action="store_true", help="print their commands")
+     parser.add_argument("--jobs", type=int, help="cargo's -j for --needs")
+     parser.add_argument("--report", metavar="FILE", help="also write the verdict as JSON for the daily summary")
++    parser.add_argument("--without-data", action="store_true",
++                        help="leave out the tests that need the prepared vanilla data (a runner that has none)")
+     parser.add_argument("--daily-tests", nargs=2, metavar=("PACKAGE", "TARGET"),
+                         help="print the daily rows' tests of one package's target, one per line")
+     args = parser.parse_args()
+@@ -1037,4 +1065,4 @@ if __name__ == "__main__":
+     elif args.needs or args.one_process_each or args.list:
+         parser.error("--needs takes --one-process-each or --list, and they take --needs")
+     else:
+-        sys.exit(main(args.shards, args.report))
++        sys.exit(main(args.shards, args.report, args.without_data))

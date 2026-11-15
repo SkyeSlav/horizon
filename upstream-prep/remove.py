@@ -6,6 +6,7 @@ each category with `git rm`. A file no category claims stops the run before anyt
 new fork-operations file, and someone decides where it goes (add a rule) or that it stays (fix the reference).
 """
 import json
+import os
 import re
 import subprocess
 import sys
@@ -17,11 +18,11 @@ CATEGORIES = [
     ("Remove the fork's CI gate, runner pool and boat plumbing",
      "The fork's own gate (dyna-ci.yml), its auto-merge guard, the boat and cache workflows, the runner-pool and\n"
      "boat scripts, the gate's step summary and the one-off records of moving tests to the daily run. The checks\n"
-     "of the gate that test the product run in ci.yml's verify.",
+     "of the gate that test the product run in mod-checks.yml.",
      [r"^\.github/workflows/(dyna-ci|dyna-automerge-guard|boat-recovery|boat-smoke|ci-cache)\.yml$",
       r"^tools/ci/(boat_\w+|dyna[_-][\w.-]+|pr_gate|gate_summary|check_runner_packages)\.(py|sh|txt)$",
       r"^tools/ci/daily-move-[\w-]+\.tsv$",
-      r"^tests/test_(dyna_ci|ci_boat|gate_failures|ci_history_fetch|pr_gate)\.py$"]),
+      r"^tests/test_(dyna_ci|ci_boat|gate_failures|ci_history_fetch|pr_gate|ci_memory_report)\.py$"]),
     ("Remove the fork's board, roadmap and Discord automation",
      "The project-board sync, the roadmap progress bars and the rollup and sync posts to the fork's Discord.",
      [r"^\.github/workflows/(board|roadmap-progress|merge-updates)\.yml$",
@@ -29,8 +30,7 @@ CATEGORIES = [
       r"^tools/ci/merge_updates\.py$",
       r"^tests/test_(board_sync|merge_updates)\.py$"]),
     ("Remove the fork's upstream-sync tools and records",
-     "The scripts and lists the fork's upstream syncs used, and their decision records. The file-size baseline\n"
-     "writer stays: tools/check_file_size.py names it.",
+     "The scripts and lists the fork's upstream syncs used, and their decision records.",
      [r"^tools/sync/", r"^tools/(sync_upstream|convert_sync_fragment)\.py$",
       r"^docs/sync-\d+-decisions\.md$", r"^docs/sync-fragments-r2\.md$",
       r"^tests/test_sync_\w+\.py$"]),
@@ -57,6 +57,11 @@ def main() -> int:
     files = set(result["remove"])
     tracked = git("ls-files").splitlines()
     files |= {f for f in tracked for p in EXTRA if f.startswith(p)}
+    # Upstream's own files stay whatever refers to them: the pull request deletes only what the fork added.
+    upstream = set(git("ls-tree", "-r", "--name-only", os.environ.get("UPSTREAM_REF", "upstream/main")).splitlines())
+    for f in sorted(files & upstream):
+        print(f"upstream's, kept: {f}")
+    files -= upstream
     buckets: dict[int, list[str]] = {}
     unclaimed = []
     for f in sorted(files):

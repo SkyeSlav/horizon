@@ -1,17 +1,16 @@
 {
  "docs/sync/": [
   "crates/horizon-client/src/game/interface/chat.rs",
+  "crates/horizon-client/src/game/modding/attachment_sync.rs",
   "crates/horizon-client/src/game/network/lan/mod.rs",
   "crates/horizon-mod-api-gen/src/patch.rs",
   "docs/fabric-ledger.md",
-  "docs/layers.md",
   "docs/modding/src/how-to/native-mods/10-cache-and-disk.md",
   "docs/modding/src/reference/registry-index.md",
   "launcher/src/sources_tests.rs",
   "launcher/src/storage/inventory.rs",
   "third_party/naga/src/racy_lock.rs",
-  "tools/check_file_size.py",
-  "tools/sync/README.md"
+  "tools/merge_base.py"
  ],
  "tools/ci/apt_retry.sh": [
   "tools/ci/install_launcher_deps.sh"
@@ -37,11 +36,11 @@
  ],
  "tools/ci/check_api_boundary.py": [
   ".github/workflows/ci.yml",
-  "tests/test_api_boundary_check.py",
-  "tools/refactors/api-pr3/README.md"
+  ".github/workflows/mod-checks.yml",
+  "tests/test_api_boundary_check.py"
  ],
  "tools/ci/check_game_boot_tests.py": [
-  ".github/workflows/ci.yml",
+  ".github/workflows/mod-checks.yml",
   "tests/test_check_game_boot_tests.py",
   "tests/test_daily_rows_coverage.py",
   "tests/test_move_to_daily.py",
@@ -51,7 +50,7 @@
   "tools/ci/rust_tests.py"
  ],
  "tools/ci/check_ignored_test_rows.py": [
-  ".github/workflows/ci.yml",
+  ".github/workflows/mod-checks.yml",
   "tests/test_daily_rows_coverage.py",
   "tools/ci/ignored-tests/",
   "tools/ci/ignored_tests.py"
@@ -64,7 +63,7 @@
   "tools/ci/rust_changes.py"
  ],
  "tools/ci/check_process_tests.py": [
-  ".github/workflows/ci.yml",
+  ".github/workflows/mod-checks.yml",
   "tests/test_check_process_tests.py",
   "tools/ci/ignored-tests/",
   "tools/ci/process-spawns.txt"
@@ -110,15 +109,14 @@
   "tests/test_dev_tool_usage.py"
  ],
  "tools/ci/fn-replace-check/": [
+  "crates/horizon-client/src/lan/hub/selector_sync.rs",
   "tests/test_mod_sdk_path_form.py",
-  "tools/ci/fn_replace_check.sh",
-  "tools/refactors/api_points_core.py"
+  "tools/ci/fn_replace_check.sh"
  ],
  "tools/ci/fn_replace_check.sh": [
   ".github/workflows/fn-replace-check.yml",
   ".github/workflows/fn-replace-windows.yml",
-  "tools/ci/fn-replace-check/",
-  "tools/refactors/api_points_core.py"
+  "tools/ci/fn-replace-check/"
  ],
  "tools/ci/format_scan.py": [
   "tests/test_format_scan.py",
@@ -139,9 +137,13 @@
   "tools/ci/checks-runners.sh",
   "tools/ci/runner-gc.sh"
  ],
+ "tools/ci/ignored-test-exceptions.json": [
+  "tools/ci/ignored-tests/",
+  "tools/ci/ignored_inventory.py"
+ ],
  "tools/ci/ignored-tests/": [
-  ".github/workflows/ci.yml",
   ".github/workflows/launcher-windows-check.yml",
+  ".github/workflows/mod-checks.yml",
   ".github/workflows/wasm-mods.yml",
   "AGENTS.md",
   "CONTRIBUTING.md",
@@ -150,13 +152,17 @@
   "tools/ci/check_game_boot_tests.py",
   "tools/ci/check_ignored_test_rows.py",
   "tools/ci/check_process_tests.py",
+  "tools/ci/ignored-test-exceptions.json",
   "tools/ci/ignored_shards.py",
   "tools/ci/ignored_tests.py",
   "tools/ci/move_to_daily.py",
   "tools/ci/run_test_binaries.py",
-  "tools/hotspots/carry.py",
-  "tools/refactors/split_builtin_ingredient_tests.py",
-  "tools/refactors/split_ignored_tests.py"
+  "tools/hotspots/carry.py"
+ ],
+ "tools/ci/ignored_inventory.py": [
+  "tests/test_ignored_inventory.py",
+  "tools/ci/check_ignored_test_rows.py",
+  "tools/ci/ignored-tests/"
  ],
  "tools/ci/ignored_shards.py": [
   ".github/workflows/ignored-tests.yml",
@@ -165,6 +171,7 @@
   "tests/test_ignored_shards.py",
   "tools/ci/check_ignored_test_rows.py",
   "tools/ci/daily_summary.py",
+  "tools/ci/ignored_inventory.py",
   "tools/ci/ignored_tests.py"
  ],
  "tools/ci/ignored_tests.py": [
@@ -183,8 +190,7 @@
   "tools/ci/daily_summary.py",
   "tools/ci/ignored-tests/",
   "tools/ci/ignored_shards.py",
-  "tools/ci/test_ignored_tests.py",
-  "tools/refactors/split_ignored_tests.py"
+  "tools/ci/test_ignored_tests.py"
  ],
  "tools/ci/install_launcher_deps.sh": [
   ".github/workflows/ci.yml",
@@ -258,6 +264,7 @@
   "tools/release_train.py"
  ],
  "tools/ci/nightly_set.py": [
+  ".github/council.txt",
   ".github/trusted-reviewers.txt",
   ".github/workflows/claim-command.yml",
   ".github/workflows/nightly-build.yml",
@@ -303,7 +310,7 @@
   ".github/CODEOWNERS"
  ],
  "tools/ci/reexec_include_ignored.py": [
-  ".github/workflows/ci.yml",
+  ".github/workflows/mod-checks.yml",
   "tests/test_reexec_include_ignored.py"
  ],
  "tools/ci/resolve_reviewer_ids.py": [
@@ -316,6 +323,7 @@
   "tools/ci/nightly_set.py"
  ],
  "tools/ci/run_test_binaries.py": [
+  "crates/horizon-client/src/test_fixtures.rs",
   "tests/test_ci_run_test_binaries.py",
   "tests/test_network_guard.py",
   "tools/ci/ignored-tests/"
@@ -442,9 +450,8 @@
   "third_party/wgpu-hal/Cargo.toml",
   "tools/ci/build-musl.sh",
   "tools/ci/rustup_install.sh",
+  "tools/ci/test_scope.py",
   "tools/native_dylib_probe.py",
-  "tools/refactors/api-pr2a/move.py",
-  "tools/refactors/pin_rust_toolchain.py",
   "tools/sdk_api_source.py",
   "tools/test_native_client.py",
   "xtask/Cargo.toml",
@@ -454,9 +461,9 @@
   ".github/workflows/ci.yml",
   "tests/test_ci_rust_changes.py",
   "tests/test_pr_ready.py",
+  "tools/check_changed.py",
   "tools/ci/ignored_shards.py",
-  "tools/pr_ready.py",
-  "tools/refactors/centralize_ci_selection.py"
+  "tools/pr_ready.py"
  ],
  "tools/ci/rust_tests.py": [
   "tests/test_check_game_boot_tests.py",
@@ -467,14 +474,14 @@
  "tools/ci/rustup_install.sh": [
   ".github/workflows/ignored-tests.yml",
   ".github/workflows/machine-sample.yml",
+  ".github/workflows/mod-checks.yml",
   ".github/workflows/modding-book-pages.yml",
   ".github/workflows/modding-book.yml",
   ".github/workflows/telemetry-server.yml",
   ".github/workflows/wasm-coverage.yml",
   "docs/ci-runners.md",
   "tests/test_rust_pin.py",
-  "tools/ci/build-musl.sh",
-  "tools/refactors/pin_rust_toolchain.py"
+  "tools/ci/build-musl.sh"
  ],
  "tools/ci/seed_prepared_extras.py": [
   "tests/test_preparation_step.py",
@@ -483,25 +490,31 @@
   "tools/pr_ready.py"
  ],
  "tools/ci/sign_native_build.sh": [
-  "crates/horizon-release-sign/tests/native_build.rs",
-  "docs/security.md"
+  "crates/horizon-release-sign/tests/it/native_build.rs",
+  "docs/security.md",
+  "tools/ci/test_scope.py"
  ],
  "tools/ci/sign_release.sh": [
+  ".github/workflows/fn-replace-check.yml",
+  ".github/workflows/fn-replace-windows.yml",
   ".github/workflows/launcher.yml",
   ".github/workflows/nightly-build.yml",
   ".github/workflows/sdk-publish.yml",
   "crates/horizon-release-sign/src/lib.rs",
   "crates/horizon-release-sign/src/main.rs",
-  "crates/horizon-release-sign/tests/cli.rs",
+  "crates/horizon-release-sign/tests/it/cli.rs",
   "docs/release-flow.md",
+  "docs/security.md",
   "launcher/tests/fixtures-launcher-workflow-upstream.yml",
   "tests/install_ps1_signature.ps1",
   "tests/install_sh_signature.sh",
+  "tests/test_ci_rust_changes.py",
   "tests/test_daily_summary.py",
   "tests/test_install_sh_signature.py",
   "tests/test_nightly.py",
   "tests/test_optional_release_assets.py",
-  "tests/test_snapshot.py"
+  "tests/test_snapshot.py",
+  "tools/ci/test_scope.py"
  ],
  "tools/ci/source_mtimes.py": [
   ".github/workflows/fn-replace-check.yml",
@@ -511,21 +524,27 @@
   ".github/workflows/wasm-mods.yml"
  ],
  "tools/ci/surface.toml": [
-  ".github/workflows/ci.yml",
+  ".github/workflows/mod-checks.yml",
   "docs/modding/src/reference/sdk/02-surface.md",
   "tests/test_surface_report.py",
   "tools/ci/surface_report.py"
  ],
  "tools/ci/surface_report.py": [
-  ".github/workflows/ci.yml",
+  ".github/workflows/mod-checks.yml",
   "tests/test_surface_report.py",
   "tools/ci/surface.toml"
  ],
  "tools/ci/test-compile-lock.sh": [
   "tests/test_ci_test_compile_lock.py"
  ],
+ "tools/ci/test_scope.py": [
+  ".github/workflows/ci.yml",
+  "tests/test_ci_test_scope.py",
+  "tests/test_game_home.py",
+  "tools/check_changed.py"
+ ],
  "tools/ci/test_stage_catalog.py": [
-  ".github/workflows/ci.yml"
+  ".github/workflows/mod-checks.yml"
  ],
  "tools/ci/triage_command.py": [
   ".github/trusted-reviewers.txt",
@@ -580,40 +599,33 @@
   "tools/ci/game_smoke.sh"
  ],
  "tools/hotspots/README.md": [
-  ".github/workflows/ci.yml",
+  ".github/workflows/mod-checks.yml",
   "tools/hotspots/carry.py",
   "tools/hotspots/check_lists.py",
   "tools/pr_ready.py"
  ],
  "tools/hotspots/carry.py": [
-  "tools/hotspots/README.md",
-  "tools/refactors/split_dispatch_stand_ins.py"
+  "tools/hotspots/README.md"
  ],
  "tools/hotspots/check_lists.py": [
-  ".github/workflows/ci.yml",
+  ".github/workflows/mod-checks.yml",
   "tools/hotspots/README.md",
   "tools/pr_ready.py"
  ],
  "tools/hotspots/check_stand_ins.py": [
-  ".github/workflows/ci.yml",
+  ".github/workflows/mod-checks.yml",
   "tests/test_hotspots_check_stand_ins.py",
   "tools/hotspots/README.md",
   "tools/hotspots/carry.py",
   "tools/pr_ready.py"
  ],
  "tools/hotspots/check_wire_loopback.py": [
-  ".github/workflows/ci.yml"
+  ".github/workflows/mod-checks.yml"
  ],
- "tools/sync/README.md": [
-  "docs/layers.md",
-  "tools/file_size_baseline.txt",
-  "tools/sync/write_file_size_baseline.py"
+ "tools/hotspots/split_part_table.py": [
+  "tools/hotspots/carry.py"
  ],
- "tools/sync/write_file_size_baseline.py": [
-  "docs/layers.md",
-  "tests/test_check_file_size.py",
-  "tools/check_file_size.py",
-  "tools/file_size_baseline.txt",
-  "tools/sync/README.md"
+ "tools/sync/dropped_upstream.py": [
+  "tests/test_sync_dropped_upstream.py"
  ]
 }

@@ -1,5 +1,5 @@
 diff --git a/.github/workflows/daily.yml b/.github/workflows/daily.yml
-index 9291871eb71..ccf2059a09b 100644
+index ed772403802..a757da8565c 100644
 --- a/.github/workflows/daily.yml
 +++ b/.github/workflows/daily.yml
 @@ -3,8 +3,8 @@ run-name: daily ${{ inputs.commit || github.sha }}${{ github.event_name == 'work
@@ -13,7 +13,7 @@ index 9291871eb71..ccf2059a09b 100644
  # The summary then moves the tag `daily-green` to the commit when every leg passed, or files one issue per failing
  # test (tools/ci/daily_summary.py), and on all green the nightly is published from that commit (release.yml).
  # Only a run on main with dry_run false writes anything: tags, issues, the nightly.
-@@ -128,14 +128,6 @@ jobs:
+@@ -130,14 +130,6 @@ jobs:
      uses: ./.github/workflows/launcher-windows-check.yml
      with:
        commit: ${{ needs.resolve.outputs.commit }}
@@ -28,7 +28,7 @@ index 9291871eb71..ccf2059a09b 100644
    # The prebuilt SDK of this commit, built and smoked on every OS; its archives stay this run's artifacts until
    # sdk-publish releases them after a green summary (a red daily publishes no SDK, as it publishes no nightly).
    sdk:
-@@ -149,7 +141,7 @@ jobs:
+@@ -151,7 +143,7 @@ jobs:
    summary:
      # The resolved commit names the job: what a scheduled run's lookup (daily_summary.py --seen) matches.
      name: summary ${{ needs.resolve.outputs.commit }}${{ needs.resolve.outputs.dry_run == 'true' && ' (dry run)' || '' }}
@@ -88,7 +88,7 @@ index 70942aa78c2..00000000000
 -      - name: The machine sample builds against this API
 -        run: python3 tools/ci/check_machine_sample.py
 diff --git a/AGENTS.md b/AGENTS.md
-index df156d55974..e0731abfb96 100644
+index a4a4a8eb364..bb2b2c7cc59 100644
 --- a/AGENTS.md
 +++ b/AGENTS.md
 @@ -35,7 +35,7 @@ Feature → files → harness for the most-changed areas: [docs/architecture.md]
@@ -100,7 +100,7 @@ index df156d55974..e0731abfb96 100644
    resources, boots the game, starts a child process, uses the network or a compiled wasm fixture, or takes 2 s or
    more is `#[ignore]`d with a row in `tools/ci/ignored-tests/`; say in the PR when you could not run it. A daily red
    becomes an issue listing the suspect PRs, fixed by an ordinary PR. Existing tests still in `verify` that need
-@@ -58,7 +58,7 @@ break**, and every change to it follows these rules. Reviews block a PR that bre
+@@ -60,7 +60,7 @@ break**, and every change to it follows these rules. Reviews block a PR that bre
  
  - **No compatibility paths.** No aliases, shims, deprecated names, migration or fallback code, version
    gates, or "kept for old mods" branches. Old mods rebuild; the compiler says what moved. Removing an old
@@ -110,7 +110,7 @@ index df156d55974..e0731abfb96 100644
    Two hooks at the same vanilla call site (including `_v1`/`_v2` pairs) merge into that one, and the old
    one is deleted, not kept beside it. A veto before an action and a notice after it are separate moments
 diff --git a/CONTRIBUTING.md b/CONTRIBUTING.md
-index b72caf63b57..30577fccad6 100644
+index 1b96cbcb54a..3f4edbaf36b 100644
 --- a/CONTRIBUTING.md
 +++ b/CONTRIBUTING.md
 @@ -128,7 +128,7 @@ network and are still in `verify` are being moved by the next change of #4022.
@@ -162,10 +162,10 @@ index d304be29d08..83cd5ba2e74 100644
 +An example mod lives at <https://github.com/arismoko/horizon-machine-sample>.
  A coding agent can start from [`llms.txt`](llms.txt).
 diff --git a/docs/release-flow.md b/docs/release-flow.md
-index def47228223..25c58fa48ea 100644
+index 09a9809101e..a81cf60a6b4 100644
 --- a/docs/release-flow.md
 +++ b/docs/release-flow.md
-@@ -245,8 +245,7 @@ dispatch replaces an older waiting one. The schedule stops when main's head alre
+@@ -246,8 +246,7 @@ dispatch replaces an older waiting one. The schedule stops when main's head alre
  a hand dispatch never does, so it retries a run whose tag move, issues or nightly failed. Its legs are the workflows that left main pushes:
  the ignored-tests data shards (`ignored-tests.yml`), the wasm fixture and guest stacks (`wasm-mods.yml`),
  `fn-replace-check.yml`, the native linkage probe (`native-dylib-probe.yml`), the launcher's Windows runtime-lease
@@ -175,7 +175,7 @@ index def47228223..25c58fa48ea 100644
  (`prebuilt-game-build.yml`; each leg packs its slices, and `sdk-publish` signs and publishes them as the mod SDK's
  release `sdk-<sha>` (`sdk-publish.yml`) only after a green summary on a real run on main, before the Nightly that
  needs them; a failed publish files one issue, `Daily: sdk-publish did not complete`), each called
-@@ -258,9 +257,7 @@ summary (`tools/ci/daily_summary.py`) reads each leg's result and its sanitised
+@@ -259,9 +258,7 @@ summary (`tools/ci/daily_summary.py`) reads each leg's result and its sanitised
    age rule; the pause switch and release-blockers still hold it);
  - a failing test: one issue `Daily: <crate> <test>` (label `bug`) with its panic location, the first daily run that
    saw it and the pull requests merged since the last green daily as suspects; later runs comment on it, and the
@@ -201,10 +201,10 @@ index 391238ed12e..a49b02dbc44 100644
  
  def expression_value(expression, github, inputs=None, matrix=None):
 diff --git a/tests/test_ci_rust_changes.py b/tests/test_ci_rust_changes.py
-index abfa17b02c7..2b3025c4ef0 100644
+index 6237b31df6e..1d1103fe422 100644
 --- a/tests/test_ci_rust_changes.py
 +++ b/tests/test_ci_rust_changes.py
-@@ -99,7 +99,7 @@ class RustChangesTests(unittest.TestCase):
+@@ -117,7 +117,7 @@ class RustChangesTests(unittest.TestCase):
              self.assertTrue(selected["rust_required"])
              self.assertTrue(selected["launcher_required"])
              self.assertTrue(selected["tooling_required"])
@@ -288,7 +288,7 @@ index 280bf561e31..00000000000
 -    unittest.main()
 diff --git a/tools/ci/check_machine_sample.py b/tools/ci/check_machine_sample.py
 deleted file mode 100644
-index 99cd5306cf5..00000000000
+index dff2355f264..00000000000
 --- a/tools/ci/check_machine_sample.py
 +++ /dev/null
 @@ -1,43 +0,0 @@
@@ -305,7 +305,7 @@ index 99cd5306cf5..00000000000
 -import tempfile
 -
 -ROOT = Path(__file__).resolve().parents[2]
--PIN = "ba91a01eddfdfae53a93cc93965f7767ca7f65c2"
+-PIN = "1b0e0008107562b407a46c134903cc0b9369674d"
 -
 -
 -def main():
@@ -427,7 +427,7 @@ index 092fea4c0c4..00000000000
 -gcc-mingw-w64-x86-64
 -g++-mingw-w64-x86-64
 diff --git a/tools/ci/rust_changes.py b/tools/ci/rust_changes.py
-index 9c2009618bd..e033368329f 100644
+index ba661f386cf..042c020a6f1 100644
 --- a/tools/ci/rust_changes.py
 +++ b/tools/ci/rust_changes.py
 @@ -2,8 +2,7 @@
@@ -437,10 +437,10 @@ index 9c2009618bd..e033368329f 100644
 ---all emits the shared Rust, launcher and tooling decisions in one answer (the machine sample is a daily leg,
 -machine-sample.yml, so nothing selects it here).
 +--all emits the shared Rust, launcher and tooling decisions in one answer.
+ server_build: whether verify's clippy of the server build has anything new to check (needs_server_build).
  """
  
- import argparse
-@@ -38,12 +37,6 @@ def needs_launcher(paths):
+@@ -59,12 +58,6 @@ def needs_launcher(paths):
  UNKNOWN_CHANGE = "Cargo.lock"
  
  
@@ -453,8 +453,9 @@ index 9c2009618bd..e033368329f 100644
  def needs_tooling(changes):
      paths = [path for _, path in changes]
      return needs_rust(paths) or any(
-@@ -99,4 +92,3 @@ if __name__ == "__main__":
+@@ -120,5 +113,4 @@ if __name__ == "__main__":
      else:
          needs = needs_launcher if args.launcher else needs_rust
          print(f"required={str(needs(paths)).lower()}")
 -        print(f"sample={str(needs_sample(paths)).lower()}")
+         print(f"server_build={str(needs_server_build(paths)).lower()}")

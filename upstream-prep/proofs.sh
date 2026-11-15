@@ -59,8 +59,11 @@ say "== 2b. built-in addresses (tools/check_addresses.py, as ci.yml verify runs 
 if python3 tools/check_addresses.py >> "$log" 2>&1; then say "addresses: OK"; else say "addresses: FAILED"; status=1; fi
 
 say "== 3. Python tests (as ci.yml verify runs them), $(python3 --version)"
-if python3 -m unittest discover -s tests >> "$log" 2>&1 && \
-   python3 -m unittest discover -s tools/ci -p 'test_prepared_*.py' >> "$log" 2>&1; then
+# The tests make throwaway repositories and commit in them: a plain identity, without this box's commit signing,
+# as on CI's runners.
+plain_git=$(mktemp); printf '[user]\n\tname = proofs\n\temail = proofs@example.invalid\n' > "$plain_git"
+if GIT_CONFIG_GLOBAL=$plain_git python3 -m unittest discover -s tests >> "$log" 2>&1 && \
+   GIT_CONFIG_GLOBAL=$plain_git python3 -m unittest discover -s tools/ci -p 'test_prepared_*.py' >> "$log" 2>&1; then
   say "unittest: OK"
 else
   say "unittest: FAILED"; status=1
@@ -80,15 +83,15 @@ head -14 "$here/scrub.md" | tee -a "$log"
 
 say "== 6. arismoko references left (allowed: the machine sample's repository, one issue or pull request, upstream's own lines)"
 python3 - <<'PY' | tee -a "$log"
-import re, subprocess, sys
+import os, re, subprocess, sys
 out = subprocess.run(["git", "grep", "-n", "-I", "arismoko", "--", ".", ":!third_party"], capture_output=True,
                      text=True).stdout.splitlines()
 allowed = re.compile(r"arismoko/horizon-machine-sample|arismoko/horizon#\d|arismoko/horizon/(issues|pull)/\d"
-                     r"|users/arismoko/projects|arismoko/(main|topic)\b|arismoko's|\barismoko:|login.*arismoko")
+                     r"|users/arismoko/projects|arismoko/(main|topic)\b|arismoko's|\barismoko:|login.*arismoko|@arismoko\b")
 upstream_cache = {}
 def upstream_has(path, text):
     if path not in upstream_cache:
-        upstream_cache[path] = set(subprocess.run(["git", "show", f"upstream/main:{path}"], capture_output=True,
+        upstream_cache[path] = set(subprocess.run(["git", "show", f"{os.environ.get('UPSTREAM_REF', 'upstream/main')}:{path}"], capture_output=True,
                                                   text=True).stdout.splitlines())
     return text in upstream_cache[path]
 bad = []
