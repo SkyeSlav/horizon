@@ -1767,7 +1767,7 @@ mod transient_dialog_tests {
         std::fs::write(dir.join("z_good.json"),
             r#"{"type":"minecraft:notice","title":"kept","body":[{"type":"minecraft:item","item":{"id":"minecraft:stone","components":{"minecraft:tooltip_display":{"hidden_components":["minecraft:creative_slot_lock"]}}}}]}"#).unwrap();
         let mut found = BTreeMap::new();
-        walk(&dir, &mut found);
+        walk(&dir, &mut found, false);
         let mut entries: Vec<_> = found
             .into_iter()
             .map(|(path, value)| (("minecraft".into(), path), value, false))
