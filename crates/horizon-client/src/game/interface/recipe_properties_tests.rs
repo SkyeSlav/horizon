@@ -9,7 +9,7 @@ mod tests {
     };
 
     #[test]
-    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
+    #[ignore = "daily"]
     fn a_received_stonecutter_list_is_the_stations_until_disconnect() {
         with_game(|game| {
             game.options.execution_role = ExecutionRole::Client;
