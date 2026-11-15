@@ -180,22 +180,7 @@ impl Game<'_> {
     pub(super) fn cushion_spawn(&self, hit: &Hit) -> Option<(Vec3, Aabb)> {
         // CushionItem.recalculateContextForSpecialCollisionShapes: open containers
         // (cauldrons, hoppers and composters) use the collision ray's actual height.
-<<<<<<< ours
-        let mut adjusted = Hit {
-            pos: hit.pos,
-            face: hit.face,
-            point: hit.point,
-            inside: hit.inside,
-        };
-||||||| base
-        let mut adjusted = Hit {
-            pos: hit.pos,
-            face: hit.face,
-            point: hit.point,
-        };
-=======
         let mut adjusted = *hit;
->>>>>>> theirs
         let state = self.world.block(hit.pos[0], hit.pos[1], hit.pos[2]);
         if self.items().block_in_tag(
             "minecraft:cushion_uses_collision_shape",
@@ -436,20 +421,14 @@ impl Game<'_> {
             1.0,
         );
         self.cushion_break_particles(&c);
-<<<<<<< ours
+        // `Cushion.dropItem`: the item unless drops are off or the cause is a
+        // player with infinite materials (the TNT's owner for a blast).
         if !self
             .ui
             .rules
             .bool_at(horizon_client::gamerules::vanilla::ENTITY_DROPS)
-            || (by_player && self.creative)
+            || self.infinite_materials(source.as_ref())
         {
-||||||| base
-        if !self.ui.rules.bool("entity_drops") || (by_player && self.creative) {
-=======
-        // `Cushion.dropItem`: the item unless drops are off or the cause is a
-        // player with infinite materials (the TNT's owner for a blast).
-        if !self.ui.rules.bool("entity_drops") || self.infinite_materials(source.as_ref()) {
->>>>>>> theirs
             return;
         }
         let stack = c.item_stack_with_data();

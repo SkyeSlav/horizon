@@ -9,8 +9,8 @@ use super::commands::Target;
 use super::entity::{Entity as _, with_entity, with_entity_mut};
 use horizon_core::geometry::Vec3;
 use horizon_core::nbt::Tag;
+use horizon_core::nbt::Tag;
 use horizon_protocol::packets::play::{self, Clientbound as C};
-use horizon_world::nbt::Tag;
 
 fn is_horse(species: horizon_client::mobs::Species) -> bool {
     use horizon_client::mobs::Species::*;
@@ -610,7 +610,6 @@ impl Game<'_> {
         .unwrap_or(Ok(false))
     }
 
-<<<<<<< ours
     /// Whether the vehicle `root` and the server players riding it (or what it
     /// carries) may all travel to `destination` by a teleport
     /// (`entity_travel_to_dimension`).
@@ -620,62 +619,6 @@ impl Game<'_> {
             destination,
             super::server_travel::TravelCause::Teleport,
         )
-    }
-
-||||||| base
-=======
-    /// `Entity.teleportCrossDimension` for a command target that is not a
-    /// vehicle tree: save it where it is, remove it, and load the compound in
-    /// the destination level.
-    pub(super) fn teleport_any_across(
-        &mut self,
-        target: Target,
-        destination: super::Dim,
-        at: [f64; 3],
-        rotation: Option<[f32; 2]>,
-        turn_riders: bool,
-    ) -> horizon_client::Result<bool> {
-        if self.teleport_vehicle_across(target, destination, at, rotation, turn_riders)? {
-            return Ok(true);
-        }
-        self.teleport_entity_across(target, destination, at, rotation)
-    }
-
-    fn teleport_entity_across(
-        &mut self,
-        target: Target,
-        destination: super::Dim,
-        at: [f64; 3],
-        rotation: Option<[f32; 2]>,
-    ) -> horizon_client::Result<bool> {
-        let Some(id) = super::native_entities::target_id(target) else {
-            return Ok(false);
-        };
-        self.in_target_level(target, |game| {
-            let source = game.dim;
-            if source == destination {
-                return Ok(false);
-            }
-            // Open the destination before changing or removing any entity.
-            game.enter_level(None, destination)?;
-            game.enter_level(None, source)?;
-            // `restoreFrom` saves the entity where it stands (its raw
-            // compound is found by that position); `place_transferred` then
-            // moves the copy to the command's destination.
-            let Some(mut tag) = game.entity_nbt(target) else {
-                return Ok(false);
-            };
-            game.remove_for_transfer(target);
-            game.forget_entity(id);
-            game.native_leaves_flush();
-            game.enter_level(None, destination)?;
-            place_transferred(&mut tag, at, rotation);
-            load_transferred(game, tag);
-            game.native_joins_flush(false, 0);
-            game.enter_level(None, source)?;
-            Ok(true)
-        })
-        .unwrap_or(Ok(false))
     }
 
     /// `BlockAttachedEntity.setPos`: a frame or painting moves to the block
@@ -697,40 +640,6 @@ impl Game<'_> {
         }
     }
 
-    /// Remove a target that crossed dimensions without running its death or
-    /// discard side effects (`removeAfterChangingDimensions`).
-    fn remove_for_transfer(&mut self, t: Target) {
-        match t {
-            Target::Item(id) => {
-                if let Some(i) = self.dropped.iter().position(|e| e.id == id) {
-                    self.remove_dropped(i);
-                }
-            }
-            Target::Orb(id) => self.orbs.retain(|o| o.id != id),
-            Target::Projectile(id) => self.creatures.projectiles.retain(|p| p.id != id),
-            Target::Stand(id) => self.armor_stands.retain(|a| a.id != id),
-            Target::Frame(id) => self.item_frames.retain(|f| f.id != id),
-            Target::Painting(id) => self.paintings.retain(|p| p.id != id),
-            Target::Tnt(id) => self.tnts.retain(|t| t.id != id),
-            Target::Falling(id) => self.falling.retain(|f| f.id != id),
-            Target::Rocket(id) => self.rockets.retain(|r| r.id != id),
-            Target::Trident(id) => self.tridents.retain(|t| t.id != id),
-            Target::Cushion(id) => self.cushions.retain(|c| c.id != id),
-            Target::Other(id) => self.others.retain(|o| o.id != id),
-            Target::Fangs(id) => self.fangs.list.retain(|f| f.id != id),
-            Target::Crystal(id) => self.crystals.retain(|c| c.id != id),
-            Target::Dragon(id) => {
-                if self.dragon.as_ref().is_some_and(|d| d.id == id) {
-                    self.dragon = None;
-                }
-            }
-            Target::Spawner(id) => self.ominous_spawners.retain(|s| s.id != id),
-            Target::Cloud(id) => self.breath_clouds.retain(|c| c.id != id),
-            _ => {}
-        }
-    }
-
->>>>>>> theirs
     /// `Entity.teleportSameDimension`: after `t` moved from `from` to `to`, its
     /// riders move by the same offset, and to the angles the vehicle was
     /// placed at when it turned (`calculatePassengerTransition`), staying

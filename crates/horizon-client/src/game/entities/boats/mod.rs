@@ -1782,21 +1782,11 @@ impl Game<'_> {
             return false;
         }
         let id = self.boats[i].id;
-<<<<<<< ours
         self.start_riding_target(
             super::commands::Target::Player,
             super::commands::Target::Boat(id),
             false,
         );
-||||||| base
-        self.yaw = self.boats[i].yaw;
-        // Entity.startRiding (ServerPlayer.startRiding fires the trigger).
-        self.start_riding(id);
-=======
-        // Entity.startRiding (ServerPlayer.startRiding fires the trigger): the
-        // teleport is `Relative.ROTATION`, so the rider keeps its view.
-        self.start_riding(id);
->>>>>>> theirs
         true
     }
     /// `ContainerEntity.interactWithContainerVehicle` (`AbstractChestBoat`):
@@ -2437,57 +2427,7 @@ mod tests {
     }
 }
 horizon_client::impl_joined!(Boat);
-<<<<<<< ours
 horizon_mod_runtime::impl_attachment_lifetime!(Boat);
-||||||| base
-
-/// [`Game::vehicle_fall_reset`] from the tables it reads.
-pub(super) fn fall_reset(
-    world: &horizon_client::world::World,
-    motion: &horizon_client::motion::MotionResources,
-    facts: &horizon_client::blocks::BlockFacts,
-    fall: f64,
-    from: Vec3,
-    moved: Vec3,
-) -> f64 {
-    if fall == 0.0 || moved.length_squared() < 1.0 {
-        return fall;
-    }
-    let reset = &motion.fall_reset;
-    let hit = horizon_client::entities::fall_reset_hit(
-        world,
-        &motion.fluids,
-        |p| reset.contains(&*facts.get(world.block(p.x, p.y, p.z)).name),
-        from,
-        moved,
-    );
-    if hit { 0.0 } else { fall }
-}
-=======
-
-/// [`Game::vehicle_fall_reset`] from the tables it reads.
-pub(super) fn fall_reset(
-    world: &horizon_client::world::World,
-    motion: &horizon_client::motion::MotionResources,
-    facts: &horizon_client::blocks::BlockFacts,
-    fall: f64,
-    from: Vec3,
-    moved: Vec3,
-) -> f64 {
-    if fall == 0.0 || moved.length_squared() < 1.0 {
-        return fall;
-    }
-    let reset = &motion.fall_reset;
-    let hit = horizon_client::entities::fall_reset_hit(
-        world,
-        &motion.fluids,
-        |p| reset.contains(&*facts.get(world.block(p.x, p.y, p.z)).name),
-        from,
-        moved,
-    );
-    if hit { 0.0 } else { fall }
-}
-
 #[cfg(test)]
 mod cobweb_tests {
     use super::super::native_machines::tests::server_game;
@@ -2612,4 +2552,3 @@ mod cobweb_tests {
         );
     }
 }
->>>>>>> theirs

@@ -1336,17 +1336,6 @@ impl Game<'_> {
     /// cause, including a TNT igniter or the player who broke an end crystal.
     pub(super) fn explosion_kill_credit(&self) -> Option<super::commands::Target> {
         use super::commands::Target;
-<<<<<<< ours
-        // A primed TNT's owner (a player) names the blast before any mob does.
-        let player =
-            self.combat.blast_owner_player || self.combat.explicit_explosion_cause.is_some();
-        if self.combat.blast_owner.is_some() && player {
-            return Some(
-||||||| base
-        // A primed TNT's owner (a player) names the blast before any mob does.
-        if self.combat.blast_owner.is_some() {
-            return Some(
-=======
         // An explicit crystal or cart source names its own cause.
         if let Some(Some(cause)) = &self.combat.explicit_explosion_cause {
             return Some(if cause.player {
@@ -1359,7 +1348,6 @@ impl Game<'_> {
         // in its `owner` is that mob, not the player in place.
         if let Some((id, _)) = self.combat.blast_owner {
             return Some(if self.combat.blast_owner_player {
->>>>>>> theirs
                 self.combat
                     .blast_guest
                     .map_or(Target::Player, Target::Guest)
@@ -1507,18 +1495,10 @@ impl Game<'_> {
         let mut i = 0;
         while i < self.cushions.len() {
             let p = self.cushions[i].position;
-<<<<<<< ours
             if self.combat.visits(self.cushions[i].id)
                 && blast_reaches(center, diameter, [p.x, p.y, p.z])
             {
-                self.break_cushion_by(i, false, self.explosion_kill_credit());
-||||||| base
-            if blast_reaches(center, diameter, [p.x, p.y, p.z]) {
-                self.break_cushion_by(i, false, self.explosion_kill_credit());
-=======
-            if blast_reaches(center, diameter, [p.x, p.y, p.z]) {
                 self.break_cushion_by(i, self.explosion_kill_credit());
->>>>>>> theirs
             } else {
                 i += 1;
             }

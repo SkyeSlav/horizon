@@ -79,24 +79,20 @@ pub(super) struct Source {
     sound: &'static str,
     breeze: bool,
     wind_charge: bool,
-<<<<<<< ours
-    cause: BurstCause,
+    mob: bool,
+    silent: bool,
+    pub(super) cause: BurstCause,
 }
-/// Who a burst's `ServerExplosion` names, as entity ids: the entity that
-/// bursts (`getDirectSourceEntity`: a wind charge, the bearer of Wind
-/// Charged, a mace's wielder with `attribute_to_user`) and its living
-/// `getIndirectSourceEntity` (the charge's thrower, the bearer or wielder).
 #[derive(Clone, Copy, Debug, Default)]
 pub(super) struct BurstCause {
     pub source: Option<u32>,
     pub owner: Option<u32>,
-||||||| base
-=======
-    mob: bool,
-    silent: bool,
 }
 
 impl Source {
+    pub(super) fn with_cause(self, cause: BurstCause) -> Self {
+        Self { cause, ..self }
+    }
     /// `WindCharge.explode` and `BreezeWindCharge.explode`: the charge itself
     /// is the source, and a breeze's charge's indirect source is its breeze.
     pub(super) fn charge(breeze: bool, silent: bool) -> Self {
@@ -110,6 +106,10 @@ impl Source {
             wind_charge: !breeze,
             mob: breeze,
             silent,
+            cause: BurstCause {
+                source: None,
+                owner: None,
+            },
         }
     }
     /// `WindChargedMobEffect.onMobRemoved`: the dying mob is the source, so it
@@ -122,6 +122,10 @@ impl Source {
             wind_charge: false,
             mob: !player,
             silent,
+            cause: BurstCause {
+                source: None,
+                owner: None,
+            },
         }
     }
     /// The `minecraft:explode` of the Wind Burst enchantment: the attacker is
@@ -132,8 +136,11 @@ impl Source {
         wind_charge: false,
         mob: false,
         silent: false,
+        cause: BurstCause {
+            source: None,
+            owner: None,
+        },
     };
->>>>>>> theirs
 }
 /// Whether a wind push must wait for the entity's own tick: it joined before
 /// the charge (`id` below the charge's), so vanilla has ticked it already this
@@ -279,14 +286,16 @@ impl Game<'_> {
             owner,
         };
         self.creatures.wind_source = Some(p.join_seq());
-<<<<<<< ours
-        let burst = self.wind_burst(center, radius, knockback, breeze, !breeze, cause);
-||||||| base
-        let burst = self.wind_burst(center, radius, knockback, breeze, !breeze);
-=======
         let silent = self.entity_silent(p.id);
-        let burst = self.wind_burst(center, radius, knockback, Source::charge(breeze, silent));
->>>>>>> theirs
+        let burst = self.wind_burst(
+            center,
+            radius,
+            knockback,
+            Source {
+                cause,
+                ..Source::charge(breeze, silent)
+            },
+        );
         self.creatures.wind_source = None;
         burst
     }
@@ -492,18 +501,12 @@ impl Game<'_> {
         blocks: &[[i32; 3]],
     ) -> Vec<(u32, [f64; 3])> {
         // ServerExplosion.shouldAffectBlocklikeEntities
-<<<<<<< ours
-        let blocklike = !breeze
-            && !wind_charge
+        let blocklike = !src.breeze
+            && !src.wind_charge
             && self
                 .ui
                 .rules
                 .bool_at(horizon_client::gamerules::vanilla::MOB_GRIEFING);
-||||||| base
-        let blocklike = !breeze && !wind_charge && self.ui.rules.bool("mob_griefing");
-=======
-        let blocklike = !src.breeze && !src.wind_charge && self.ui.rules.bool("mob_griefing");
->>>>>>> theirs
         let diameter = f64::from(radius * 2.0);
         let distance = |p: [f64; 3]| {
             ((p[0] - center[0]).powi(2) + (p[1] - center[1]).powi(2) + (p[2] - center[2]).powi(2))
@@ -536,16 +539,8 @@ impl Game<'_> {
                 .map(|g| g.conn)
                 .collect();
             for conn in guests {
-<<<<<<< ours
                 let push = self.as_guest(conn, |g| {
-                    g.wind_push_player(center, radius, multiplier, breeze, wind_charge, blocks)
-||||||| base
-                let push = self.as_guest(&mut host, conn, |g| {
-                    g.wind_push_player(center, radius, multiplier, breeze, wind_charge, blocks)
-=======
-                let push = self.as_guest(&mut host, conn, |g| {
                     g.wind_push_player(center, radius, multiplier, src, blocks)
->>>>>>> theirs
                 });
                 if let Some(Some(push)) = push {
                     pushed.push((conn, push));
@@ -558,17 +553,11 @@ impl Game<'_> {
         // out where its `ignoreExplosion` says (items and visible stands for a
         // charge, vehicles for a mob's burst with mob griefing off).
         let burst = Blast {
-<<<<<<< ours
-            vehicles_ignore: breeze
+            vehicles_ignore: src.mob
                 && !self
                     .ui
                     .rules
                     .bool_at(horizon_client::gamerules::vanilla::MOB_GRIEFING),
-||||||| base
-            vehicles_ignore: breeze && !self.ui.rules.bool("mob_griefing"),
-=======
-            vehicles_ignore: src.mob && !self.ui.rules.bool("mob_griefing"),
->>>>>>> theirs
             items_ignore: !blocklike,
             spared: None,
         };
@@ -732,16 +721,7 @@ impl Game<'_> {
         center: [f64; 3],
         radius: f32,
         multiplier: f32,
-<<<<<<< ours
-        breeze: bool,
-        wind_charge: bool,
-        cause: BurstCause,
-||||||| base
-        breeze: bool,
-        wind_charge: bool,
-=======
         src: Source,
->>>>>>> theirs
     ) -> Result<()> {
         // In a guest's turn (their charge landing, their mace's burst) the
         // host holds the other players (`as_guest`): the burst waits for the
@@ -751,19 +731,11 @@ impl Game<'_> {
                 center,
                 radius,
                 multiplier,
-<<<<<<< ours
-                breeze,
-                wind_charge,
-                cause,
-||||||| base
-                breeze,
-                wind_charge,
-=======
                 src,
->>>>>>> theirs
             });
             return Ok(());
         }
+        let cause = src.cause;
         if self.serving.is_some() || self.options.dedicated.is_some() {
             let start = mod_api::ExplosionStart::from(mod_api::__private::built::ExplosionStart {
                 dimension: self.dim.id(),
@@ -792,18 +764,12 @@ impl Game<'_> {
         self.wind_burst_knockback(center, radius, multiplier, &targets);
         let block_count = targets.len();
         // Explosion.canTriggerBlocks: a breeze's charge needs mob griefing.
-<<<<<<< ours
-        if !breeze
+        if !src.breeze
             || self
                 .ui
                 .rules
                 .bool_at(horizon_client::gamerules::vanilla::MOB_GRIEFING)
         {
-||||||| base
-        if !breeze || self.ui.rules.bool("mob_griefing") {
-=======
-        if !src.breeze || self.ui.rules.bool("mob_griefing") {
->>>>>>> theirs
             // Util.shuffle(list, level.random)
             for i in (2..=targets.len()).rev() {
                 let swap = self.world.random.next_int_bound(i as i32).unwrap_or(0) as usize;
@@ -838,15 +804,7 @@ impl Game<'_> {
     pub(super) fn flush_wind_bursts(&mut self) -> Result<()> {
         self.flush_smash_pushes();
         for b in std::mem::take(&mut self.creatures.wind_bursts) {
-<<<<<<< ours
-            self.wind_burst(
-                b.center,
-                b.radius,
-                b.multiplier,
-                b.breeze,
-                b.wind_charge,
-                b.cause,
-            )?;
+            self.wind_burst(b.center, b.radius, b.multiplier, b.src)?;
         }
         Ok(())
     }
@@ -876,11 +834,6 @@ impl Game<'_> {
         }
         for &pos in targets.iter() {
             self.wind_trigger_block(pos)?;
-||||||| base
-            self.wind_burst(b.center, b.radius, b.multiplier, b.breeze, b.wind_charge)?;
-=======
-            self.wind_burst(b.center, b.radius, b.multiplier, b.src)?;
->>>>>>> theirs
         }
         Ok(())
     }
@@ -1016,17 +969,11 @@ impl Game<'_> {
     }
 }
 #[cfg(test)]
-<<<<<<< ours
-#[path = "tests/wind_dragon_tests.rs"]
-||||||| base
-#[path = "wind_dragon_tests.rs"]
-=======
 #[path = "wind_charged_tests.rs"]
 mod wind_charged_tests;
 
 #[cfg(test)]
-#[path = "wind_dragon_tests.rs"]
->>>>>>> theirs
+#[path = "tests/wind_dragon_tests.rs"]
 mod wind_dragon_tests;
 
 #[cfg(test)]

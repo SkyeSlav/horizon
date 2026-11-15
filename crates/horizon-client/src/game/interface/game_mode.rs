@@ -181,7 +181,6 @@ impl Game<'_> {
     /// `saveWithFullMetadata` (no block entity fails). `components` is not
     /// looked at on this path.
     fn adventure_predicate(&self, component: &str, pos: [i32; 3]) -> bool {
-<<<<<<< ours
         self.held()
             .is_some_and(|stack| self.stack_adventure_predicate(stack, component, pos))
     }
@@ -191,28 +190,6 @@ impl Game<'_> {
             return false;
         };
         self.adventure_predicate_at(tag, pos)
-||||||| base
-        let Some(tag) = self
-            .held()
-            .and_then(|s| s.data())
-            .and_then(|d| d.other(component))
-        else {
-            return false;
-        };
-        self.adventure_predicate_at(tag, pos)
-=======
-        self.held()
-            .is_some_and(|stack| self.stack_predicate(stack, component, pos))
-    }
-    /// The same predicate read off a named stack: `ItemStack.useOn` tests the
-    /// stack it is called on, which for an off-hand use is not what `held()`
-    /// reads outside that use.
-    fn stack_predicate(&self, stack: &ItemStack, component: &str, pos: [i32; 3]) -> bool {
-        stack
-            .data()
-            .and_then(|d| d.other(component))
-            .is_some_and(|tag| self.adventure_predicate_at(tag, pos))
->>>>>>> theirs
     }
     /// The existing supported block/state portion of `AdventureModePredicate.test`.
     /// The held-item wrapper and the projectile caller supply their own live value.
@@ -326,7 +303,6 @@ impl Game<'_> {
     pub(super) fn can_place_on_in_adventure(&self, clicked: [i32; 3]) -> bool {
         self.adventure_predicate("minecraft:can_place_on", clicked)
     }
-<<<<<<< ours
     /// `Player.mayUseItemAt(pos, face, stack)` for a player who `may_build`
     /// or not: builders always may, anyone else only when `stack`'s
     /// `can_place_on` matches the block clicked, the one `pos` lies against.
@@ -344,15 +320,13 @@ impl Game<'_> {
                 relative(pos, face.opposite()),
             )
     }
-||||||| base
-=======
     /// `ItemStack.canPlaceOnBlockInAdventureMode` of the stack a use names.
     pub(super) fn stack_can_place_on_in_adventure(
         &self,
         stack: &ItemStack,
         clicked: [i32; 3],
     ) -> bool {
-        self.stack_predicate(stack, "minecraft:can_place_on", clicked)
+        self.stack_adventure_predicate(stack, "minecraft:can_place_on", clicked)
     }
     /// `ItemStack.useOn`'s gate before any item's own `useOn`: a player who
     /// may build, or an adventure player whose held item's `can_place_on`
@@ -360,7 +334,6 @@ impl Game<'_> {
     pub(super) fn may_use_on(&self, clicked: [i32; 3]) -> bool {
         self.may_build() || self.can_place_on_in_adventure(clicked)
     }
->>>>>>> theirs
     /// `ServerPlayer.setGameMode(SPECTATOR)`: `stopRiding`.
     fn dismount_for_spectator(&mut self) {
         let Some(id) = self.riding else {

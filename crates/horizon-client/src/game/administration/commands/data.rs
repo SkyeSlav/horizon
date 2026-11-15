@@ -466,7 +466,6 @@ impl Game<'_> {
                             tag.get("Brain").and_then(|brain| brain.get("memories")),
                             Some(Tag::Compound(_))
                         );
-<<<<<<< ours
                     // Runtime identity and lifetime stay on the resident owner.
                     new.join = slot.join;
                     new.random = slot.random.clone();
@@ -482,33 +481,12 @@ impl Game<'_> {
                     slot.extra.boarding_cooldown = old.extra.boarding_cooldown;
                     slot.rider = old.rider;
                     // Runtime-only state (AI, animation) carries over.
-||||||| base
-                    // Runtime-only state (AI, animation) carries over, and the
-                    // entity keeps its place in the level's join order.
-                    let old = std::mem::replace(slot, new);
-                    slot.join = old.join;
-                    // Entity.load fills in the entity that is there: its own
-                    // random (Entity.random) goes on, as a spawn egg's entity
-                    // data finds it.
-                    slot.random = old.random.clone();
-=======
-                    // Runtime-only state (AI, animation) carries over, and the
-                    // entity keeps its place in the level's join order.
-                    let old = std::mem::replace(slot, new);
-                    slot.join = old.join;
-                    // Entity.load fills in the entity that is there: its own
-                    // random (Entity.random) goes on, as a spawn egg's entity
-                    // data finds it.
-                    slot.random = old.random.clone();
-                    // LivingEntity.readAdditionalSaveData makes a saved Brain
-                    // again from that random: an armadillo's sensors are delayed
-                    // anew (the merged tag always has one).
+                    // Reset saved armadillo sensors from the resident random.
                     if slot.species() == horizon_client::mobs::Species::Armadillo
                         && tag.get("Brain").is_some()
                     {
                         horizon_client::mobs::armadillo::delay_sensors(slot);
                     }
->>>>>>> theirs
                     // Entity.load keeps the unsaved Allay.jukeboxPos and
                     // DATA_DANCING of the entity it loads into.
                     if slot.species() == horizon_client::mobs::Species::Allay {
@@ -995,19 +973,6 @@ impl Game<'_> {
             Target::Rocket(id) | Target::Trident(id) => {
                 Some(self.persist.raw.entry(id).or_insert_with(empty))
             }
-<<<<<<< ours
-||||||| base
-            Target::Falling(id) => {
-                let uuid = self.uuid_for(id);
-                let f = self.falling.iter_mut().find(|f| f.id == id)?;
-                Some(&mut f.saved.get_or_insert_with(|| Box::new((uuid, empty()))).1)
-            }
-=======
-            Target::Falling(id) => {
-                let uuid = self.uuid_for(id);
-                let f = self.falling.iter_mut().find(|f| f.id == id)?;
-                Some(&mut f.saved.get_or_insert_with(|| Box::new((uuid, empty()))).1)
-            }
             // `tags_of` reads a spawner's compound, and its chunk saves it
             // (`ominous_item_spawner_to_nbt`); without this arm `/tag` wrote
             // nothing and still reported success.
@@ -1015,7 +980,6 @@ impl Game<'_> {
                 let s = self.ominous_spawners.iter_mut().find(|s| s.id == id)?;
                 Some(&mut **s.raw.get_or_insert_with(|| Box::new(empty())))
             }
->>>>>>> theirs
             _ => None,
         }
     }

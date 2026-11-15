@@ -7,24 +7,10 @@ use horizon_client::{
     Result, block_entity_item, block_entity_nbt, containers::BlockEntity, item_data,
     items::ItemStack, save,
 };
-<<<<<<< ours
-use {
-    horizon_core::nbt::{Compound, JavaString, Tag},
-    horizon_world::{
-        level::{Behaviours, classes::Class},
-        registry::BlockStateId,
-    },
-||||||| base
-use horizon_world::{
-    level::{Behaviours, classes::Class},
-    nbt::{Compound, JavaString, Tag},
-    registry::BlockStateId,
-=======
 use horizon_world::{
     level::{Behaviours, classes::Class, flags},
     nbt::{Compound, JavaString, Tag},
     registry::BlockStateId,
->>>>>>> theirs
 };
 
 /// The component patch of `stack`.

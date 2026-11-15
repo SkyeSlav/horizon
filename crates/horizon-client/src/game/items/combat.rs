@@ -2,38 +2,9 @@
 //! where the player fell from, turned into the vanilla death message.
 use super::{Game, commands::Target};
 
-<<<<<<< ours
-||||||| base
-// The test names `super::commands`, as it did when game.rs held it.
-#[cfg(test)]
-use super::commands;
-#[cfg(test)]
-#[path = "bee_sting_tests.rs"]
-mod bee_sting_tests;
-#[cfg(test)]
-#[path = "revenge_home_tests.rs"]
-mod revenge_home_tests;
-#[cfg(test)]
-#[path = "zombie_ignite_tests.rs"]
-mod zombie_ignite_tests;
-=======
-// The test names `super::commands`, as it did when game.rs held it.
-#[cfg(test)]
-use super::commands;
 #[cfg(test)]
 #[path = "infested_roll_tests.rs"]
 mod infested_roll_tests;
-
-#[cfg(test)]
-#[path = "bee_sting_tests.rs"]
-mod bee_sting_tests;
-#[cfg(test)]
-#[path = "revenge_home_tests.rs"]
-mod revenge_home_tests;
-#[cfg(test)]
-#[path = "zombie_ignite_tests.rs"]
-mod zombie_ignite_tests;
->>>>>>> theirs
 use horizon_client::{
     health::{Attack, HealthEvent},
     mobs::{Damage, Mob, Species, Who, stuck::Stuck},

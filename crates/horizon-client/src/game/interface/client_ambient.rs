@@ -328,55 +328,6 @@ impl Game<'_> {
     }
 }
 
-<<<<<<< ours
-||||||| base
-/// `MobEffect.particleFactory`: the omens have particles of their own, any
-/// other effect an entity effect in its colour, faint when ambient.
-pub(super) fn effect_particle(effect: &str, ambient: bool) -> Option<ParticleOptions> {
-    Some(match effect.trim_start_matches("minecraft:") {
-        "trial_omen" => ParticleOptions::simple(ParticleType::TrialOmen),
-        "raid_omen" => ParticleOptions::simple(ParticleType::RaidOmen),
-        other => {
-            let color = horizon_client::brewing::effect(other)?.color;
-            let channel = |shift: u32| ((color >> shift) & 255) as f32 / 255.0;
-            // MobEffect.AMBIENT_ALPHA is 38 of 255.
-            let alpha = if ambient { 38.0 / 255.0 } else { 1.0 };
-            ParticleOptions::colored(
-                ParticleType::EntityEffect,
-                [channel(16), channel(8), channel(0), alpha],
-            )
-        }
-    })
-}
-
-=======
-/// `MobEffect.particleFactory`: the omens and the four effects `MobEffects`
-/// registers with a particle of their own (Wind Charged `SMALL_GUST`,
-/// Weaving `ITEM_COBWEB`, Oozing `ITEM_SLIME`, Infested `INFESTED`) show
-/// that one; any other effect an entity effect in its colour, faint when
-/// ambient.
-pub(super) fn effect_particle(effect: &str, ambient: bool) -> Option<ParticleOptions> {
-    Some(match effect.trim_start_matches("minecraft:") {
-        "trial_omen" => ParticleOptions::simple(ParticleType::TrialOmen),
-        "raid_omen" => ParticleOptions::simple(ParticleType::RaidOmen),
-        "wind_charged" => ParticleOptions::simple(ParticleType::SmallGust),
-        "weaving" => ParticleOptions::simple(ParticleType::ItemCobweb),
-        "oozing" => ParticleOptions::simple(ParticleType::ItemSlime),
-        "infested" => ParticleOptions::simple(ParticleType::Infested),
-        other => {
-            let color = horizon_client::brewing::effect(other)?.color;
-            let channel = |shift: u32| ((color >> shift) & 255) as f32 / 255.0;
-            // MobEffect.AMBIENT_ALPHA is 38 of 255.
-            let alpha = if ambient { 38.0 / 255.0 } else { 1.0 };
-            ParticleOptions::colored(
-                ParticleType::EntityEffect,
-                [channel(16), channel(8), channel(0), alpha],
-            )
-        }
-    })
-}
-
->>>>>>> theirs
 /// One tick of `LivingEntity.tickEffects`' client branch: a one in four
 /// chance (one in fifteen while invisible, a fifth of either when all the
 /// effects are ambient) of one of the particles at a random spot of the box.
@@ -403,7 +354,6 @@ fn swirl(
     let z = feet.z + size.0 * (2.0 * r.next_double() - 1.0) * 0.5;
     particles.add(&list[pick], [x, y, z], [1.0; 3]);
 }
-<<<<<<< ours
 
 #[cfg(test)]
 mod sprint_handle_tests {
@@ -472,10 +422,7 @@ mod sprint_handle_tests {
         });
     }
 }
-||||||| base
-=======
 
 #[cfg(test)]
 #[path = "effect_particle_tests.rs"]
 mod effect_particle_tests;
->>>>>>> theirs

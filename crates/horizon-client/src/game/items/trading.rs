@@ -190,11 +190,11 @@ pub(super) fn write_random_sequences(world_root: &std::path::Path, data: &mut Ra
     let Some(data) = data.take_dirty_nbt() else {
         return;
     };
-    let tag = horizon_world::nbt::Tag::compound([
+    let tag = horizon_core::nbt::Tag::compound([
         ("data", data),
         (
             "DataVersion",
-            horizon_world::nbt::Tag::Int(horizon_world::DATA_VERSION),
+            horizon_core::nbt::Tag::Int(horizon_world::DATA_VERSION),
         ),
     ]);
     if let Err(e) = horizon_client::save::write_dat(&random_sequences_file(world_root), tag) {
@@ -205,36 +205,8 @@ pub(super) fn write_random_sequences(world_root: &std::path::Path, data: &mut Ra
 impl Game<'_> {
     /// `RandomSequences` as `random_sequences.dat` (not on a server's guest).
     pub(super) fn save_random_sequences(&mut self) {
-<<<<<<< ours
-        if self.remote.is_some() || self.rand_sequences.ids().is_empty() {
-            return;
-        }
-        let tag = horizon_core::nbt::Tag::compound([
-            ("data", self.rand_sequences.to_nbt()),
-            (
-                "DataVersion",
-                horizon_core::nbt::Tag::Int(horizon_world::DATA_VERSION),
-            ),
-        ]);
-        if let Err(e) = horizon_client::save::write_dat(&self.random_sequences_path(), tag) {
-            log::warn!("the villager random sequences were not written: {e}");
-||||||| base
-        if self.remote.is_some() || self.rand_sequences.ids().is_empty() {
-            return;
-        }
-        let tag = horizon_world::nbt::Tag::compound([
-            ("data", self.rand_sequences.to_nbt()),
-            (
-                "DataVersion",
-                horizon_world::nbt::Tag::Int(horizon_world::DATA_VERSION),
-            ),
-        ]);
-        if let Err(e) = horizon_client::save::write_dat(&self.random_sequences_path(), tag) {
-            log::warn!("the villager random sequences were not written: {e}");
-=======
         if self.remote.is_none() {
             write_random_sequences(&self.world_root, &mut self.rand_sequences);
->>>>>>> theirs
         }
     }
     /// `AbstractVillager.addOffersFromTradeSet` with the world's random

@@ -1,7 +1,7 @@
 //! Shared holder/context resolution before SlotCollection read or live-write consumption.
 use super::{Game, Owner, R, err};
 use horizon_client::datapack::DataStore;
-use horizon_world::nbt::Tag;
+use horizon_core::nbt::Tag;
 use serde_json::Value;
 use std::collections::BTreeSet;
 fn id(raw: &str) -> String {
@@ -122,7 +122,7 @@ impl Game<'_> {
         let value = if self.fns.store.slot_sources.contains_key(&id(raw)) {
             Value::String(id(raw))
         } else {
-            let (tag, _) = horizon_world::nbt::parse_snbt(raw)
+            let (tag, _) = horizon_core::nbt::parse_snbt(raw)
                 .map_err(|error| err("argument.resource_or_id.failed_to_parse", &[&error]))?;
             typed_source(&tag)
         };

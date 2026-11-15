@@ -596,16 +596,8 @@ impl Game<'_> {
         if info.block.is_none() {
             return Ok(false);
         }
-<<<<<<< ours
-        if water_placement && !self.may_build() && !self.can_place_on_in_adventure(hit.pos) {
-            // The fluid-ray placement has its own target, selected by Item.use.
-||||||| base
-        if !self.may_build() && !self.can_place_on_in_adventure(hit.pos) {
-            // ItemStack.useOn passes in adventure mode; useItem eats.
-=======
         if !self.may_use_on(hit.pos) {
             // ItemStack.useOn passes in adventure mode; useItem eats.
->>>>>>> theirs
             return Ok(!on_block && self.start_eating(&info));
         }
         let face = match hit.face {
@@ -848,86 +840,13 @@ impl Game<'_> {
             critical: power >= 1.0,
             effect,
         };
-<<<<<<< ours
-        let mut arrow = horizon_client::projectiles::Projectile::new(
-            kind,
-            p,
-            Some(horizon_client::mobs::Who::Player),
-        );
-        // ProjectileWeaponItem.useAmmo: creative and Infinity draw without
-        // using the ammo, so the arrow is CREATIVE_ONLY; else setOwner(player)
-        // lets it be picked up.
-        if let Some(a) = arrow.arrow.as_mut() {
-            a.set_item(&horizon_client::arrows::drawn_ammo(
-                &ammo,
-                self.creative || infinity,
-            ));
-            a.set_owner(Some(horizon_client::mobs::Who::Player));
-            a.fired_from_weapon = weapon;
-        }
-||||||| base
-        let mut arrow = horizon_client::projectiles::Projectile::new(
-            kind,
-            p,
-            Some(horizon_client::mobs::Who::Player),
-        );
-        // ProjectileWeaponItem.useAmmo: creative and Infinity draw without
-        // using the ammo, so the arrow is CREATIVE_ONLY; else setOwner(player)
-        // lets it be picked up.
-        if let Some(a) = arrow.arrow.as_mut() {
-            a.set_item(&horizon_client::arrows::drawn_ammo(
-                &ammo,
-                self.creative || infinity,
-            ));
-            a.set_owner(Some(horizon_client::mobs::Who::Player));
-            a.fired_from_weapon = weapon;
-        }
-        // Flame: the arrow is spawned burning (EnchantmentHelper.onProjectileSpawned).
-        self.ignite_spawned_arrow(stack, &mut arrow);
-=======
         // ProjectileWeaponItem.draw and shoot: the weapon's enchantments decide
         // how many arrows leave and how far apart they fan (Multishot: two more
         // arrows, ten degrees of spread).
         let (count, spread) = self.bow_volley(stack);
->>>>>>> theirs
         let (velocity, on_ground) = self.player.as_ref().map_or((Vec3::ZERO, true), |pl| {
             (self.known_player_movement(), pl.ground.on_ground)
         });
-<<<<<<< ours
-        arrow.shoot_from_rotation(
-            self.pitch,
-            self.yaw,
-            0.0,
-            power * 3.0,
-            1.0,
-            velocity,
-            on_ground,
-        );
-        self.spawn_projectile(arrow, &ammo);
-        let (player, name, projectile) = (
-            horizon_client::lan::playerdata::ints_uuid(self.acting_player_uuid()),
-            self.acting_player_name().to_owned(),
-            self.next_entity,
-        );
-        self.native_entity_shoot_bow(player, &name, projectile, power * 3.0);
-||||||| base
-        arrow.shoot_from_rotation(
-            self.pitch,
-            self.yaw,
-            0.0,
-            power * 3.0,
-            1.0,
-            velocity,
-            on_ground,
-        );
-        self.add_projectile(arrow);
-        let (player, name, projectile) = (
-            horizon_client::lan::playerdata::ints_uuid(self.acting_player_uuid()),
-            self.acting_player_name().to_owned(),
-            self.next_entity,
-        );
-        self.native_entity_shoot_bow(player, &name, projectile, power * 3.0);
-=======
         // ProjectileWeaponItem.shoot: an odd count is centred on the view, the
         // arrows alternate either side of it, `direction` flipping per arrow.
         // A count of 0 draws nothing and vanilla skips `shoot` altogether.
@@ -962,7 +881,7 @@ impl Game<'_> {
                 a.pierce = pierce;
             }
             // Flame: the arrow is spawned burning (EnchantmentHelper.onProjectileSpawned).
-            self.ignite_spawned_arrow(stack, &mut arrow);
+
             // BowItem.shootProjectile: shootFromRotation(power * 3, inaccuracy 1).
             arrow.shoot_from_rotation(
                 self.pitch,
@@ -973,7 +892,7 @@ impl Game<'_> {
                 velocity,
                 on_ground,
             );
-            self.add_projectile(arrow);
+            self.spawn_projectile(arrow, &ammo);
             let (player, name, projectile) = (
                 horizon_client::lan::playerdata::ints_uuid(self.acting_player_uuid()),
                 self.acting_player_name().to_owned(),
@@ -988,7 +907,6 @@ impl Game<'_> {
                 break;
             }
         }
->>>>>>> theirs
         // ArrowState posts projectile_shoot on the arrow's first tick.
         let pitch = 1.0 / (self.world.random.next_float() * 0.4 + 1.2) + power * 0.5;
         // BowItem.releaseUsing: `playSound(null, getX(), getY(), getZ(), ...)`, at
@@ -1060,29 +978,6 @@ impl Game<'_> {
         pierce.floor().clamp(0.0, 127.0) as u8
     }
 }
-<<<<<<< ours
-||||||| base
-
-#[cfg(test)]
-#[path = "sign_use_tests.rs"]
-mod sign_use_tests;
-
-#[cfg(test)]
-#[path = "sign_chain_tests.rs"]
-mod sign_chain_tests;
-=======
-
-#[cfg(test)]
-#[path = "sign_use_tests.rs"]
-mod sign_use_tests;
-
-#[cfg(test)]
-#[path = "bow_enchantment_tests.rs"]
-mod bow_enchantment_tests;
-
-#[cfg(test)]
-#[path = "sign_chain_tests.rs"]
-mod sign_chain_tests;
 
 #[cfg(test)]
 #[path = "scaffolding_inside_tests.rs"]
@@ -1091,4 +986,7 @@ mod scaffolding_inside_tests;
 #[cfg(test)]
 #[path = "adventure_use_on_tests.rs"]
 mod adventure_use_on_tests;
->>>>>>> theirs
+
+#[cfg(test)]
+#[path = "bow_enchantment_tests.rs"]
+mod bow_enchantment_tests;

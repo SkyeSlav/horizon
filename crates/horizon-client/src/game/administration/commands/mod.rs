@@ -6,15 +6,7 @@ pub(super) mod compute;
 mod data;
 mod difficulty;
 mod display_names;
-<<<<<<< ours
-pub(super) use data::place_summoned;
-||||||| base
-mod target_position;
-pub(super) use data::place_summoned;
-=======
-mod target_position;
 pub(super) use data::{place_summoned, strip_finalize_tree};
->>>>>>> theirs
 mod effects;
 pub(super) mod execute;
 pub(super) mod extra;
@@ -1309,29 +1301,6 @@ impl Game<'_> {
             .with_color(color)
             .with_component_fields(vec![("hover_event".into(), shown)])
     }
-<<<<<<< ours
-    pub(super) fn item_rarity(&self, item: &str) -> String {
-        self.items()
-            .enchantments
-            .props
-            .get(item)
-            .map_or_else(|| "common".into(), |props| props.rarity.clone())
-    }
-||||||| base
-    pub(super) fn item_rarity(&self, item: &str) -> String {
-        static RARITY: std::sync::OnceLock<std::collections::HashMap<String, String>> =
-            std::sync::OnceLock::new();
-        let map = RARITY.get_or_init(|| {
-            horizon_world::item_defaults::read(&self.options.resources)
-                .unwrap_or_default()
-                .into_iter()
-                .filter_map(|(k, c)| c["minecraft:rarity"].as_str().map(|r| (k, r.to_owned())))
-                .collect()
-        });
-        map.get(item).cloned().unwrap_or_else(|| "common".into())
-    }
-=======
->>>>>>> theirs
     fn cmd_give(&mut self, ctx: &Context) -> R<i32> {
         let Some(Arg::Item(ItemInput { id, components, .. })) = ctx.get("item").cloned() else {
             return Ok(0);
@@ -1378,48 +1347,6 @@ impl Game<'_> {
                 while remaining > 0 {
                     let size = remaining.min(max_stack);
                     remaining -= size;
-<<<<<<< ours
-                    g.give_acting_stack(
-                        ItemStack {
-                            item: id.as_str().into(),
-                            count: size as u32,
-                            damage,
-                            extra: extra.clone(),
-                        },
-                        uuid,
-                    );
-||||||| base
-                    let left = g.give(ItemStack {
-                        item: id.as_str().into(),
-                        count: size as u32,
-                        damage,
-                        extra: extra.clone(),
-                    });
-                    // At the player who gets them.
-                    let p = g
-                        .target_position(Target::Player)
-                        .unwrap_or(g.source_position());
-                    if let Some(rest) = left {
-                        // Inventory full: Player.createItemStackToDrop (thrown from
-                        // the eyes), then setNoPickUpDelay and setTarget(player).
-                        let eye = g.eye_position().unwrap_or([
-                            p[0],
-                            p[1] + g.target_eye_height(Target::Player),
-                            p[2],
-                        ]);
-                        g.throw_from_eyes(rest, eye, false);
-                        if let Some(item) = g.just_spawned_item() {
-                            item.thrower = None;
-                            item.pickup_delay = 0;
-                            item.target = uuid;
-                        }
-                    } else {
-                        let r = &mut g.world.random;
-                        let pitch = ((r.next_float() - r.next_float()) * 0.7 + 1.0) * 2.0;
-                        g.audio
-                            .play("minecraft:entity.item.pickup", Some(p), 0.2, pitch);
-                    }
-=======
                     let left = g.give(ItemStack {
                         item: id.as_str().into(),
                         count: size as u32,
@@ -1450,7 +1377,6 @@ impl Game<'_> {
                         g.audio
                             .play("minecraft:entity.item.pickup", Some(p), 0.2, pitch);
                     }
->>>>>>> theirs
                 }
                 // containerMenu.broadcastChanges: InventoryChangeTrigger
                 // (and its announcement) comes before the command's message.
@@ -1842,14 +1768,10 @@ impl Game<'_> {
                     });
                 }
             }
-<<<<<<< ours
             // Wall-mounted entities do not move; a hook follows its own tick and a
             // dragon part its dragon's.
-            Target::Frame(_)
-            | Target::Painting(_)
-            | Target::Hook(_)
-            | Target::DragonPart(_)
-            | Target::Knot(_) => {}
+            Target::Frame(_) | Target::Painting(_) => self.teleport_hanging(t, v),
+            Target::Hook(_) | Target::DragonPart(_) | Target::Knot(_) => {}
         }
         if !matches!(t, Target::Player | Target::Guest(_) | Target::Mob(_)) {
             target_entity_mut!(self, t, entity => {
@@ -1861,16 +1783,6 @@ impl Game<'_> {
             {
                 dragon.teleport_motion(relative);
             }
-||||||| base
-            // Wall-mounted entities do not move.
-            Target::Frame(_) | Target::Painting(_) => {}
-            // The commands leave a natural knot out (`without_knots`).
-            Target::Knot(_) => {}
-=======
-            Target::Frame(_) | Target::Painting(_) => self.teleport_hanging(t, v),
-            // The commands leave a natural knot out (`without_knots`).
-            Target::Knot(_) => {}
->>>>>>> theirs
         }
         // Entity.teleportSameDimension: the riders go with their vehicle at
         // once, by the offset it took and the turn it was given.
@@ -1899,19 +1811,9 @@ impl Game<'_> {
         turn_riders: bool,
         motion: TeleportMotion,
     ) -> R<bool> {
-<<<<<<< ours
         match self.teleport_target_across(t, level, pos, rotation, turn_riders, motion) {
             Ok(Some(moved)) => return Ok(moved),
             Ok(None) => {}
-||||||| base
-        match self.teleport_vehicle_across(t, level, pos, rotation, turn_riders) {
-            Ok(true) => return Ok(true),
-            Ok(false) => {}
-=======
-        match self.teleport_any_across(t, level, pos, rotation, turn_riders) {
-            Ok(true) => return Ok(true),
-            Ok(false) => {}
->>>>>>> theirs
             Err(error) => {
                 log::error!("entity teleport into {}: {error}", level.id());
                 return Err(err("command.failed", &[]));
@@ -3288,14 +3190,7 @@ impl Game<'_> {
         }
         if moving {
             for (from, ..) in &copies {
-<<<<<<< ours
-                self.discard_clone_loot(*from);
-                self.place_state(*from, air, true, false)?;
-||||||| base
-                self.place_state(*from, air, true, false)?;
-=======
                 self.place_state(*from, self.world.air, true, false)?;
->>>>>>> theirs
             }
         }
         self.clone_enter(to_dim)?;

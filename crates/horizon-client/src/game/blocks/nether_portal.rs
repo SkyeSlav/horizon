@@ -662,22 +662,6 @@ impl Game<'_> {
             if matches!(self.screen, Screen::Creative | Screen::Inventory) {
                 self.close_container();
                 self.carried = None;
-<<<<<<< ours
-                self.set_screen(Screen::Playing);
-                self.capture(true);
-            }
-            _ => {
-                self.set_screen(Screen::Playing);
-                self.capture(true);
-||||||| base
-                self.screen = Screen::Playing;
-                self.capture(true);
-            }
-            _ => {
-                self.screen = Screen::Playing;
-                self.capture(true);
-=======
->>>>>>> theirs
             }
             self.screen = Screen::Playing;
             self.capture(true);
@@ -1452,92 +1436,7 @@ impl Game<'_> {
                 return;
             }
             self.release_vehicle_container(id);
-<<<<<<< ours
             let Some(mut tag) = self.vehicle_tree_nbt(id) else {
-||||||| base
-            let uuid = self.uuid_for(id);
-            let mut tag = self.carts[i].to_nbt(uuid, self.persist_raw(id));
-            // `PositionMoveRotation.of(this)` takes the cart's `getKnownMovement`:
-            // `OldMinecartBehavior` clamps it to 0.4 either way along x and z.
-            let m = horizon_client::entity_nbt::motion(&tag);
-            if let Tag::Compound(c) = &mut tag {
-                c.insert(
-                    "Motion".into(),
-                    doubles([m.x.clamp(-0.4, 0.4), m.y, m.z.clamp(-0.4, 0.4)]),
-                );
-            }
-            // The mobs riding it cross with it and mount it again.
-            self.put_mob_passengers(&mut tag, id);
-            for rider in self.remove_mob_riders(id) {
-                self.detach_entity(rider);
-            }
-            self.carts.remove(i);
-            self.detach_entity(id);
-            self.portals.arrivals.push(Arrival::new(plan, tag, false));
-            self.portals.dirty = true;
-        } else if let Some(i) = self
-            .creatures
-            .projectiles
-            .iter()
-            .position(|p| p.id == id && (is_arrow(p) || is_portal_projectile(p)))
-        {
-            let p = &self.creatures.projectiles[i];
-            let (width, height) = projectile_box(p);
-            let plan = self.entity_plan(entry, p.position, width, height, false);
-            if !self.may_enter(plan.dim) {
-=======
-            let uuid = self.uuid_for(id);
-            let mut tag = self.carts[i].to_nbt(uuid, self.persist_raw(id));
-            // `PositionMoveRotation.of(this)` takes the cart's `getKnownMovement`:
-            // `OldMinecartBehavior` clamps it to 0.4 either way along x and z.
-            let m = horizon_client::entity_nbt::motion(&tag);
-            if let Tag::Compound(c) = &mut tag {
-                c.insert(
-                    "Motion".into(),
-                    doubles([m.x.clamp(-0.4, 0.4), m.y, m.z.clamp(-0.4, 0.4)]),
-                );
-            }
-            // The mobs riding it cross with it and mount it again.
-            self.put_mob_passengers(&mut tag, id);
-            for rider in self.remove_mob_riders(id) {
-                self.detach_entity(rider);
-            }
-            self.carts.remove(i);
-            self.detach_entity(id);
-            self.portals.arrivals.push(Arrival::new(plan, tag, false));
-            self.portals.dirty = true;
-        } else if let Some(i) = self.armor_stands.iter().position(|a| a.id == id) {
-            let a = &self.armor_stands[i];
-            // Its `getDimensions`: the box the exit is placed by, and
-            // `LivingEntity.getRelativePortalPosition` resets the forward offset.
-            let Some((width, height)) = a.portal_size() else {
-                return;
-            };
-            let plan = self.entity_plan(entry, a.position, width, height, true);
-            if !self.may_enter(plan.dim) {
-                return;
-            }
-            let uuid = self.uuid_for(id);
-            let tag = horizon_client::entity_nbt::armor_stand_to_nbt(
-                &self.armor_stands[i],
-                uuid,
-                self.persist_raw(id),
-            );
-            self.armor_stands.remove(i);
-            self.detach_entity(id);
-            self.portals.arrivals.push(Arrival::new(plan, tag, false));
-            self.portals.dirty = true;
-        } else if let Some(i) = self
-            .creatures
-            .projectiles
-            .iter()
-            .position(|p| p.id == id && (is_arrow(p) || is_portal_projectile(p)))
-        {
-            let p = &self.creatures.projectiles[i];
-            let (width, height) = projectile_box(p);
-            let plan = self.entity_plan(entry, p.position, width, height, false);
-            if !self.may_enter(plan.dim) {
->>>>>>> theirs
                 return;
             };
             // `PositionMoveRotation.of(this)` takes the cart's `getKnownMovement`.
@@ -2522,7 +2421,6 @@ mod tests {
 #[cfg(test)]
 #[path = "tests/portal_cooldown_tests.rs"]
 mod cooldown_tests;
-<<<<<<< ours
 
 #[cfg(test)]
 #[path = "nether_portal/arrival_effects_tests.rs"]
@@ -2644,10 +2542,7 @@ impl Game<'_> {
         Ok(false)
     }
 }
-||||||| base
-=======
 
 #[cfg(test)]
 #[path = "nether_portal_stand_tests.rs"]
 mod stand_tests;
->>>>>>> theirs

@@ -304,62 +304,6 @@ impl Game<'_> {
         let held = self.held().cloned();
         let aim = self.attacker_aim(source.attacker);
         let kind = self.mobs[index].kind.id.clone();
-<<<<<<< ours
-||||||| base
-        let mut amount = amount;
-        // After the invulnerability guard, as `LivingIncomingDamageEvent` fires.
-        if !crate::mod_api::mods().is_empty() && !self.mobs[index].refuses_damage(&source) {
-            let victim = &self.mobs[index];
-            let position = victim.position;
-            let view = super::view_vector(victim.head_yaw, victim.head_pitch);
-            let mut canceled = false;
-            self.native_living_incoming_damage_v2(
-                victim.id as i32,
-                &kind,
-                super::creatures::source_damage_type(source),
-                self.player.as_ref().map_or(0, |player| player.entity_id),
-                source.from,
-                [position.x, position.y, position.z],
-                view,
-                held.as_ref(),
-                &mut amount,
-                &mut canceled,
-            );
-            if canceled {
-                return false;
-            }
-        }
-=======
-        let mut amount = amount;
-        // `DamageSource.isCreativePlayer()`: a creative player's hit is let through
-        // `Entity.isInvulnerableToBase`.
-        self.mobs[index].creative_attacker = self.creative;
-        // After the invulnerability guard, as `LivingIncomingDamageEvent` fires.
-        if !crate::mod_api::mods().is_empty() && !self.mobs[index].refuses_damage(&source) {
-            let victim = &self.mobs[index];
-            let position = victim.position;
-            let view = super::view_vector(victim.head_yaw, victim.head_pitch);
-            let mut canceled = false;
-            self.native_living_incoming_damage_v2(
-                victim.id as i32,
-                &kind,
-                super::creatures::source_damage_type(source),
-                self.player.as_ref().map_or(0, |player| player.entity_id),
-                source.from,
-                [position.x, position.y, position.z],
-                view,
-                held.as_ref(),
-                &mut amount,
-                &mut canceled,
-            );
-            if canceled {
-                // The flag must not outlive the blow: a later hit from a source that is not
-                // the creative player would otherwise pass `isInvulnerableToBase`.
-                self.mobs[index].creative_attacker = false;
-                return false;
-            }
-        }
->>>>>>> theirs
         let ctx = EffectContext {
             this: Some(&kind),
             attacker: Some("minecraft:player"),
@@ -388,6 +332,7 @@ impl Game<'_> {
         let old_health = self.mobs[index].health;
         // The causing entity's aim, for what turns a blow by where it points
         // (`SulfurCube.knockback`).
+        self.mobs[index].creative_attacker = self.creative;
         self.mobs[index].attacker_aim = aim;
         self.mobs[index].dealt_absorbed = 0;
         let hurt = self.mobs[index].damage_with(

@@ -11,15 +11,7 @@ use horizon_client::{
     block_entity_render::vertex_light,
     hud::{HudAtlas, HudBatch, HudVertex},
     mesher::Vertex,
-<<<<<<< ours
-    mobs::Mob,
-||||||| base
-    mobs::Mob,
-    mod_api,
-=======
     mobs::{Mob, Who},
-    mod_api,
->>>>>>> theirs
     save::uuid_text,
     scoreboard as sb,
     text::Text,

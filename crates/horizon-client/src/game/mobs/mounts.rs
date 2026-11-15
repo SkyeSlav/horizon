@@ -710,50 +710,14 @@ impl Game<'_> {
             self.dismount_happy_ghast(id);
             return;
         }
-<<<<<<< ours
         let mount = Mount::of(m);
-||||||| base
-        let mount = Mount {
-            species: m.species(),
-            position: m.position,
-            bounds: m.bounds(),
-            width: m.width(),
-            height: m.height(),
-            yaw: m.yaw,
-        };
-=======
-        let mount = Mount {
-            species: m.species(),
-            position: m.position,
-            bounds: m.bounds(),
-            width: m.width(),
-            yaw: m.yaw,
-        };
->>>>>>> theirs
         if self.dismount_in_portal(mount.position) {
             return;
         }
         let Some(p) = self.player.as_ref() else {
             return;
         };
-<<<<<<< ours
         let (spot, pose) = self.mount_player_dismount(&mount, self.yaw, p);
-||||||| base
-        let rider = Rider {
-            yaw: self.yaw,
-            width: p.dimensions.width,
-            poses: rider_poses(p),
-        };
-        let (spot, pose) = dismount_location(&mount, &rider, &GameDismountWorld(self));
-=======
-        let rider = Rider {
-            yaw: self.yaw,
-            width: p.dimensions.width,
-            poses: rider_poses(p),
-            main_arm_left: self.settings.main_hand_left,
-        };
-        let (spot, pose) = dismount_location(&mount, &rider, &GameDismountWorld(self));
->>>>>>> theirs
         if let Some(p) = self.player.as_mut() {
             p.position = spot;
             p.velocity = Vec3::ZERO;
@@ -776,6 +740,7 @@ impl Game<'_> {
             yaw,
             width: p.dimensions.width,
             poses: rider_poses(p),
+            main_arm_left: self.settings.main_hand_left,
         };
         dismount_location(mount, &rider, &GameDismountWorld(self))
     }
@@ -1061,7 +1026,6 @@ struct Mount {
     width: f32,
     yaw: f32,
 }
-<<<<<<< ours
 impl Mount {
     fn of(m: &Mob) -> Self {
         Self {
@@ -1069,7 +1033,6 @@ impl Mount {
             position: m.position,
             bounds: m.bounds(),
             width: m.width(),
-            height: m.height(),
             yaw: m.yaw,
         }
     }
@@ -1084,14 +1047,6 @@ pub(super) fn on_top(m: &Mob) -> Vec3 {
 }
 /// The rider getting off: `getYRot`, `getBbWidth`, and
 /// `getLocalBoundsForPose` for each of `Player.getDismountPoses`.
-||||||| base
-/// The rider getting off: `getYRot`, `getBbWidth`, and
-/// `getLocalBoundsForPose` for each of `Player.getDismountPoses`.
-=======
-/// The rider getting off: `getYRot`, `getBbWidth`,
-/// `getLocalBoundsForPose` for each of `Player.getDismountPoses`, and
-/// `getMainArm`.
->>>>>>> theirs
 struct Rider {
     yaw: f32,
     width: f32,

@@ -874,7 +874,6 @@ impl Game<'_> {
                 raider::find_patrol_target_from(&mut mob, [0, 0, 0]);
             }
         }
-<<<<<<< ours
         let spawn_reason = if reason == raider::Reason::Patrol {
             horizon_client::mobs::spawn_rules::Reason::Patrol
         } else {
@@ -883,25 +882,6 @@ impl Game<'_> {
         if self.finalize_with(&mut mob, spawn_reason, None) == Finalized::Cancelled {
             return None;
         }
-||||||| base
-        let facts = self.biome_facts(
-            at[0].floor() as i32,
-            at[1].floor() as i32,
-            at[2].floor() as i32,
-        );
-        let difficulty = self.local_difficulty(at);
-        spawning::finalize(&mut mob, &facts, &difficulty);
-        raider::finalize(&mut mob, reason);
-=======
-        let facts = self.biome_facts(
-            at[0].floor() as i32,
-            at[1].floor() as i32,
-            at[2].floor() as i32,
-        );
-        let difficulty = self.local_difficulty(at);
-        spawning::finalize(&mut mob, &facts, &difficulty, &mut self.world.random);
-        raider::finalize(&mut mob, reason);
->>>>>>> theirs
         let id = mob.id;
         self.mobs.push(mob);
         self.native_mobs_joined(self.mobs.len() - 1, false);
