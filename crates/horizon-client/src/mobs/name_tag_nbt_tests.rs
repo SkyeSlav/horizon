@@ -7,7 +7,7 @@
 use super::super::{Mob, MobType, Part, Species};
 use crate::entity_nbt::{mob_from_nbt, mob_to_nbt, name_text};
 use horizon_core::geometry::Vec3;
-use horizon_world::nbt::Tag;
+use horizon_core::nbt::Tag;
 use std::sync::Arc;
 
 /// A cow type, without the prepared resources a test machine may not have.

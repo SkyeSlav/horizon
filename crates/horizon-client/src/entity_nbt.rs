@@ -2883,6 +2883,7 @@ pub fn orbs_from_nbt(tag: &Tag) -> Vec<ExperienceOrb> {
     };
     let count = number(tag.get("Count")).unwrap_or(1).max(1) as u32;
     let orb = ExperienceOrb {
+        fire_ticks: number(tag.get("Fire")).unwrap_or(0) as i32,
         attachment_lifetime: Default::default(),
         fall_distance: float(tag.get("fall_distance")).unwrap_or(0.0),
         rotation: rotation(tag),

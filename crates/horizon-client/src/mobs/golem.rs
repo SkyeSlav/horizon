@@ -252,7 +252,7 @@ impl Goal for DefendVillage {
         }
         // The box around the golem: 10 across, 8 up and down.
         let b = m.bounds().inflate(Vec3::new(10.0, 8.0, 10.0));
-        let range = (64.0 * p.visibility_percent(Some(m.kind.id.as_str()), cx.w.items)).max(2.0);
+        let range = (64.0 * p.visibility_percent(m.species())).max(2.0);
         if !b.intersects(p.bounds) || m.position.distance_squared(p.position) > range * range {
             return false;
         }
