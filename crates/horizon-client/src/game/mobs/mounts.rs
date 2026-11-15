@@ -1966,6 +1966,7 @@ mod tests {
     /// nothing (and a silent saddle or armour draws no seed either), and the
     /// level's random draws nothing in any of it.
     #[test]
+    #[ignore = "daily"]
     fn saddling_and_armouring_play_at_pitch_one_from_the_mounts_own_random() {
         let mut resources = None;
         let Some(mut game) = server_game(&mut resources) else {
@@ -2065,6 +2066,7 @@ mod tests {
     /// `MULE_CHEST`) and posts no mob equip event, which only the saddle and
     /// the armour do.
     #[test]
+    #[ignore = "daily"]
     fn a_chest_on_a_donkey_or_mule_plays_its_own_sound_at_full_volume() {
         let mut resources = None;
         let Some(mut game) = server_game(&mut resources) else {
@@ -2121,6 +2123,7 @@ mod tests {
     /// on, so a husk a player saddled is kept past the monster category's 128
     /// blocks (`Mob.checkDespawn` reads `isPersistenceRequired`).
     #[test]
+    #[ignore = "daily"]
     fn a_camel_husk_keeps_itself_once_clicked() {
         let mut resources = None;
         let Some(mut game) = server_game(&mut resources) else {

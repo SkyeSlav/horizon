@@ -106,6 +106,7 @@ fn a_wind_charged_zombie_dies(game: &mut Game<'_>, silent: bool) {
 /// `playSound = source == null || !source.isSilent()`, so a `Silent` mob's
 /// burst is mute. The particle and the knockback stay either way.
 #[test]
+#[ignore = "daily"]
 fn a_wind_charged_mob_bursts_with_the_breezes_sound_unless_it_is_silent() {
     let Some(outcome) = with_game(|game| {
         let mut outcome = Vec::new();
@@ -148,6 +149,7 @@ fn a_wind_charged_mob_bursts_with_the_breezes_sound_unless_it_is_silent() {
 /// charge's burst is mute, its gust and its push stay. The sound is the wind
 /// charge's own, as `WindCharge.explode` passes it.
 #[test]
+#[ignore = "daily"]
 fn a_silent_wind_charge_bursts_without_a_sound() {
     let Some(outcome) = with_game(|game| {
         let mut outcome = Vec::new();
@@ -201,6 +203,7 @@ fn a_silent_wind_charge_bursts_without_a_sound() {
 /// breeze's charge (`ServerExplosion.canTriggerBlocks`), so the blocks that
 /// react still do.
 #[test]
+#[ignore = "daily"]
 fn a_mobs_burst_leaves_vehicles_alone_with_mob_griefing_off() {
     let Some(()) = with_game(|game| {
         assert!(game.run_command("gamerule mob_griefing false"));
