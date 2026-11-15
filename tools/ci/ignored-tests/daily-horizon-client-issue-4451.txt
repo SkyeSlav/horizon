@@ -49,7 +49,6 @@ horizon-client game::attachment_index::saved_entity_tests::saved_entity_loaders_
 horizon-client game::attachment_index::saved_entity_tests::saved_spit_and_bullet_query_before_access_and_round_trip lib daily resources
 horizon-client game::attachment_index::tests::chunk_residency_uses_the_owning_level_through_cow_and_swaps lib daily resources
 horizon-client game::attachment_index::tests::loaded_levels_keep_independent_index_through_swaps_and_close lib daily resources
-horizon-client game::attachment_instruction_bench::attachment_instruction_count lib daily resources
 horizon-client game::beehives::changed_tests::a_bee_going_in_marks_the_chunk lib daily resources
 horizon-client game::beehives::changed_tests::a_released_bee_marks_the_chunk lib daily resources
 horizon-client game::beehives::honey_overflow_tests::a_honey_bottle_that_does_not_fit_is_thrown_ahead lib daily resources
@@ -996,7 +995,6 @@ horizon-client game::mending_pick_tests::mending_pick_data_pack_effect lib daily
 horizon-client game::mending_pick_tests::mending_pick_head_effect_excludes_chestplate lib daily resources
 horizon-client game::mending_pick_tests::mending_pick_redefined_mending_without_effect lib daily resources
 horizon-client game::mending_pick_tests::mending_pick_uses_hook_granted_enchantment lib daily resources
-horizon-client game::minecarts::cart_cost_bench::tick_carts_with_many_parked_carts lib daily resources
 horizon-client game::minecarts::cart_push_tests::a_moving_carts_team_keeps_it_from_boarding_a_cow lib daily resources
 horizon-client game::minecarts::cart_push_tests::a_moving_carts_team_rules_which_carts_it_pushes lib daily resources
 horizon-client game::minecarts::cart_push_tests::a_pushed_chest_cart_keeps_its_pending_loot lib daily resources
@@ -1090,8 +1088,6 @@ horizon-client game::native_block_entity_item_tests::each_slot_journalled_contai
 horizon-client game::native_block_entity_item_tests::internal_slots_preserve_automation_limits_and_nested_transactions lib daily resources
 horizon-client game::native_block_entity_item_tests::storage_asks_a_game_container_by_kind_and_rolls_back_with_its_transaction lib daily resources
 horizon-client game::native_block_entity_item_tests::storage_writes_abort_to_the_exact_state_of_every_container_kind lib daily resources
-horizon-client game::native_block_entity_item_tests::timing_container_moves_beside_saved_data lib daily resources
-horizon-client game::native_block_entity_item_tests::timing_storage_against_items_across_barrel_cells lib daily resources
 horizon-client game::native_block_entity_refs::tests::a_level_hook_set_block_replaces_whole_states_and_their_block_entities lib daily resources
 horizon-client game::native_block_entity_refs::tests::an_abort_puts_back_the_lock_and_the_loot_table_roll lib daily resources
 horizon-client game::native_block_entity_refs::tests::player_opens_provider_and_refuses_non_provider lib daily resources

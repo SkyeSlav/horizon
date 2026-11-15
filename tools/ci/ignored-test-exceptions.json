@@ -18,6 +18,14 @@
   {
     "package": "horizon-client",
     "target": "lib",
+    "test": "game::attachment_instruction_bench::attachment_instruction_count",
+    "path": "crates/horizon-client/src/game/modding/attachment_instruction_bench.rs",
+    "reason": "callgrind fixture; needs HORIZON_TEST_RESOURCES",
+    "rationale": "Opt-in instruction-count measurement, not a daily correctness check: returns without measuring unless ATTACHMENT_PASSES parses as usize. Run by hand with HORIZON_TEST_RESOURCES and ATTACHMENT_PASSES, exact-selecting this full test path with --ignored --exact --nocapture under the intended measurement tooling. No automated runner currently supplies ATTACHMENT_PASSES; the source diagnostic naming a parity harness does not establish such a runner. All assertions remain in the test."
+  },
+  {
+    "package": "horizon-client",
+    "target": "lib",
     "test": "game::block_entity_part_state_tests::native_and_compiled_wasm_part_state_count_ticks",
     "path": "crates/horizon-client/src/game/modding/block_entity_part_state_tests.rs",
     "reason": "needs prepared resources and compiled HORIZON_WASM_FIXTURE/HORIZON_WASM_STD",
@@ -130,10 +138,34 @@
   {
     "package": "horizon-client",
     "target": "lib",
+    "test": "game::minecarts::cart_cost_bench::tick_carts_with_many_parked_carts",
+    "path": "crates/horizon-client/src/game/entities/minecarts.rs",
+    "reason": "a timing, needs prepared resources in HORIZON_TEST_RESOURCES",
+    "rationale": "Manual wall-clock measurement, not a daily correctness check: prints tick_carts time without behavioral assertions. Run by hand on an idle machine with HORIZON_TEST_RESOURCES, exact-selecting the full test path with --ignored --exact --nocapture. CARTS_PARKED, CARTS_MOVING, MOBS and TICKS optionally control the workload; defaults include 600 parked carts, 100 moving carts and 3000 mobs. Test body remains unchanged."
+  },
+  {
+    "package": "horizon-client",
+    "target": "lib",
     "test": "game::mod_api_host::attachment_membership_tests::attachment_entity_read_bench",
     "path": "crates/horizon-client/src/game/modding/mod_api_host.rs",
     "reason": "manual attachment scaling benchmark; needs HORIZON_TEST_RESOURCES",
     "rationale": "Opt-in measurement, not an ordinary daily correctness check: manual attachment scaling benchmark; needs HORIZON_TEST_RESOURCES. Run by hand on an idle machine with the optimized profile and its explicitly requested inputs; all assertions remain in the test."
+  },
+  {
+    "package": "horizon-client",
+    "target": "lib",
+    "test": "game::native_block_entity_item_tests::timing_container_moves_beside_saved_data",
+    "path": "crates/horizon-client/src/game/modding/native_block_entity_item_tests.rs",
+    "reason": "needs prepared resources in HORIZON_TEST_RESOURCES; runs in an isolated scratch process",
+    "rationale": "Opt-in wall-clock measurement, not a daily correctness check: returns without measuring unless HORIZON_JOURNAL_TIMING is set. Run by hand with HORIZON_JOURNAL_TIMING=1 and HORIZON_TEST_RESOURCES, using --ignored --exact --nocapture on its full test path; with_mod_parts runs the measurement in an isolated child process. All assertions remain in the test."
+  },
+  {
+    "package": "horizon-client",
+    "target": "lib",
+    "test": "game::native_block_entity_item_tests::timing_storage_against_items_across_barrel_cells",
+    "path": "crates/horizon-client/src/game/modding/native_block_entity_item_tests.rs",
+    "reason": "needs prepared resources in HORIZON_TEST_RESOURCES; runs in an isolated scratch process",
+    "rationale": "Opt-in wall-clock measurement, not a daily correctness check: returns without measuring unless HORIZON_STORAGE_TIMING is set. Run by hand with HORIZON_STORAGE_TIMING=1 and HORIZON_TEST_RESOURCES, using --ignored --exact --nocapture on its full test path; with_mod_parts runs the measurement in an isolated child process. All assertions remain in the test."
   },
   {
     "package": "horizon-client",
