@@ -136,3 +136,6 @@ Graph.depthFirstSearch	inline	crates/horizon-world/src/worldgen/feature_sort.rs:
 Weapon.<clinit>	skip:java		constructs the Java persistent and stream codecs; record validation and values are implemented natively
 UseEffects.<clinit>	skip:java		constructs Java persistent and stream codecs and the immutable default; decoded values and validation are implemented natively
 AttackRange.<clinit>	skip:java		constructs Java persistent and stream codecs; native decoding validates and stores the six range fields
+DamageSourcePredicate.<clinit>	skip:java		RecordCodecBuilder CODEC construction only; runtime DamageSourcePredicate.matches remains mapped separately
+DialogTypes.bootstrap	skip:java		registers five Java MapCodec instances; serialized dialog schemas are decoded natively
+LootPoolEntries.bootstrap	skip:java		registers nine Java MapCodec instances; serialized loot-entry schemas are decoded natively

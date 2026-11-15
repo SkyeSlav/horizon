@@ -1,6 +1,8 @@
 //! ItemParser (item stacks with components, `stone[damage=5]`) and
 //! ItemPredicateArgument (ComponentPredicateParser's packrat grammar:
 //! `#logs[count~1..|!damage]`), with vanilla's errors and suggestions.
+//! Network-only components have no persistent payload: assignments and stack
+//! removals reject them, while predicate presence/absence tests only name a type.
 use super::args::{
     ItemInput, Registries, is_id_char, parse_identifier, read_identifier, suggest_resources,
 };
@@ -93,8 +95,8 @@ pub const DECODED_COMPONENTS: &[&str] = &[
 ];
 
 /// Validate and decode a component into the value representation shared with stacks.
-/// Registered components without a shared decoder retain their exact stored value.
-/// Registration is checked by the caller; this helper only rejects failed decodes.
+/// Registered persistent components without a shared decoder retain their stored value.
+/// Registration is checked by the caller; transient components have no decoder.
 pub fn decoded_component_value(id: &str, value: &Tag, reg: &Registries) -> Result<Tag, String> {
     if id == "minecraft:tooltip_display" {
         return tooltip_display(value, reg);
@@ -107,6 +109,7 @@ pub fn decoded_component_value(id: &str, value: &Tag, reg: &Registries) -> Resul
             });
     }
     if !DECODED_COMPONENTS.contains(&id) {
+        horizon_world::item_defaults::validate_component_tag(id, value)?;
         return Ok(value.clone());
     }
     if id == "minecraft:potion_duration_scale" {
@@ -261,6 +264,7 @@ pub fn decoded_component_value(id: &str, value: &Tag, reg: &Registries) -> Resul
 
 /// The codecs of the item components commands commonly set.
 pub fn decode_component(id: &str, t: &Tag, reg: &Registries) -> Result<(), String> {
+    horizon_world::item_defaults::validate_component_tag(id, t)?;
     if let Some(registry) = horizon_items::properties::pet_variants::registry(id) {
         return horizon_items::properties::pet_variants::decode(registry, t, reg).map(|_| ());
     }
@@ -649,6 +653,7 @@ fn int_bounds(t: &Tag) -> Result<(), String> {
 }
 /// DataComponentPredicate type codecs.
 pub fn decode_predicate(id: &str, t: &Tag) -> Result<(), String> {
+    horizon_world::item_defaults::validate_partial_predicate_tag(id, t)?;
     match id {
         "minecraft:count" => int_bounds(t),
         "minecraft:damage" => match t {
@@ -715,6 +720,14 @@ impl ItemState<'_, '_> {
         }
         let cursor = self.reader.cursor;
         let id = read_identifier(self.reader)?;
+        if let Err(message) = horizon_world::item_defaults::validate_component_name(&id) {
+            self.reader.cursor = cursor;
+            return Err(CommandError::tr_at(
+                "arguments.item.component.malformed",
+                &[&id, &message],
+                self.reader,
+            ));
+        }
         if self.reg.persistent_components.contains(&id) {
             return Ok(id);
         }
@@ -1106,7 +1119,10 @@ fn predicate_grammar() -> Grammar<IV> {
                 .ids("minecraft:data_component_type")
                 .iter()
                 .any(|c| c == id);
-            if known && r.persistent_components.iter().any(|c| c == id) {
+            if known
+                && (r.persistent_components.iter().any(|c| c == id)
+                    || horizon_world::item_defaults::is_transient_component(id))
+            {
                 Ok(IV::Comp(id.to_owned()))
             } else {
                 Err(CommandError::tr_at(

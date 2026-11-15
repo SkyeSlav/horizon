@@ -1047,6 +1047,9 @@ impl RecipeIndex {
     ) -> Self {
         let mut recipes = std::collections::BTreeMap::new();
         let mut insert = |id: String, v: &serde_json::Value| {
+            if !Ingredient::validate_persistence(v, &id) {
+                return;
+            }
             let kind = v["type"].as_str().unwrap_or_default();
             let special = mod_api::__private::parts_installation::crafting_recipe(kind).is_some()
                 || kind.starts_with("minecraft:crafting_special_")

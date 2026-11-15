@@ -94,6 +94,7 @@ pub(crate) fn template_count(v: &Value) -> Option<u32> {
 }
 impl Template {
     pub(crate) fn parse(v: &Value) -> Option<Self> {
+        horizon_world::item_defaults::validate_stack(v).ok()?;
         let components = v.get("components").map(json_tag);
         let (damage, extra) = crate::item_data::decode_components(components.as_ref());
         Some(Self {
@@ -1484,6 +1485,7 @@ impl ResolvedSources {
         mut sources: Vec<(String, Value)>,
         context: &horizon_world::native_load_context::LoadContext,
     ) -> Result<Self> {
+        sources.retain(|(name, value)| Ingredient::validate_persistence(value, name));
         // Every consumer keeps vanilla's resource-file registration order.
         sources.sort_by_cached_key(|(name, _)| registration_key(name));
         for (name, file) in &sources {
