@@ -15,8 +15,8 @@ use winit::keyboard::KeyCode;
 /// A game whose selected hotbar slot holds a book and quill, its editor open,
 /// `text` typed on the page.
 fn editing(text: &str) -> Game<'static> {
-    let mut resources = None;
-    let mut game = server_game(&mut resources);
+    let resources = Box::leak(Box::new(None));
+    let mut game = server_game(resources);
     *game.held_mut() = Some(ItemStack::new("minecraft:writable_book", 1));
     let stack = game.held().expect("a book in hand").clone();
     assert!(game.remote_use_book(&stack), "the editor opened");

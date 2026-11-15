@@ -19,8 +19,8 @@ const DONKEY: u32 = 7;
 /// A player at `(8.5, 64, 8.5)` with a tamed, chested donkey's menu open, its
 /// box `gap` blocks from the eyes along +x.
 fn game_with_open_donkey(gap: f64) -> Game<'static> {
-    let mut resources = None;
-    let mut game = crate::game::game_tests::tests::server_game(&mut resources);
+    let resources = Box::leak(Box::new(None));
+    let mut game = crate::game::game_tests::tests::server_game(resources);
     game.player =
         Some(PlayerMotion::new(game.motion, Vec3::new(8.5, 64.0, 8.5)).expect("a player"));
     let kind = game
@@ -86,8 +86,8 @@ fn a_mount_past_seven_blocks_closes_its_menu() {
 /// `gap` blocks east of its box (the box's east face is at 8.5 + its half
 /// width, and the eyes sit inside its height).
 fn guest_beside_a_donkey(gap: f64) -> (Game<'static>, Guest) {
-    let mut resources = None;
-    let mut game = crate::game::game_tests::tests::server_game(&mut resources);
+    let resources = Box::leak(Box::new(None));
+    let mut game = crate::game::game_tests::tests::server_game(resources);
     let kind = game
         .res
         .mob_types()
@@ -111,7 +111,6 @@ fn guest_beside_a_donkey(gap: f64) -> (Game<'static>, Guest) {
             latency: Arc::new(AtomicI32::new(0)),
             address: "127.0.0.1:25565".parse().unwrap(),
             expected: false,
-            configured: Default::default(),
         },
         2,
         [8.5, 64.0, 8.5],

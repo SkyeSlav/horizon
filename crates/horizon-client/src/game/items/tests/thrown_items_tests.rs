@@ -14,8 +14,8 @@ use std::sync::Arc;
 /// A game with the player standing at 8.5 70 8.5 in a ticking chunk, with the
 /// positional sounds it plays recorded.
 fn standing_game() -> Game<'static> {
-    let mut resources = None;
-    let mut game = server_game(&mut resources);
+    let resources = Box::leak(Box::new(None));
+    let mut game = server_game(resources);
     let feet = Vec3::new(8.5, 70.0, 8.5);
     game.player = Some(horizon_client::motion::PlayerMotion::new(game.motion, feet).unwrap());
     game.world
@@ -135,13 +135,14 @@ fn with_remote_game<R>(f: impl FnOnce(&mut Game<'_>) -> R) -> R {
     let root = std::path::PathBuf::from(std::env::var_os("HORIZON_TEST_RESOURCES").unwrap());
     let settings = Settings::default();
     let loaded = load_resources(
-        root.clone(),
+        horizon_assets::resource_source::ResourceRoot::directory(root.clone()),
+        Vec::new(),
         None,
         &root,
         &settings,
         std::time::Instant::now(),
         false,
-        true,
+        crate::game::execution_role::ExecutionRole::IntegratedServer,
         &Progress::new(),
         &mut |_, _| unreachable!(),
     )
@@ -154,7 +155,7 @@ fn with_remote_game<R>(f: impl FnOnce(&mut Game<'_>) -> R) -> R {
         loaded.gui.unwrap(),
         options,
         settings,
-        Audio::silent(&root),
+        Audio::silent(&horizon_assets::resource_source::ResourceSource::directory(root.to_path_buf())),
         None,
     )
     .unwrap();

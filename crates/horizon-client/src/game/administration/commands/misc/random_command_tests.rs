@@ -103,7 +103,6 @@ fn server_with_guests() -> (Game<'static>, Vec<mpsc::Receiver<Out>>) {
                 latency: Arc::new(AtomicI32::new(0)),
                 address: "127.0.0.1:25565".parse().unwrap(),
                 expected: false,
-                configured: Default::default(),
             },
             (1_000 + conn) as i32,
             [8.5, 200.0, 8.5],

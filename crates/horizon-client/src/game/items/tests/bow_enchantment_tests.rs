@@ -8,13 +8,14 @@ use horizon_client::items::ItemStack;
 fn game_with_player(root: &std::path::Path) -> Game<'static> {
     let settings = Settings::default();
     let loaded = load_resources(
-        root.to_path_buf(),
+        horizon_assets::resource_source::ResourceRoot::directory(root.to_path_buf()),
+        Vec::new(),
         None,
         root,
         &settings,
         std::time::Instant::now(),
         false,
-        true,
+        crate::game::execution_role::ExecutionRole::IntegratedServer,
         &Progress::new(),
         &mut |_, _| unreachable!(),
     )
@@ -29,7 +30,7 @@ fn game_with_player(root: &std::path::Path) -> Game<'static> {
         loaded.gui.unwrap(),
         options,
         settings,
-        Audio::silent(root),
+        Audio::silent(&horizon_assets::resource_source::ResourceSource::directory(root.to_path_buf())),
         None,
     )
     .unwrap();

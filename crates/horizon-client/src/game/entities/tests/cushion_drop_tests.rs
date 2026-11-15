@@ -22,13 +22,14 @@ fn game() -> Game<'static> {
     );
     let settings = Settings::default();
     let loaded = load_resources(
-        root.clone(),
+        horizon_assets::resource_source::ResourceRoot::directory(root.clone()),
+        Vec::new(),
         None,
         &root,
         &settings,
         std::time::Instant::now(),
         false,
-        true,
+        crate::game::execution_role::ExecutionRole::IntegratedServer,
         &Progress::new(),
         &mut |_, _| unreachable!(),
     )
@@ -43,7 +44,7 @@ fn game() -> Game<'static> {
         loaded.gui.unwrap(),
         options,
         settings,
-        Audio::silent(&root),
+        Audio::silent(&horizon_assets::resource_source::ResourceSource::directory(root.to_path_buf())),
         None,
     )
     .unwrap();
@@ -59,7 +60,8 @@ fn game() -> Game<'static> {
     assert!(game.run_command("fill 0 199 0 15 199 15 stone"));
     // `Cushion.dropItem` only drops under `ENTITY_DROPS`, and the blast below
     // only reaches the cushion under `MOB_GRIEFING` (both default on).
-    assert!(game.ui.rules.bool("entity_drops") && game.ui.rules.bool("mob_griefing"));
+    assert!(game.ui.rules.bool_at(horizon_client::gamerules::vanilla::ENTITY_DROPS)
+            && game.ui.rules.bool_at(horizon_client::gamerules::vanilla::MOB_GRIEFING));
     game
 }
 

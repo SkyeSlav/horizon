@@ -14077,7 +14077,6 @@ pub(crate) mod tests {
                 face: [0, 1, 0],
                 inside: false,
                 point: [f64::from(pos[0]) + 0.5, 70.0, 0.5],
-                inside: false,
             };
             let stack = ItemStack::new(name, 2);
             assert_eq!(game.items().get(name).unwrap().block, Some(target));
@@ -14101,7 +14100,6 @@ pub(crate) mod tests {
             face: [0, 1, 0],
             inside: false,
             point: [0.5, 71.0, 0.5],
-            inside: false,
         };
         game.set_mode_id(2);
         let before = game.held().cloned();

@@ -12,8 +12,8 @@ type Posted = (&'static str, [f64; 3], Option<Who>);
 /// A server's game with nobody playing, or `None` without prepared resources.
 fn game() -> Option<crate::game::Game<'static>> {
     std::env::var_os("HORIZON_TEST_RESOURCES")?;
-    let mut resources = None;
-    let mut game = server_game(&mut resources);
+    let resources = Box::leak(Box::new(None));
+    let mut game = server_game(resources);
     game.build_registries();
     game.set_allow_commands(true);
     game.player = None;
@@ -64,7 +64,7 @@ fn click(game: &mut crate::game::Game<'_>, pos: [i32; 3]) -> (bool, Vec<Posted>)
 #[test]
 fn an_adventure_click_primes_tnt_only_with_a_can_break_that_names_it() {
     let Some(mut game) = game() else { return };
-    assert!(game.ui.rules.bool("tnt_explodes"));
+    assert!(game.ui.rules.bool_at(horizon_client::gamerules::vanilla::TNT_EXPLODES));
     let pos = [2, 4, 2];
     let tnt = game
         .pack

@@ -13,8 +13,8 @@ use horizon_world::registry::BlockStateId;
 /// A server's game with the prepared resources, or `None` where CI has none.
 fn game() -> Option<Game<'static>> {
     std::env::var_os("HORIZON_TEST_RESOURCES")?;
-    let mut resources = None;
-    let mut game = server_game(&mut resources);
+    let resources = Box::leak(Box::new(None));
+    let mut game = server_game(resources);
     game.build_registries();
     Some(game)
 }
