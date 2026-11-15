@@ -21,7 +21,7 @@ impl Game<'_> {
         self.refresh_recipe_property_context();
     }
 
-    pub(super) fn remote_recipe_properties(
+    pub(in crate::game) fn remote_recipe_properties(
         &mut self,
         packet: horizon_protocol::packets::recipes::UpdateRecipes,
     ) {
