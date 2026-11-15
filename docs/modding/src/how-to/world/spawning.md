@@ -37,13 +37,28 @@ A remote client, stale handle or parked level returns `None`, never a partial
 client-side list. Outside a scoped hook query, an unavailable lookup member makes the query return `None`.
 Inside a scoped hook query, unavailable members are omitted.
 
-The walk follows the level's entity lookup admission order, not spatial order.
-Removal and re-admission moves an entity to the end. Chunk entities join section
-by section, each in stored admission order. Entities that move sections retain
-their admission place rather than moving to that section's end. Zero runtime IDs
-use stable storage join order; unregistered entity kinds have no authoritative
-lookup handle and are omitted. Cache the returned list
-when you need several passes in one hook rather than repeating the host query.
+The walk preserves lookup admission order across storage families, including
+removal and re-admission at the end. An entity spawned during play, such as a
+fired arrow or primed TNT, joins the lookup as it spawns, as vanilla's
+`addFreshEntity` adds it, even when the engine gives it its id later. A chunk's
+entities join in the order the chunk was stored: vanilla's `storeChunkSections`
+order, section by section from section 0 upward and then the negative sections,
+whatever storage family holds each entity. Each section keeps its entities in
+the order they entered it: an entity that crosses into another section goes to
+the end of that section, as vanilla's `onMove` puts it there, while its place in
+the lookup stays the same. Each crossing is recorded as the entity moves, in
+the order the moves happen: an entity that steps out of a section and back is
+at the end of it again, and a passenger enters after its vehicle. A vehicle
+comes before its passengers.
+
+Some differences remain. Several moves within one entity's own tick, such as an
+enderman's teleport and its walk, count as one crossing, from where it was to
+where it ended. Entities that the engine keeps outside the residency families,
+such as lingering potion clouds, lightning bolts and eyes of ender, are not
+lookup members at all.
+The call allocates buffers for the result and sorts admission keys; it does not
+allocate an object per entity. Cache the result when doing several passes in one
+hook rather than repeatedly crossing the host boundary.
 
 ## Checking a spawn
 
