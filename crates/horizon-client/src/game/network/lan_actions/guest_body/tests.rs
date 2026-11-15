@@ -7,6 +7,7 @@ use horizon_core::random::RandomSource;
 use horizon_protocol::packets::configuration::ClientInformation;
 use std::sync::{Arc, atomic::AtomicI32, mpsc};
 
+#[path = "tests/fall_reset.rs"]
 mod fall_reset;
 
 fn guest(entity_id: i32) -> Guest {
