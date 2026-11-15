@@ -945,30 +945,6 @@ fn spawner_case(
     for tick in 0..ticks {
         let mut events = Vec::new();
         let mut spawned = std::collections::VecDeque::new();
-<<<<<<< ours
-        let mut spawn =
-            |l: &World, r: &SpawnerSpawn, _: &mut LegacyRandom| -> Option<SpawnerAdded> {
-                let t = l.s.types.types.get(r.id)?;
-                let [x, y, z] = r.position;
-                let bounds = spawn_box(x, y, z, t.width as f32, t.height as f32);
-                l.entities.borrow_mut().push((r.id.to_owned(), bounds));
-                spawned.push_back(format!(
-                    "{tick} spawn {} {} {} {} {}",
-||||||| base
-        let mut spawn = |l: &World, r: &SpawnerSpawn| -> Option<SpawnerAdded> {
-            let t = l.s.types.types.get(r.id)?;
-            let [x, y, z] = r.position;
-            let bounds = spawn_box(x, y, z, t.width as f32, t.height as f32);
-            l.entities.borrow_mut().push((r.id.to_owned(), bounds));
-            spawned.push_back(format!(
-                "{tick} spawn {} {} {} {} {}",
-                r.id,
-                bits(x),
-                bits(y),
-                bits(z),
-                // Shulker.finalizeSpawn faces it south.
-                yaw_text(
-=======
         let mut spawn =
             |l: &World, _: &mut LegacyRandom, r: &SpawnerSpawn| -> Option<SpawnerAdded> {
                 let t = l.s.types.types.get(r.id)?;
@@ -977,7 +953,6 @@ fn spawner_case(
                 l.entities.borrow_mut().push((r.id.to_owned(), bounds));
                 spawned.push_back(format!(
                     "{tick} spawn {} {} {} {} {}",
->>>>>>> theirs
                     r.id,
                     bits(x),
                     bits(y),
@@ -1078,13 +1053,7 @@ fn trial_case(
         let mut events = Vec::new();
         let mut spawned = std::collections::VecDeque::new();
         let mut items = Vec::new();
-<<<<<<< ours
-        let mut spawn = |l: &World, r: &SpawnerSpawn, _: &mut LegacyRandom| {
-||||||| base
-        let mut spawn = |l: &World, r: &SpawnerSpawn| {
-=======
         let mut spawn = |l: &World, _: &mut LegacyRandom, r: &SpawnerSpawn| {
->>>>>>> theirs
             let t = l.s.types.types.get(r.id)?;
             // Slime.readAdditionalSaveData: size Size + 1, clamped to 1..=127.
             let size = match r.entity.get(&horizon_core::nbt::JavaString::from("Size")) {

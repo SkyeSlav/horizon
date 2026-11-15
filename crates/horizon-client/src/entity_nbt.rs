@@ -3669,6 +3669,21 @@ mod cushion_tests {
         assert_eq!(loaded.bounds(), cushion.bounds());
     }
 }
+/// `ItemFrame.setDirection`: a frame on a wall turns to face away from it
+/// (`yRot` = the 2D data value times 90, `xRot` 0); one on a floor or a
+/// ceiling looks straight down or up (`xRot` = -90 times the axis step).
+/// `facing` is the 3D data value (down, up, north, south, west, east).
+fn frame_rotation(facing: u8) -> [f32; 2] {
+    match facing {
+        0 => [0.0, 90.0],
+        1 => [0.0, -90.0],
+        2 => [180.0, 0.0],
+        3 => [0.0, 0.0],
+        4 => [90.0, 0.0],
+        _ => [270.0, 0.0],
+    }
+}
+
 /// ItemFrame.addAdditionalSaveData.
 pub fn item_frame_to_nbt(f: &ItemFrame, uuid: [i32; 4], raw: Option<&Tag>) -> Tag {
     let (lo, hi) = f.bounds();
@@ -3681,7 +3696,7 @@ pub fn item_frame_to_nbt(f: &ItemFrame, uuid: [i32; 4], raw: Option<&Tag>) -> Ta
             (lo[2] + hi[2]) / 2.0,
         ),
         motion: raw.map_or(Vec3::ZERO, loaded_motion),
-        rotation: [0.0, 0.0],
+        rotation: frame_rotation(f.facing),
         on_ground: raw.is_some_and(|raw| flag(raw, "OnGround")),
         fall_distance: raw.map_or(0.0, |raw| ground_from_nbt(raw).1),
     };

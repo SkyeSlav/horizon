@@ -352,7 +352,6 @@ pub fn anim(m: &Mob, s: &State, p: &mut Poses) {
     p.xrot("right_front_leg", (pos * 0.6662 + PI).mcos() * leg);
     p.xrot("left_front_leg", (pos * 0.6662).mcos() * leg);
 }
-<<<<<<< ours
 
 #[cfg(test)]
 mod tests {
@@ -552,11 +551,9 @@ mod tests {
         ));
     }
 }
-||||||| base
-=======
 
 #[cfg(test)]
-mod tests {
+mod sight_tests {
     use super::*;
     use crate::mobs::world::{test_player, with_built_test_world};
     use horizon_core::geometry::Vec3;
@@ -622,4 +619,3 @@ mod tests {
         !m.sees(world, Who::Player)
     }
 }
->>>>>>> theirs

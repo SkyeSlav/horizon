@@ -1527,20 +1527,13 @@ impl Mob {
         }
     }
     /// LivingEntity.travel.
-<<<<<<< ours
     pub fn travel(
         &mut self,
         w: &MobWorld,
         level: &mut DamageLevel<'_>,
-        input: Vec3,
+        mut input: Vec3,
         events: &mut Vec<MobEvent>,
     ) {
-        if super::ai::custom_travel(self, w, level, input, events) {
-||||||| base
-    pub fn travel(&mut self, w: &MobWorld, input: Vec3, events: &mut Vec<MobEvent>) {
-        if super::ai::custom_travel(self, w, input, events) {
-=======
-    pub fn travel(&mut self, w: &MobWorld, mut input: Vec3, events: &mut Vec<MobEvent>) {
         // Camel.travel: on the ground, a camel that sits or changes pose keeps
         // the vertical part of its motion and drops the horizontal input.
         if super::camel::is_camel(self.species())
@@ -1551,8 +1544,7 @@ impl Mob {
             self.velocity = self.velocity.multiply(vertical);
             input = input.multiply(vertical);
         }
-        if super::ai::custom_travel(self, w, input, events) {
->>>>>>> theirs
+        if super::ai::custom_travel(self, w, level, input, events) {
             return;
         }
         if self.kind.flags.flying {
@@ -1626,8 +1618,8 @@ impl Mob {
     }
     /// LivingEntity.travelFlying: no gravity, `0.91F` drag in the air,
     /// `0.8F` in water and 0.5 in lava. A happy ghast swims as fast as it
-<<<<<<< ours
-    /// flies (`HappyGhast.travel`); the others at 0.02.
+    /// flies (`HappyGhast.travel`, at its `flying_speed` attribute); the others
+    /// at 0.02.
     fn travel_flying(
         &mut self,
         w: &MobWorld,
@@ -1635,46 +1627,13 @@ impl Mob {
         input: Vec3,
         events: &mut Vec<MobEvent>,
     ) {
-        let fluid_speed = if self.species() == super::Species::HappyGhast {
-            self.kind.air_speed
-||||||| base
-    /// flies (`HappyGhast.travel`); the others at 0.02.
-    fn travel_flying(&mut self, w: &MobWorld, input: Vec3, events: &mut Vec<MobEvent>) {
-        let fluid_speed = if self.species() == super::Species::HappyGhast {
-            self.kind.air_speed
-=======
-    /// flies (`HappyGhast.travel`, at its `flying_speed` attribute); the others
-    /// at 0.02.
-    fn travel_flying(&mut self, w: &MobWorld, input: Vec3, events: &mut Vec<MobEvent>) {
         let (fluid_speed, air_speed) = if self.species() == super::Species::HappyGhast {
             let speed = super::happy_ghast::travel_speed(self);
             (speed, speed)
->>>>>>> theirs
         } else {
             (0.02, self.kind.air_speed)
         };
-<<<<<<< ours
-        self.travel_flying_speeds(
-            w,
-            level,
-            input,
-            events,
-            fluid_speed,
-            fluid_speed,
-            self.kind.air_speed,
-        );
-||||||| base
-        self.travel_flying_speeds(
-            w,
-            input,
-            events,
-            fluid_speed,
-            fluid_speed,
-            self.kind.air_speed,
-        );
-=======
-        self.travel_flying_speeds(w, input, events, fluid_speed, fluid_speed, air_speed);
->>>>>>> theirs
+        self.travel_flying_speeds(w, level, input, events, fluid_speed, fluid_speed, air_speed);
     }
     /// `LivingEntity.travelFlying(input, waterSpeed, lavaSpeed, airSpeed)`:
     /// the speeds vary per mob (an allay flies at the speed its move control
@@ -3902,23 +3861,6 @@ mod farmland_event_tests {
 #[cfg(test)]
 #[path = "living_climbable_tests.rs"]
 mod climbable_tests;
-<<<<<<< ours
-||||||| base
-#[cfg(test)]
-#[path = "living_tests.rs"]
-mod tests;
-/// `Entity.move`'s fall-reset ray for a mob, with the world's
-/// `minecraft:fall_damage_resetting` blocks.
-=======
-#[cfg(test)]
-#[path = "name_tag_nbt_tests.rs"]
-mod name_tag_nbt_tests;
-#[cfg(test)]
-#[path = "living_tests.rs"]
-mod tests;
-/// `Entity.move`'s fall-reset ray for a mob, with the world's
-/// `minecraft:fall_damage_resetting` blocks.
->>>>>>> theirs
 fn fall_reset_hit(w: &MobWorld, from: Vec3, moved: Vec3) -> bool {
     let reset = w.block_tags.get("minecraft:fall_damage_resetting");
     crate::entities::fall_reset_hit(
@@ -3933,3 +3875,7 @@ fn fall_reset_hit(w: &MobWorld, from: Vec3, moved: Vec3) -> bool {
         moved,
     )
 }
+
+#[cfg(test)]
+#[path = "name_tag_nbt_tests.rs"]
+mod name_tag_nbt_tests;

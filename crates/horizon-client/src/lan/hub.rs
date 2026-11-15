@@ -2108,9 +2108,9 @@ impl Hub {
     /// and motion they name are sent as zero changes.
     fn teleport_relative(&mut self, i: usize, position: Option<[f64; 3]>, relatives: i32) {
         let ticks = self.ticks;
-<<<<<<< ours
         self.guests.update(i, |g| {
             g.teleport_tick = ticks;
+            g.held_ticket_chunk = Some(g.ticket_chunk()); // teleport has no move
             g.pending_move = None;
             if let Some(p) = position {
                 g.position = p;
@@ -2134,50 +2134,6 @@ impl Hub {
                 relatives,
             }));
         });
-||||||| base
-        let g = &mut self.guests[i];
-        g.teleport_tick = ticks;
-        if let Some(p) = position {
-            g.position = p;
-            g.previous_position = p;
-        }
-        g.teleport_counter = (g.teleport_counter + 1) & 0x7FFF_FFFF;
-        let id = g.teleport_counter;
-        g.awaiting_teleport = Some((id, g.position));
-        use play::relative::{DELTA_X, DELTA_Y, DELTA_Z};
-        g.awaiting_keeps_motion = relatives & (DELTA_X | DELTA_Y | DELTA_Z) != 0;
-        let turn = relatives & (play::relative::Y_ROT | play::relative::X_ROT) != 0;
-        g.send(&C::PlayerPosition(play::PlayerPosition {
-            teleport: id,
-            position: g.position,
-            delta: [0.0; 3],
-            yaw: if turn { 0.0 } else { g.yaw },
-            pitch: if turn { 0.0 } else { g.pitch },
-            relatives,
-        }));
-=======
-        let g = &mut self.guests[i];
-        g.teleport_tick = ticks;
-        g.held_ticket_chunk = Some(g.ticket_chunk()); // `teleport` has no `move`
-        if let Some(p) = position {
-            g.position = p;
-            g.previous_position = p;
-        }
-        g.teleport_counter = (g.teleport_counter + 1) & 0x7FFF_FFFF;
-        let id = g.teleport_counter;
-        g.awaiting_teleport = Some((id, g.position));
-        use play::relative::{DELTA_X, DELTA_Y, DELTA_Z};
-        g.awaiting_keeps_motion = relatives & (DELTA_X | DELTA_Y | DELTA_Z) != 0;
-        let turn = relatives & (play::relative::Y_ROT | play::relative::X_ROT) != 0;
-        g.send(&C::PlayerPosition(play::PlayerPosition {
-            teleport: id,
-            position: g.position,
-            delta: [0.0; 3],
-            yaw: if turn { 0.0 } else { g.yaw },
-            pitch: if turn { 0.0 } else { g.pitch },
-            relatives,
-        }));
->>>>>>> theirs
     }
 
     /// ClientboundSetDefaultSpawnPositionPacket for the level's respawn data
@@ -4476,34 +4432,12 @@ impl Hub {
             to[2].clamp(-3.0E7, 3.0E7),
         ];
         let (yaw, pitch) = (wrap_degrees(yaw), wrap_degrees(pitch));
-<<<<<<< ours
         let begin = self.guests.update(i, |g| {
             let owner = self.singleplayer_owner == Some(g.uuid);
             // A passenger only turns: its vehicle carries it (absSnapTo where it is).
             if g.vehicle.is_some() {
-||||||| base
-        // A passenger only turns: its vehicle carries it (absSnapTo where it is).
-        if g.vehicle.is_some() {
-            (g.yaw, g.pitch) = (yaw, pitch);
-            return;
-        }
-        let d = [0, 1, 2].map(|k| to[k] - g.first_good[k]);
-        let moved = d[0] * d[0] + d[1] * d[1] + d[2] * d[2];
-        if g.sleeping {
-            if moved > 1.0 {
-=======
-        // A passenger only turns: its vehicle carries it (absSnapTo where it is).
-        if g.vehicle.is_some() {
-            (g.yaw, g.pitch) = (yaw, pitch);
-            g.release_tickets();
-            return;
-        }
-        let d = [0, 1, 2].map(|k| to[k] - g.first_good[k]);
-        let moved = d[0] * d[0] + d[1] * d[1] + d[2] * d[2];
-        if g.sleeping {
-            if moved > 1.0 {
->>>>>>> theirs
                 (g.yaw, g.pitch) = (yaw, pitch);
+                g.release_tickets();
                 return std::ops::ControlFlow::Break(false);
             }
             let d = [0, 1, 2].map(|k| to[k] - g.first_good[k]);
@@ -4605,7 +4539,6 @@ impl Hub {
         if flags & 1 != 0 && !self.guests[i].rests_on_ground {
             self.force_send_player_support_blocks(i, ctx);
         }
-<<<<<<< ours
         let accepted = Accepted {
             to,
             yaw,
@@ -4615,68 +4548,6 @@ impl Hub {
             floating,
         };
         self.accept_move(i, accepted, hearing, events);
-||||||| base
-        let g = &mut self.guests[i];
-        g.client_is_floating = floating;
-        // Entity.move's verticalCollisionBelow, which the check above reads of the last move.
-        g.rests_on_ground = stands;
-        g.previous_position = g.position;
-        g.position = to;
-        // ServerChunkCache.move: its pairs are checked again.
-        g.moved = true;
-        let moved = [0, 1, 2].map(|k| g.position[k] - g.previous_position[k]);
-        let on_ground = flags & 1 != 0;
-        if g.on_ground && !on_ground && moved[1] > 0.0 && !g.spectator() {
-            events.push(HostEvent::Jump {
-                conn: g.conn,
-                from: g.previous_position,
-                yaw: g.yaw,
-            });
-        }
-        if g.moves.is_empty() {
-            g.moves_from_ground = g.on_ground;
-        }
-        g.moves.push((moved, on_ground));
-        g.known_movement = moved;
-        g.yaw = yaw;
-        g.pitch = pitch.clamp(-90.0, 90.0);
-        g.head_yaw = g.yaw;
-        g.on_ground = on_ground;
-        g.ticks = g.ticks.max(1);
-        if placed {
-            self.resend_teleport(i, None);
-        }
-=======
-        let g = &mut self.guests[i];
-        g.client_is_floating = floating;
-        // Entity.move's verticalCollisionBelow, which the check above reads of the last move.
-        g.rests_on_ground = stands;
-        g.accept_move(to);
-        // ServerChunkCache.move: its pairs are checked again.
-        g.moved = true;
-        let moved = [0, 1, 2].map(|k| g.position[k] - g.previous_position[k]);
-        let on_ground = flags & 1 != 0;
-        if g.on_ground && !on_ground && moved[1] > 0.0 && !g.spectator() {
-            events.push(HostEvent::Jump {
-                conn: g.conn,
-                from: g.previous_position,
-                yaw: g.yaw,
-            });
-        }
-        if g.moves.is_empty() {
-            g.moves_from_ground = g.on_ground;
-        }
-        g.moves.push((moved, on_ground));
-        g.known_movement = moved;
-        g.yaw = yaw;
-        g.pitch = pitch.clamp(-90.0, 90.0);
-        g.head_yaw = g.yaw;
-        g.on_ground = on_ground;
-        g.ticks = g.ticks.max(1);
-        if placed {
-            self.resend_teleport(i, None);
-        }
->>>>>>> theirs
     }
 
     /// `ServerGamePacketListenerImpl.noBlocksAround`: every block of the
@@ -4935,7 +4806,6 @@ impl Hub {
             g.entity_id
         });
         self.respawned(id);
-<<<<<<< ours
         self.guests.update(i, |g| {
             g.sent_pose = crate::pose::Pose::Standing;
             // ServerPlayer.restoreFrom: the game mode again (onUpdateAbilities).
@@ -4943,8 +4813,7 @@ impl Hub {
             // The new player faces the level's respawn direction (snapTo), or
             // the one its TeleportTransition carries.
             [g.yaw, g.pitch] = rotation.unwrap_or(ctx.spawn_angle);
-            g.position = at;
-            g.previous_position = at;
+            g.place(at);
             g.send(&C::Respawn(play::Respawn {
                 spawn: info,
                 keep: 0,
@@ -4964,60 +4833,6 @@ impl Hub {
             g.far_queue.clear();
             g.tracker.clear();
         });
-||||||| base
-        let g = &mut self.guests[i];
-        // ServerPlayer.restoreFrom: the game mode again (onUpdateAbilities).
-        g.send(&g.abilities());
-        // The new player faces the level's respawn direction (snapTo).
-        [g.yaw, g.pitch] = rotation;
-        g.position = at;
-        g.previous_position = at;
-        g.send(&C::Respawn(play::Respawn {
-            spawn: info,
-            keep: 0,
-        }));
-        g.sent_pose = crate::pose::Pose::Standing;
-        // ClientPacketListener.handleRespawn without KEEP_ENTITY_DATA: the client's new player
-        // starts with wasSprinting false. (A level change keeps it: the new player sprints on, or
-        // says STOP.)
-        g.client_sprinting = false;
-        // The respawned player is a new one, without effects; so is the
-        // client's (ClientPacketListener.handleRespawn).
-        g.effects = Default::default();
-        g.sent_effects.clear();
-        g.center = None;
-        g.sent_chunks.clear();
-        g.far_sent_chunks.clear();
-        g.chunk_queue.clear();
-        g.far_queue.clear();
-        g.tracker.clear();
-=======
-        let g = &mut self.guests[i];
-        // ServerPlayer.restoreFrom: the game mode again (onUpdateAbilities).
-        g.send(&g.abilities());
-        // The new player faces the level's respawn direction (snapTo).
-        [g.yaw, g.pitch] = rotation;
-        g.place(at);
-        g.send(&C::Respawn(play::Respawn {
-            spawn: info,
-            keep: 0,
-        }));
-        g.sent_pose = crate::pose::Pose::Standing;
-        // ClientPacketListener.handleRespawn without KEEP_ENTITY_DATA: the client's new player
-        // starts with wasSprinting false. (A level change keeps it: the new player sprints on, or
-        // says STOP.)
-        g.client_sprinting = false;
-        // The respawned player is a new one, without effects; so is the
-        // client's (ClientPacketListener.handleRespawn).
-        g.effects = Default::default();
-        g.sent_effects.clear();
-        g.center = None;
-        g.sent_chunks.clear();
-        g.far_sent_chunks.clear();
-        g.chunk_queue.clear();
-        g.far_queue.clear();
-        g.tracker.clear();
->>>>>>> theirs
         self.resend_teleport(i, None);
         let spawn = self.default_spawn(ctx.spawn, ctx.spawn_angle);
         self.guests.update(i, |g| {
@@ -5114,7 +4929,6 @@ impl Hub {
     ) {
         let info = self.spawn_info(i, portal_cooldown, ctx.sea_level);
         self.close_container_for(i);
-<<<<<<< ours
         self.before_travel(i);
         let left = self.guests[i].dimension.clone();
         self.guests.update(i, |g| {
@@ -5131,8 +4945,7 @@ impl Hub {
             if let Some(pitch) = pitch {
                 g.pitch = pitch;
             }
-            g.position = at;
-            g.previous_position = at;
+            g.place(at);
             g.send(&C::Respawn(play::Respawn {
                 spawn: info,
                 // ClientboundRespawnPacket.KEEP_ALL_DATA.
@@ -5142,52 +4955,6 @@ impl Hub {
         // Its chunks, queues and entities left behind, or kept as a viewed level (#3716).
         self.leave_level(i, &left);
         self.guests[i].send(&C::ChangeDifficulty(play::ChangeDifficulty {
-||||||| base
-        let g = &mut self.guests[i];
-        g.dimension = self.config.dimension.clone();
-        // The load timer is not restarted: vanilla resets the client's loaded state on death and
-        // respawn only, and covers a level change with its separate `isChangingDimension` term.
-        g.tracker.clear();
-        g.sent_chunks.clear();
-        g.far_sent_chunks.clear();
-        g.chunk_queue.clear();
-        g.far_queue.clear();
-        g.center = None;
-        g.yaw = yaw;
-        if let Some(pitch) = pitch {
-            g.pitch = pitch;
-        }
-        g.position = at;
-        g.previous_position = at;
-        g.send(&C::Respawn(play::Respawn {
-            spawn: info,
-            // ClientboundRespawnPacket.KEEP_ALL_DATA.
-            keep: 3,
-        }));
-        g.send(&C::ChangeDifficulty(play::ChangeDifficulty {
-=======
-        let g = &mut self.guests[i];
-        g.dimension = self.config.dimension.clone();
-        // The load timer is not restarted: vanilla resets the client's loaded state on death and
-        // respawn only, and covers a level change with its separate `isChangingDimension` term.
-        g.tracker.clear();
-        g.sent_chunks.clear();
-        g.far_sent_chunks.clear();
-        g.chunk_queue.clear();
-        g.far_queue.clear();
-        g.center = None;
-        g.yaw = yaw;
-        if let Some(pitch) = pitch {
-            g.pitch = pitch;
-        }
-        g.place(at); // a level change adds it to the new `ChunkMap`
-        g.send(&C::Respawn(play::Respawn {
-            spawn: info,
-            // ClientboundRespawnPacket.KEEP_ALL_DATA.
-            keep: 3,
-        }));
-        g.send(&C::ChangeDifficulty(play::ChangeDifficulty {
->>>>>>> theirs
             difficulty: ctx.difficulty,
             locked: ctx.difficulty_locked,
         }));
@@ -5242,17 +5009,11 @@ impl Hub {
     /// the position, LEVEL_CHUNKS_LOAD_START (the client's loading screen
     /// closes once its chunk is in) and TeleportTransition.PLAY_PORTAL_SOUND.
     pub fn land(&mut self, i: usize, at: [f64; 3]) {
-<<<<<<< ours
         {
             let value = false;
             self.guests.update(i, |guest| guest.landing = value);
         }
-||||||| base
-        self.guests[i].landing = false;
-=======
-        self.guests[i].landing = false;
-        self.guests[i].place(at); // `teleport` holds the chunk it leaves: the exit's
->>>>>>> theirs
+        self.guests.update(i, |g| g.place(at)); // hold the exit chunk
         self.teleport(i, Some(at));
         let g = &self.guests[i];
         g.send(&C::GameEvent(play::GameEvent {
@@ -8056,5 +7817,42 @@ mod tests {
         // The same id again, with nothing awaited: disconnected.
         tick_packet(&mut hub, &mut world, accept(id));
         assert!(!hub.guests[0].left_reason.is_empty());
+    }
+    /// A guest's `/tp`: `ServerGamePacketListenerImpl.teleport` does not call `ServerChunkCache.move`,
+    /// so its tickets stay at the chunk it left (also over a second teleport) until the client's
+    /// ack of the teleport (`handleAcceptTeleportPacket` -> `handlePlayerPositionChange`) moves them.
+    /// A camera change moves them at once (`ServerPlayer.setCamera`), also back to the player.
+    #[test]
+    fn a_teleported_guests_tickets_stay_where_it_left_until_the_teleport_is_acked() {
+        let (mut hub, _rx) = hub_with_a_guest();
+        let mut world = floor_at(0);
+        let left = hub.guests[0].chunk();
+        hub.teleport(0, Some([104.5, 70.0, 8.5]));
+        assert_eq!(hub.guests[0].ticket_chunk(), left);
+        hub.teleport(0, Some([200.5, 70.0, 8.5]));
+        assert_eq!(
+            (hub.guests[0].chunk(), hub.guests[0].ticket_chunk()),
+            ((12, 0), left)
+        );
+        let id = hub.guests[0].teleport_counter;
+        tick_packet(
+            &mut hub,
+            &mut world,
+            S::AcceptTeleportation(play::AcceptTeleportation {
+                id,
+                x: 200.5,
+                y: 70.0,
+                z: 8.5,
+                yaw: 0.0,
+                pitch: 0.0,
+            }),
+        );
+        assert_eq!(hub.guests[0].ticket_chunk(), (12, 0));
+        // `guest_set_camera`: watching, the teleport to the camera, the tickets released.
+        hub.guests.update(0, |g| g.watching = true);
+        hub.teleport(0, Some([8.5, 70.0, 8.5]));
+        hub.guests.update(0, |g| g.release_tickets());
+        hub.guests.update(0, |g| g.watching = false);
+        assert_eq!(hub.guests[0].ticket_chunk(), left);
     }
 }

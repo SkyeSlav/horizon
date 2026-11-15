@@ -1147,12 +1147,7 @@ impl ExperienceOrb {
         self.previous = self.position;
         // `Entity.baseTick`'s fluid step, whose `updateFluidOnEyes` answer the
         // water branch below reads: the orb's eye, not its feet, decides.
-<<<<<<< ours
-        let (eye_in_water, in_water) = self.update_fluids(world, fluids, context);
-||||||| base
-        let (eye_in_water, in_water) = self.update_fluids(world, fluids);
-=======
-        let (eye_in_water, in_water, in_lava) = self.update_fluids(world, fluids);
+        let (eye_in_water, in_water, in_lava) = self.update_fluids(world, fluids, context);
         // `Entity.baseTick`'s fire step, right after the fluid step: an orb is
         // not fire immune, so each 20th tick of a burn hurts it for 1 (out of
         // lava; `isInLava` is false on the first tick). The client only
@@ -1171,7 +1166,6 @@ impl ExperienceOrb {
             // orb that is not on fire at `-getFireImmuneTicks()`, 0.
             self.fire_ticks = self.fire_ticks.max(0);
         }
->>>>>>> theirs
         let block = world.block(
             self.position.x.floor() as i32,
             self.position.y.floor() as i32,

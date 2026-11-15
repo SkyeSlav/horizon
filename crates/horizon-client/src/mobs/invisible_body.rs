@@ -36,6 +36,8 @@ pub fn render_seen_invisible(
         data,
         extra,
         Some(tint),
+        Default::default(),
+        None,
         out,
         None,
     );

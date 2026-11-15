@@ -21,15 +21,9 @@ use std::{
     sync::Arc,
 };
 
-<<<<<<< ours
-fn tool_number(value: &horizon_core::nbt::Tag) -> Option<f32> {
-||||||| base
-fn tool_number(value: &horizon_world::nbt::Tag) -> Option<f32> {
-=======
 mod loot_conditions;
 
-fn tool_number(value: &horizon_world::nbt::Tag) -> Option<f32> {
->>>>>>> theirs
+fn tool_number(value: &horizon_core::nbt::Tag) -> Option<f32> {
     horizon_world::datafix::dynamic::as_number(value).map(|n| n.float_value())
 }
 
@@ -1114,28 +1108,10 @@ impl Items {
             block_tag_order: load_tag_lists(root, "block", overlay)?,
             fluid_tag_order: load_tag_lists(root, "fluid", overlay)?,
             loot,
-<<<<<<< ours
+            predicates: Arc::new(predicates),
             songs: load_songs(root, overlay),
             instruments: load_instruments(root, overlay),
             enchantments,
-||||||| base
-            songs: load_songs(root),
-            instruments: load_instruments(root),
-            enchantments: Arc::new(crate::enchant::Enchantments::load_with_defaults(
-                root,
-                overlay,
-                Some(raw.as_ref()),
-            )),
-=======
-            predicates: Arc::new(predicates),
-            songs: load_songs(root),
-            instruments: load_instruments(root),
-            enchantments: Arc::new(crate::enchant::Enchantments::load_with_defaults(
-                root,
-                overlay,
-                Some(raw.as_ref()),
-            )),
->>>>>>> theirs
         })
     }
     /// Use the server's loaded loot-table snapshot for item and block drops.
@@ -1213,20 +1189,7 @@ impl Items {
                 .map(|(k, v)| (k.clone(), v.iter().cloned().collect()))
                 .collect(),
             item_tags,
-<<<<<<< ours
             ..Self::empty()
-||||||| base
-            loot: Default::default(),
-            songs: HashMap::new(),
-            instruments: HashMap::new(),
-            enchantments: Arc::new(crate::enchant::Enchantments::default()),
-=======
-            loot: Default::default(),
-            predicates: Default::default(),
-            songs: HashMap::new(),
-            instruments: HashMap::new(),
-            enchantments: Arc::new(crate::enchant::Enchantments::default()),
->>>>>>> theirs
         }
     }
     /// Replace one registry's tags with `tags`, each tag's members in order.
@@ -2214,34 +2177,6 @@ impl<R: RandomSource> LootContext<'_, R> {
             _ => false,
         }
     }
-<<<<<<< ours
-    fn conditions(&self, o: &Value, random: &mut R) -> bool {
-        if let Some(c) = o.get("condition")
-            && !self.condition(c, random)
-        {
-            return false;
-        }
-        o.get("conditions")
-            .and_then(Value::as_array)
-            .into_iter()
-            .flatten()
-            .all(|c| self.condition(c, random))
-    }
-||||||| base
-    fn conditions<R: RandomSource>(&self, o: &Value, random: &mut R) -> bool {
-        if let Some(c) = o.get("condition")
-            && !self.condition(c, random)
-        {
-            return false;
-        }
-        o.get("conditions")
-            .and_then(Value::as_array)
-            .into_iter()
-            .flatten()
-            .all(|c| self.condition(c, random))
-    }
-=======
->>>>>>> theirs
     /// Expand entries; returns whether an entry succeeded (for alternatives).
     /// The last candidate field distinguishes emitted items from empty/deferred
     /// placeholders, without changing existing selection/modifier draws.

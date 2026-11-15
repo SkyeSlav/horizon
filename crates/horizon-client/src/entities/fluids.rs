@@ -155,22 +155,14 @@ impl ExperienceOrb {
     /// resets its fall, and `Entity.baseTick` halves it in lava (`isInLava`
     /// is false on the orb's first tick, `Entity.firstTick`). Answers
     /// `isEyeInFluid(FluidTags.WATER)` for the eye the scan reads, `0.425`
-<<<<<<< ours
-    /// above the orb's feet, and `isInWater`.
+    /// above the orb's feet, `isInWater`, and `isInLava` (before
+    /// `Entity.firstTick` is taken into account).
     pub fn update_fluids(
         &mut self,
         world: &World,
         fluids: &FluidResources,
         context: &LoopContext,
-    ) -> (bool, bool) {
-||||||| base
-    /// above the orb's feet, and `isInWater`.
-    pub fn update_fluids(&mut self, world: &World, fluids: &FluidResources) -> (bool, bool) {
-=======
-    /// above the orb's feet, `isInWater`, and `isInLava` (before
-    /// `Entity.firstTick` is taken into account).
-    pub fn update_fluids(&mut self, world: &World, fluids: &FluidResources) -> (bool, bool, bool) {
->>>>>>> theirs
+    ) -> (bool, bool, bool) {
         let (water, lava, eye) = update_entity_fluids(
             self.bounds(),
             self.position,

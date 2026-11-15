@@ -31,25 +31,17 @@ fn avatar(m: &Mob) -> bool {
 /// rider's attachment point sits relative to the vehicle's feet, in its
 /// scale (`getDimensions` scales the attachments with the box).
 pub fn passenger_attachment(v: &Mob) -> [f64; 3] {
-<<<<<<< ours
     passenger_attachment_at(v, 0)
 }
 /// Passenger attachment for seat `index`, clamped to the vehicle's last seat.
 pub fn passenger_attachment_at(v: &Mob, index: usize) -> [f64; 3] {
     let [x, y, z] = base_attachment_at(v, index);
     let s = scale(v);
-||||||| base
-    let [x, y, z] = base_attachment(v);
-    let s = scale(v);
-=======
-    let [x, y, z] = type_attachment(v);
->>>>>>> theirs
     // AbstractHorse.getPassengerAttachmentPoint: a rearing horse slides it,
     // after the scaled attachment (`rear_offset` scales with age itself).
     let rear = super::equine::rear_offset(v);
-    [x + rear[0], y + rear[1], z + rear[2]]
+    [x * s + rear[0], y * s + rear[1], z * s + rear[2]]
 }
-<<<<<<< ours
 pub(crate) fn parse_passenger_attachments(value: &serde_json::Value) -> Vec<[f32; 3]> {
     value.as_array().map_or_else(Vec::new, |a| {
         a.iter()
@@ -70,20 +62,13 @@ pub(crate) fn parse_passenger_attachments(value: &serde_json::Value) -> Vec<[f32
 /// `0.86875F` is `0.8687499761581421`).
 fn pt(x: f32, y: f32, z: f32) -> [f64; 3] {
     [f64::from(x), f64::from(y), f64::from(z)]
-||||||| base
-/// An `EntityType` attachment point: the builder takes floats, so the double
-/// the position math sees is the float's widening (`Vec3(x, y, z)` of
-/// `0.86875F` is `0.8687499761581421`).
-fn pt(x: f32, y: f32, z: f32) -> [f64; 3] {
-    [f64::from(x), f64::from(y), f64::from(z)]
-=======
+}
 /// The type's attachment alone, in its scale: what a vehicle's own
 /// `getPassengerAttachmentPoint` adds its offset to (a rearing horse's slide).
 pub fn type_attachment(v: &Mob) -> [f64; 3] {
-    let [x, y, z] = base_attachment(v);
+    let [x, y, z] = base_attachment_at(v, 0);
     let s = scale(v);
     [x * s, y * s, z * s]
->>>>>>> theirs
 }
 /// An `EntityType` attachment point from `passengerAttachments(float... offsetYs)`:
 /// the builder takes floats, so the double the position math sees is the

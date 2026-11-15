@@ -78,14 +78,8 @@ impl BossBar {
     pub fn display_name(&self) -> Text {
         let style = Style {
             color: Some(color_rgb(&self.color)),
-<<<<<<< ours
             hover: Some(std::sync::Arc::new(Text::literal(self.id.clone()))),
-||||||| base
-            hover: Some(Box::new(Text::literal(self.id.clone()))),
-=======
-            hover: Some(Box::new(Text::literal(self.id.clone()))),
             insertion: Some(self.id.clone()),
->>>>>>> theirs
             ..Style::default()
         };
         // ComponentUtils.wrapInSquareBrackets(name).withStyle(...): the
@@ -95,18 +89,7 @@ impl BossBar {
     /// The filled fraction of the bar: `Mth.clamp(value / max, 0, 1)` as
     /// `CustomBossEvent.setValue` computes it (a 0 of 0 bar reads 0).
     pub fn progress(&self) -> f32 {
-<<<<<<< ours
-        let fraction = self.value as f32 / self.max as f32;
-        if fraction.is_nan() {
-            0.0
-        } else {
-            fraction.clamp(0.0, 1.0)
-        }
-||||||| base
-        (self.value as f32 / self.max.max(1) as f32).clamp(0.0, 1.0)
-=======
         (self.value as f32 / self.max as f32).clamp(0.0, 1.0)
->>>>>>> theirs
     }
 }
 
