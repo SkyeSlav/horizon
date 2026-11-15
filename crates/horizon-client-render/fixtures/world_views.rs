@@ -346,6 +346,34 @@ fn fixture(window: Arc<Window>) -> Result<(), Box<dyn std::error::Error>> {
                 .map(|v| Vertex { light: 0, ..v }),
         )
         .collect();
+    let static_sections = [client::block_entity_render::StaticSectionSnapshot {
+        section: [3, 10, 0],
+        origin: [48, 96, 0],
+        revision: 1,
+        entities: 1,
+        vertices: quad(upright([61.0, 103.5, 62.0, 104.5], 6.0), 0xffff_8040)
+            .map(|v| Vertex {
+                pos: [v.pos[0] - 40.0, v.pos[1] + 8.0, v.pos[2] + 0.5],
+                light: 0,
+                ..v
+            })
+            .collect::<Vec<_>>()
+            .into(),
+    }];
+    let mut dark_terrain = with_quad(
+        SectionMesh::default(),
+        [
+            [10., 7.5, 6.],
+            [10., 8.5, 6.],
+            [11., 8.5, 6.],
+            [11., 7.5, 6.],
+        ],
+        0xff40_ff40,
+    );
+    for v in &mut dark_terrain.solid {
+        v.light = 0;
+    }
+    renderer.upload((3, 10, 0), &dark_terrain);
     let hud = HudBatch::new([320, 180], GUI);
     // The game's frame: the entities culled with `camera_frustum`, which asks for the views,
     // then the frame drawn with them.
@@ -357,6 +385,8 @@ fn fixture(window: Arc<Window>) -> Result<(), Box<dyn std::error::Error>> {
         *VIEWS.lock().unwrap() = views;
         let mut frame = fixture_frame(&hud);
         frame.entities = &entity;
+        frame.static_block_entities = &static_sections;
+        frame.visible_static_block_entity_sections = &[[3, 10, 0]];
         let path = out.join(format!("{name}.png"));
         renderer.screenshot = Some(ScreenshotRequest {
             path: path.clone(),
@@ -473,7 +503,11 @@ fn fixture(window: Arc<Window>) -> Result<(), Box<dyn std::error::Error>> {
     let (with_light, drawn, _) = shot(
         &mut renderer,
         "full_light",
-        vec![dark(11), dark(12).with_full_light()],
+        vec![
+            dark(11),
+            dark(12).with_full_light(),
+            dark(13).with_parent(12),
+        ],
     );
     renderer.fullbright = true;
     assert!(
@@ -481,21 +515,47 @@ fn fixture(window: Arc<Window>) -> Result<(), Box<dyn std::error::Error>> {
         "the frame's picture is the same with a full light view"
     );
     let ids: Vec<u64> = drawn.iter().map(|(id, ..)| *id).collect();
-    assert_eq!(ids, [11, 12]);
+    assert_eq!(ids, [13, 11, 12]);
+    let drawn: Vec<_> = [11, 12, 13]
+        .iter()
+        .map(|id| drawn.iter().find(|(drawn_id, ..)| drawn_id == id).unwrap())
+        .collect();
     write_png(&out.join("view_11.png"), drawn[0].1, &drawn[0].2)?;
     write_png(&out.join("view_12.png"), drawn[1].1, &drawn[1].2)?;
     let middle = |pixels: &[[u8; 4]]| pixels[32 * 64 + 32];
     let (unlit, lit) = (middle(&drawn[0].2), middle(&drawn[1].2));
-    let blue = |pixels: &[[u8; 4]]| count(pixels, [64, 128, 255]);
+    let blue = |pixels: &[[u8; 4]]| {
+        pixels
+            .chunks_exact(64)
+            .flat_map(|row| &row[24..40])
+            .filter(|p| p[..3] == [64, 128, 255])
+            .count()
+    };
     assert_eq!(
         blue(&drawn[0].2),
         0,
         "without full light the quad is dimmed: {unlit:?}"
     );
+    assert_eq!(&unlit[..3], &[0, 0, 0], "dark entity middle");
+    assert_eq!(&lit[..3], &[64, 128, 255], "full-light entity middle");
+    assert_eq!(
+        drawn[0].2, drawn[2].2,
+        "a flagged parent does not light its unflagged child"
+    );
+    assert_eq!(
+        &drawn[1].2[32 * 64 + 9][..3],
+        &[64, 128, 255],
+        "static block entity is fully lit"
+    );
+    assert_eq!(
+        &drawn[1].2[32 * 64 + 55][..3],
+        &[0, 0, 0],
+        "terrain stays dark"
+    );
     let lit_px = blue(&drawn[1].2);
-    assert!(
-        lit_px > 200,
-        "with it, its own colour: {lit_px} pixels, {lit:?}"
+    assert_eq!(
+        lit_px, 256,
+        "the central entity quad has exactly its expected colour area"
     );
 
     // Views seen in views, fresh ids no earlier frame drew, one frame: pushed parent first,
