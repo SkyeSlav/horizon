@@ -1017,7 +1017,7 @@ mod bob_tests {
 
     /// The bob a client gives the item with entity id `id` at `at`.
     fn bob(id: u32, at: Vec3, still: bool) -> f32 {
-        let mut random = (*horizon_client::mobs::entity_random(id, at)).clone();
+        let mut random = horizon_client::mobs::entity_random(id, at);
         super::bob_offset(at, random.next_float(), still)
     }
 
@@ -1028,7 +1028,7 @@ mod bob_tests {
         let at = Vec3::new(0.5, 64.0, 2.5);
         assert_eq!(bob(17, at, true), bob(22, at, true));
         for id in [17, 22] {
-            let mut random = (*horizon_client::mobs::entity_random(id, at)).clone();
+            let mut random = horizon_client::mobs::entity_random(id, at);
             let vanilla = random.next_float() * std::f32::consts::PI * 2.0;
             assert_eq!(bob(id, at, false), vanilla);
         }

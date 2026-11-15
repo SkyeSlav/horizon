@@ -2071,10 +2071,15 @@ mod tests {
                     .to_vec(),
             ],
         )];
-        let e = Enchantments::load_with(
-            std::path::Path::new("no-such-test-resource-root"),
-            &PackOverlay { files: &files },
-        );
+        let root = std::env::temp_dir().join(format!(
+            "horizon-mending-tool-context-{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(root.join("items.json"), "{}").unwrap();
+        let defaults = horizon_world::item_defaults::read(&root).unwrap();
+        let e = Enchantments::load_with(&root, &PackOverlay::new(&files), &defaults).unwrap();
+        std::fs::remove_dir_all(root).unwrap();
         let gated = |id: &str| {
             let mut stack = ItemStack::new(id, 1);
             stack.damage = 20;
