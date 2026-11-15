@@ -271,7 +271,7 @@ fn fixture(window: Arc<Window>) -> Result<(), Box<dyn std::error::Error>> {
         None,
         GraphicsApi::Vulkan,
         false,
-        true,
+        (true, false),
         &client::graphics::Graphics::default(),
         Default::default(),
         Default::default(),
