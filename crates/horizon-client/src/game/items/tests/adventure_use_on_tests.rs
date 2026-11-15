@@ -7,7 +7,7 @@ use crate::game::{Game, GuestUse, Hit};
 use horizon_client::command::args::GameMode;
 use horizon_client::first_person::Hand;
 use horizon_client::items::ItemStack;
-use horizon_world::nbt::Tag;
+use horizon_core::nbt::Tag;
 use horizon_world::registry::BlockStateId;
 
 /// A server's game with the prepared resources, or `None` where CI has none.

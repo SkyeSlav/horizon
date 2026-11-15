@@ -13,7 +13,7 @@ use horizon_client::{
         finalize::{self, Attr},
     },
 };
-use horizon_world::nbt::Tag;
+use horizon_core::nbt::Tag;
 use std::{collections::HashSet, sync::Arc};
 
 fn with_game(f: impl FnOnce(&mut Game<'_>)) {

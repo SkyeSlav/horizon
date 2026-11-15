@@ -9,7 +9,7 @@ use horizon_client::mobs::Who;
 use horizon_client::text::Text;
 use horizon_core::geometry::Vec3;
 use horizon_core::position::ChunkPos;
-use horizon_world::nbt::Tag;
+use horizon_core::nbt::Tag;
 use std::sync::Arc;
 
 /// The cushion's position: `Vec3.atCenterOfWithY(4 199 4, 200.0)`.

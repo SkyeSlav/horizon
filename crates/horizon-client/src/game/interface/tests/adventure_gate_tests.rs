@@ -5,7 +5,7 @@ use crate::game::{Hit, game_tests::tests::server_game};
 use horizon_client::command::args::GameMode;
 use horizon_client::items::ItemStack;
 use horizon_client::mobs::Who;
-use horizon_world::nbt::Tag;
+use horizon_core::nbt::Tag;
 
 type Posted = (&'static str, [f64; 3], Option<Who>);
 
