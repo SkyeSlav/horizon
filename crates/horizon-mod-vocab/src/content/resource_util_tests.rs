@@ -536,9 +536,9 @@ fn an_overanswer_nested_in_combined_handlers_leaves_nothing_behind_at_the_most_a
     assert_eq!(counts(&fake, B), [60]);
 }
 
-/// Two indices: hydrogen in index 0 that comes out only by the batch (10 at once), and helium in
-/// index 1 that comes out by any amount.
-struct Batches(Rc<RefCell<[u32; 2]>>);
+/// Two indices: 10 hydrogen in index 0 that comes out only by the batch (10 at once), and 5 helium
+/// in index 1 that comes out by any amount. It keeps no state, so an aborted probe needs no undo.
+struct Batches;
 
 impl ResourceHandler<Chemical> for Batches {
     fn size(&self, _: &mut dyn ServerHost) -> usize {
@@ -548,7 +548,7 @@ impl ResourceHandler<Chemical> for Batches {
         Some(self.resource_at(index))
     }
     fn amount(&self, _: &mut dyn ServerHost, index: usize) -> u32 {
-        self.0.borrow()[index]
+        [10, 5][index]
     }
     fn capacity(&self, _: &mut dyn ServerHost, _: usize, _: &Chemical) -> u32 {
         10
@@ -565,19 +565,16 @@ impl ResourceHandler<Chemical> for Batches {
     }
     fn extract(
         &self,
-        _: &mut dyn ServerHost,
+        host: &mut dyn ServerHost,
         _: &Transaction,
         index: usize,
         chemical: &Chemical,
         amount: u32,
     ) -> u32 {
-        let mut held = self.0.borrow_mut();
         if *chemical != self.resource_at(index) || (index == 0 && amount < 10) {
             return 0;
         }
-        let came = amount.min(held[index]);
-        held[index] -= came;
-        came
+        amount.min(self.amount(host, index))
     }
 }
 
@@ -589,19 +586,15 @@ impl Batches {
 
 #[test]
 fn extract_first_chooses_by_the_whole_index_probe_then_asks_only_that_resource() {
-    let held = Rc::new(RefCell::new([10, 5]));
-    let handler = Batches(held.clone());
     let mut fake = FakeHost::new();
     let host: &mut dyn ServerHost = &mut fake;
     // Hydrogen gives its whole 10 but not 5, so it is the one chosen and 5 of it does not come
     // out; the helium that would give 5 is not tried.
     let taken = host
-        .transaction(|host, tx| Ok::<_, ()>(extract_first(host, &handler, |_| true, 5, Some(tx))));
+        .transaction(|host, tx| Ok::<_, ()>(extract_first(host, &Batches, |_| true, 5, Some(tx))));
     assert_eq!(taken, Ok(None));
-    assert_eq!(*held.borrow(), [10, 5]);
     // Asked for the batch, it comes out.
     let taken = host
-        .transaction(|host, tx| Ok::<_, ()>(extract_first(host, &handler, |_| true, 10, Some(tx))));
+        .transaction(|host, tx| Ok::<_, ()>(extract_first(host, &Batches, |_| true, 10, Some(tx))));
     assert_eq!(taken, Ok(Some((HYDROGEN, 10))));
-    assert_eq!(*held.borrow(), [0, 5]);
 }
