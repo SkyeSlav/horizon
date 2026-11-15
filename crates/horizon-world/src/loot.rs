@@ -645,9 +645,43 @@ fn int_value(v: &Value) -> Option<i64> {
 /// `data/<ns>/<kind>/` of every namespace, as `ns:path`: vanilla's, and in
 /// a content mods' root theirs (docs/modpacks.md), whose chests name their
 /// own loot tables.
+<<<<<<< ours
 #[path = "loot_conditions.rs"]
 mod loot_conditions;
 use loot_conditions::overlay_map;
+||||||| base
+/// A kind's overlay files over what the resource root provided: the top
+/// pack's file for each id replaces the rest (`SimpleJsonResourceReloadListener`
+/// sees one resource per id).
+fn overlay_map(overlay: &PackOverlay, kind: &str, out: &mut HashMap<String, Value>) {
+    for (id, files) in overlay.kind(kind) {
+        let Ok(v) = serde_json::from_slice::<Value>(PackOverlay::top(files)) else {
+            continue;
+        };
+        out.insert(id.to_owned(), v);
+    }
+}
+
+mod odds;
+pub use odds::LootOdds;
+=======
+/// A kind's overlay files over what the resource root provided: the top
+/// pack's file for each id replaces the rest (`SimpleJsonResourceReloadListener`
+/// sees one resource per id).
+fn overlay_map(overlay: &PackOverlay, kind: &str, out: &mut HashMap<String, Value>) {
+    for (id, files) in overlay.kind(kind) {
+        let Ok(v) = serde_json::from_slice::<Value>(PackOverlay::top(files)) else {
+            continue;
+        };
+        out.insert(id.to_owned(), v);
+    }
+}
+
+mod odds;
+pub use odds::LootOdds;
+mod predicates;
+pub use predicates::load_predicates;
+>>>>>>> theirs
 
 /// Loot tables by id. Each is kept as its JSON text and read into a [`Value`]
 /// the first time it is rolled: of vanilla's ~1,450 tables a game rolls a
@@ -784,11 +818,23 @@ impl LootData {
         let mut modifiers = HashMap::new();
         load_kind(&all, "item_modifier", &mut modifiers)?;
         overlay_map(overlay, "item_modifier", &mut modifiers);
+<<<<<<< ours
         let mut predicates = HashMap::new();
         load_kind(&all, "predicate", &mut predicates)?;
         overlay_map(overlay, "predicate", &mut predicates);
         let items = defaults
             .entries()
+||||||| base
+        let mut predicates = HashMap::new();
+        load_kind(&all, "predicate", &mut predicates)?;
+        overlay_map(overlay, "predicate", &mut predicates);
+        let raw = crate::item_defaults::shared(root)?;
+        let items = raw
+=======
+        let predicates = load_predicates(root, overlay)?;
+        let raw = crate::item_defaults::shared(root)?;
+        let items = raw
+>>>>>>> theirs
             .iter()
             .map(|(name, c)| {
                 (

@@ -67,6 +67,7 @@ macro_rules! arm_points {
     () => {};
 }
 
+<<<<<<< ours
 /// The game's side of the injection points (#589), whose slots and listeners live above the engine.
 #[doc(hidden)]
 pub mod points {
@@ -110,9 +111,502 @@ pub mod points {
     }
 }
 mod host;
+||||||| base
+mod activity;
+mod advancements;
+mod advancements_screen;
+mod agent;
+mod agent_settings;
+mod allays;
+mod armor_stands;
+mod atlas_slots;
+mod attachment_sync;
+mod autosave;
+mod banners;
+mod beacon;
+mod beds;
+mod beehives;
+mod block_breaking;
+mod block_editor;
+mod block_edits;
+mod block_entity_anims;
+mod block_entity_ticks;
+mod block_items;
+mod block_particles;
+mod block_ticks;
+mod blockctl;
+mod boarding;
+mod boat_authority_fixture;
+mod boat_leads;
+mod boat_passengers;
+mod boat_rider_fixture;
+mod boats;
+mod books;
+mod bossbars;
+mod breezes;
+mod brush;
+mod buckets;
+mod building_players;
+mod bundles;
+mod campfire;
+mod campfire_douse;
+mod cartography;
+mod cat_spawner;
+mod cauldrons;
+mod chat;
+mod chat_filter;
+mod chiseled_bookshelf;
+mod client_ambient;
+mod clip_ray;
+mod clipboard;
+#[cfg(test)]
+mod clone_block_ticks_tests;
+#[cfg(test)]
+mod clone_dimensions_tests;
+mod code_of_conduct;
+mod combat;
+mod command_blocks;
+mod command_harness;
+mod command_minecarts;
+mod commands;
+mod composter;
+mod consume;
+mod control;
+mod copper_golems;
+#[cfg(test)]
+mod core_tests;
+mod cosmetics;
+mod creaking;
+mod creative_hotbar;
+mod creative_screen;
+mod creatures;
+mod crossbow;
+pub(crate) mod cushions;
+mod custom_sky;
+mod debug_keys;
+mod debug_lines;
+mod debug_options;
+mod debug_renderers;
+mod debug_stick;
+mod decorated_pot;
+mod dedicated;
+mod deflect;
+mod dialogs;
+mod dispense_fixture;
+mod dispenser;
+mod dragon;
+mod dynamic_lights;
+mod enchant_effects;
+mod end;
+mod enderman;
+#[cfg(test)]
+mod enderman_hurt_teleport_tests;
+#[cfg(test)]
+mod enderman_placement_tests;
+mod entity;
+mod entity_culling;
+mod entity_sounds;
+mod event_loop;
+mod events;
+mod execution_role;
+mod explosion;
+mod extinguish;
+mod extras;
+mod falling_blocks;
+mod falling_damage;
+mod fangs;
+mod fireworks;
+#[cfg(test)]
+mod first_tick_registration_tests;
+mod fishing;
+mod fov;
+mod foxes;
+mod frame_autotune;
+mod frame_geometry;
+mod frames;
+#[cfg(feature = "friends")]
+mod friends;
+mod held_items;
+#[cfg(test)]
+mod setblock_order_tests;
+// Without Play with Friends: nothing shared, no Friends button (game/friends_off.rs).
+#[cfg(test)]
+mod entity_inside_tests;
+#[cfg(not(feature = "friends"))]
+#[path = "game/friends_off.rs"]
+mod friends;
+mod functions;
+mod game_mode;
+mod game_tests;
+mod gamemode_switcher;
+mod ghasts;
+mod glowing;
+mod golems;
+mod growth;
+mod hand;
+mod headless;
+mod hud_editor;
+mod hud_room;
+mod ime;
+mod initial_spawn;
+mod input_trace;
+mod integrated;
+mod interaction_shapes;
+mod interactions;
+mod inventory_input;
+mod inventory_slots;
+mod item_actions;
+mod item_areas;
+#[cfg(test)]
+mod item_contact_tests;
+mod item_draw;
+mod item_durability;
+mod item_entities;
+#[cfg(test)]
+mod item_interact_mob_tests;
+mod item_particles;
+mod item_use;
+mod jigsaw_blocks;
+mod jigsaw_edit;
+mod jukebox;
+mod key_codes;
+mod key_focus;
+mod lan;
+mod lan_actions;
+mod lan_attributes;
+mod lan_camera;
+mod lan_chat;
+mod lan_crafting;
+mod lan_entities;
+mod lan_far;
+mod lan_idle;
+mod lan_mobs;
+mod lan_mount_menu;
+mod lan_op;
+mod lan_particles;
+mod lan_pvp;
+mod lan_quiet;
+mod lan_screen;
+mod lan_stations;
+mod lan_trading;
+mod lan_vehicles;
+mod lan_waypoints;
+mod launch_api;
+mod launch_options;
+mod leads;
+mod legacy_rules;
+mod level_particles;
+mod levels;
+mod lightning;
+mod llamas;
+mod loading_screen;
+mod loading_window;
+mod locator_bar;
+mod loom;
+mod mace;
+mod machines;
+mod maps;
+mod melee;
+mod memory;
+mod menu_clicks;
+mod minecarts;
+#[cfg(test)]
+mod mining_component_tests;
+mod mob_blocks;
+#[cfg(test)]
+mod mob_discard_tests;
+mod mob_gear;
+mod mob_index;
+mod mob_looting;
+mod mob_sounds;
+mod mod_api_host;
+mod mod_browser;
+mod mods;
+mod mount_menu;
+mod mounts;
+mod moving_pistons;
+mod music;
+mod names;
+mod narrator;
+mod native_biome_colors;
+pub mod native_block_entity_draw;
+mod native_block_sprites;
+mod native_bots;
+mod native_chunk_snapshot;
+mod native_chunk_tickets;
+mod native_claimed_items;
+mod native_client_entities;
+mod native_client_particles;
+mod native_client_particles_fixture;
+pub mod native_client_services;
+mod native_client_world;
+mod native_components;
+mod native_configs;
+mod native_criteria;
+mod native_damage;
+mod native_data_maps;
+mod native_diagnostics;
+mod native_entities;
+mod native_entity_data;
+mod native_entity_motion;
+mod native_entity_moves;
+mod native_entity_refs;
+mod native_entity_state;
+mod native_explosions;
+mod native_falling;
+mod native_fluid_render;
+mod native_guards;
+=======
+mod activity;
+mod advancements;
+mod advancements_screen;
+mod agent;
+mod agent_settings;
+mod allays;
+mod armor_stands;
+mod atlas_slots;
+mod attachment_sync;
+mod autosave;
+mod banners;
+mod beacon;
+mod beds;
+mod beehives;
+mod block_breaking;
+mod block_editor;
+mod block_edits;
+mod block_entity_anims;
+mod block_entity_ticks;
+mod block_items;
+mod block_particles;
+mod block_ticks;
+mod blockctl;
+mod boarding;
+mod boat_authority_fixture;
+mod boat_leads;
+mod boat_passengers;
+mod boat_rider_fixture;
+mod boats;
+mod books;
+mod bossbars;
+mod breezes;
+mod brush;
+mod buckets;
+mod building_players;
+mod bundles;
+mod campfire;
+mod campfire_douse;
+mod cartography;
+mod cat_spawner;
+mod cauldrons;
+mod chat;
+mod chat_filter;
+mod chiseled_bookshelf;
+mod client_ambient;
+mod clip_ray;
+mod clipboard;
+#[cfg(test)]
+mod clone_block_ticks_tests;
+#[cfg(test)]
+mod clone_dimensions_tests;
+mod code_of_conduct;
+mod combat;
+mod command_blocks;
+mod command_harness;
+mod command_minecarts;
+mod commands;
+mod composter;
+mod consume;
+mod control;
+mod copper_golems;
+#[cfg(test)]
+mod core_tests;
+mod cosmetics;
+mod creaking;
+mod creative_hotbar;
+mod creative_screen;
+mod creatures;
+mod crossbow;
+pub(crate) mod cushions;
+mod custom_sky;
+mod debug_keys;
+mod debug_lines;
+mod debug_options;
+mod debug_renderers;
+mod debug_stick;
+mod decorated_pot;
+mod dedicated;
+mod deflect;
+mod dialogs;
+mod dispense_fixture;
+mod dispenser;
+mod dragon;
+mod dynamic_lights;
+mod enchant_effects;
+mod end;
+mod enderman;
+#[cfg(test)]
+mod enderman_hurt_teleport_tests;
+#[cfg(test)]
+mod enderman_placement_tests;
+mod entity;
+mod entity_culling;
+mod entity_sounds;
+mod event_loop;
+mod events;
+mod execution_role;
+mod explosion;
+mod extinguish;
+mod extras;
+mod falling_blocks;
+mod falling_damage;
+mod fangs;
+mod fireworks;
+#[cfg(test)]
+mod first_tick_registration_tests;
+mod fishing;
+mod fov;
+mod foxes;
+mod frame_autotune;
+mod frame_geometry;
+mod frames;
+#[cfg(feature = "friends")]
+mod friends;
+mod held_items;
+#[cfg(test)]
+mod setblock_order_tests;
+// Without Play with Friends: nothing shared, no Friends button (game/friends_off.rs).
+#[cfg(test)]
+mod entity_inside_tests;
+#[cfg(not(feature = "friends"))]
+#[path = "game/friends_off.rs"]
+mod friends;
+mod functions;
+mod game_mode;
+mod game_tests;
+mod gamemode_switcher;
+mod ghasts;
+mod glowing;
+mod golems;
+mod growth;
+mod hand;
+mod headless;
+mod hit;
+mod hud_editor;
+mod hud_room;
+mod ime;
+mod initial_spawn;
+mod input_trace;
+mod integrated;
+mod interaction_shapes;
+mod interactions;
+mod inventory_input;
+mod inventory_slots;
+mod item_actions;
+mod item_areas;
+#[cfg(test)]
+mod item_contact_tests;
+mod item_draw;
+mod item_durability;
+mod item_entities;
+#[cfg(test)]
+mod item_interact_mob_tests;
+mod item_particles;
+mod item_use;
+mod jigsaw_blocks;
+mod jigsaw_edit;
+mod jukebox;
+mod key_codes;
+mod key_focus;
+mod lan;
+mod lan_actions;
+mod lan_attributes;
+mod lan_camera;
+mod lan_chat;
+mod lan_crafting;
+mod lan_entities;
+mod lan_far;
+mod lan_idle;
+mod lan_mobs;
+mod lan_mount_menu;
+mod lan_op;
+mod lan_particles;
+mod lan_pvp;
+mod lan_quiet;
+mod lan_screen;
+mod lan_stations;
+mod lan_trading;
+mod lan_vehicles;
+mod lan_waypoints;
+mod launch_api;
+mod launch_options;
+mod leads;
+mod legacy_rules;
+mod level_particles;
+mod levels;
+mod lightning;
+mod llamas;
+mod loading_screen;
+mod loading_window;
+mod locator_bar;
+mod loom;
+mod mace;
+mod machines;
+mod maps;
+mod melee;
+mod memory;
+mod menu_clicks;
+mod minecarts;
+#[cfg(test)]
+mod mining_component_tests;
+mod mob_blocks;
+#[cfg(test)]
+mod mob_discard_tests;
+mod mob_gear;
+mod mob_index;
+mod mob_looting;
+mod mob_sounds;
+mod mod_api_host;
+mod mod_browser;
+mod mods;
+mod mount_menu;
+mod mounts;
+mod moving_pistons;
+mod music;
+mod names;
+mod narrator;
+mod native_biome_colors;
+pub mod native_block_entity_draw;
+mod native_block_sprites;
+mod native_bots;
+mod native_chunk_snapshot;
+mod native_chunk_tickets;
+mod native_claimed_items;
+mod native_client_entities;
+mod native_client_particles;
+mod native_client_particles_fixture;
+pub mod native_client_services;
+mod native_client_world;
+mod native_components;
+mod native_configs;
+mod native_criteria;
+mod native_damage;
+mod native_data_maps;
+mod native_diagnostics;
+mod native_entities;
+mod native_entity_data;
+mod native_entity_motion;
+mod native_entity_moves;
+mod native_entity_refs;
+mod native_entity_state;
+mod native_explosions;
+mod native_falling;
+mod native_fluid_render;
+mod native_guards;
+>>>>>>> theirs
 mod native_hooks;
 use event_loop::EventLoopCtl;
 use hand::interact_location;
+pub(crate) use hit::Hit;
 use horizon_client::random_source;
 use loading_window::{
     build_renderer, loading_frame, loading_renderer, prepare_renderer_textures, start_game,
@@ -332,6 +826,7 @@ struct Mining {
     per_tick: f32,
     ticks: u32,
 }
+<<<<<<< ours
 impl Mining {
     fn stage(&self) -> Option<u8> {
         (self.progress > 0.0).then(|| ((self.progress * 10.0) as u8).min(9))
@@ -368,6 +863,25 @@ impl Hit {
         ]
     }
 }
+||||||| base
+#[derive(Clone, Copy)]
+pub(crate) struct Hit {
+    pub(crate) pos: [i32; 3],
+    pub(crate) face: [i32; 3],
+    pub(crate) point: [f64; 3],
+}
+impl Hit {
+    /// The block the clicked face leads to (`pos.relative(direction)`).
+    fn beside(&self) -> [i32; 3] {
+        [
+            self.pos[0] + self.face[0],
+            self.pos[1] + self.face[1],
+            self.pos[2] + self.face[2],
+        ]
+    }
+}
+=======
+>>>>>>> theirs
 /// What a falling block's tick did (`FallingBlockEntity.tick`).
 enum FallStep {
     Falling,
@@ -1124,10 +1638,12 @@ struct Game<'a> {
     /// accounts), in place of the process's (P1's) for its connections and skin.
     split_auth: Option<std::sync::Arc<horizon_client::auth::AuthSession>>,
     focused: bool,
-    /// The visible window of a game an agent started, until a person focuses it: it opened
-    /// without the focus, and its pointer grab stays inside the game as `--offscreen`'s does,
-    /// so the person's pointer is never taken, hidden or moved.
+    /// The visible window of a game an agent started, until a person clicks into it: its
+    /// pointer grab stays inside the game as `--offscreen`'s does, so the person's pointer is
+    /// never taken, hidden or moved, and their keys and mouse don't reach the game.
     unclaimed_window: bool,
+    /// The modifiers the person last held at it, applied at the claim (`held_modifiers`).
+    unclaimed_modifiers: Option<winit::event::Modifiers>,
     /// The window's last focus change during a scripted run, applied once the run ends.
     focus_after_run: Option<bool>,
     /// Whether the window currently accepts input method events.
@@ -2496,12 +3012,22 @@ impl Game<'_> {
             end,
             BlockPos::new(pos[0], pos[1], pos[2]),
         )?;
+<<<<<<< ours
         Some(Hit {
             pos,
             face: hit.direction.normal(),
             point: [hit.location.x, hit.location.y, hit.location.z],
             inside: hit.inside,
         })
+||||||| base
+        Some(Hit {
+            pos,
+            face: hit.direction.normal(),
+            point: [hit.location.x, hit.location.y, hit.location.z],
+        })
+=======
+        Some(Hit::from_block_hit(pos, &hit))
+>>>>>>> theirs
     }
     /// Voxel traversal against non-air, non-fluid blocks, clipped against
     /// each block's outline shape (`BlockGetter.clip` with `ClipContext.Block.OUTLINE`).
@@ -3159,8 +3685,16 @@ impl Game<'_> {
                 .guests
                 .iter()
                 .filter(|g| h.hub.here(g))
+<<<<<<< ours
                 .filter(|g| !g.is_fake()) // fake players hold small forced tickets below
                 .map(|g| (g.chunk(), g.spectator()))
+||||||| base
+                .filter(|g| !g.fake) // fake players hold small forced tickets below
+                .map(|g| (g.chunk(), g.spectator()))
+=======
+                .filter(|g| !g.fake) // fake players hold small forced tickets below
+                .map(|g| (g.ticket_chunk(), g.spectator()))
+>>>>>>> theirs
                 .collect()
         });
         if let Some(p) = &self.player {
@@ -6718,8 +7252,13 @@ impl Game<'_> {
                             pos: b,
                             face,
                             point,
+<<<<<<< ours
                             // A start in the shape hits at the eyes.
                             inside: point == origin,
+||||||| base
+=======
+                            inside: false,
+>>>>>>> theirs
                         });
                     }
                 } else if !first && !self.res.facts().is_air(state) && f.fluid == Fluid::None {
@@ -7156,10 +7695,16 @@ impl Game<'_> {
             self.bucket_emptied(&stack.item);
             return Ok(UseResult::Success { swing: true });
         }
+<<<<<<< ours
         if self.use_block_transformer(stack, &hit)? {
+||||||| base
+        if self.use_block_transformer(stack, hit.pos, hit.face)? {
+=======
+        if self.may_use_on(hit.pos) && self.use_block_transformer(stack, hit.pos, hit.face)? {
+>>>>>>> theirs
             return Ok(UseResult::Success { swing: true });
         }
-        if item == "honeycomb" {
+        if self.may_use_on(hit.pos) && item == "honeycomb" {
             let registry = self.pack.assets.registry;
             let old = registry.state(clicked);
             if let Some(state) = self.honeycomb_waxed(clicked) {
@@ -10727,6 +11272,7 @@ impl<'a> Game<'a> {
             split_auth: None,
             focused: true,
             unclaimed_window: false,
+            unclaimed_modifiers: None,
             focus_after_run: None,
             ime_allowed: false,
             ime_area: None,

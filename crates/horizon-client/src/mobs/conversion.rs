@@ -1,5 +1,6 @@
 //! `Mob.convertTo` with `ConversionType.SINGLE`: one mob turns into another
-//! of a different type in its place, keeping what the old one had.
+//! of a different type in its place, keeping what the old one had. [`common`]
+//! is also what a cube mob's split children get (`SPLIT_ON_DEATH`).
 use super::Mob;
 use horizon_core::random::RandomSource;
 
@@ -106,6 +107,7 @@ pub fn single(from: &Mob, to: &mut Mob, params: Params) {
     to.extra.leash = from.extra.leash;
     to.extra.leash_pending = from.extra.leash_pending;
     to.extra.leash_player = from.extra.leash_player;
+<<<<<<< ours
     common(from, to, params.preserve_can_pick_up_loot);
     // A zombie that turns into another zombie keeps canBreakDoors.
     if super::doors::is_zombie(from.species()) && super::doors::is_zombie(to.species()) {
@@ -130,6 +132,24 @@ pub fn common(from: &Mob, to: &mut Mob, preserve_can_pick_up_loot: bool) {
             copy.show_icon = effect.show_icon;
         }
     }
+||||||| base
+    // convertCommon, in its order: the absorption first, then the effects.
+    to.absorption = from.absorption;
+    to.extra.effects = from.extra.effects.clone();
+    to.extra.effect_fallbacks = from.extra.effect_fallbacks.clone();
+=======
+    common(from, to, params.preserve_can_pick_up_loot);
+}
+
+/// `ConversionType.convertCommon`, what every conversion carries over (`SINGLE` and `SPLIT_ON_DEATH`):
+/// absorption, effects, babyhood and age, the flags, the custom name. `preserve_can_pick_up_loot`
+/// is the params' `preserveCanPickUpLoot`.
+pub fn common(from: &Mob, to: &mut Mob, preserve_can_pick_up_loot: bool) {
+    // convertCommon, in its order: the absorption first, then the effects.
+    to.absorption = from.absorption;
+    to.extra.effects = from.extra.effects.clone();
+    to.extra.effect_fallbacks = from.extra.effect_fallbacks.clone();
+>>>>>>> theirs
     to.extra.hidden_effects = from.extra.hidden_effects.clone();
     to.extra.effect_chains = from.extra.effect_chains.clone();
     to.extra.ambient_effects = from.extra.ambient_effects.clone();

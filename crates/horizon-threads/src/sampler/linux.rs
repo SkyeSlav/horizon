@@ -6,9 +6,16 @@ use std::sync::OnceLock;
 #[derive(Default)]
 pub struct Target {
     tid: libc::c_int,
+<<<<<<< ours
     // Opaque id, never dereferenced: musl uses a pointer while glibc uses an integer.
     // Store it as an integer so Target stays Send + Sync, as in stack_dump's thread handle.
     pthread: usize,
+||||||| base
+    pthread: libc::pthread_t,
+=======
+    // Stored as `usize` because musl defines `pthread_t` as `*mut c_void`, which is not Send/Sync.
+    pthread: usize,
+>>>>>>> theirs
 }
 
 pub struct Timer(libc::timer_t);

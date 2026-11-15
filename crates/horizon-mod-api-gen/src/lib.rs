@@ -43,6 +43,83 @@ fn impl_functions(item: syn::ItemImpl) -> impl Iterator<Item = syn::ItemFn> {
     })
 }
 
+<<<<<<< ours
+||||||| base
+/// The inherent `Game` methods of the files under `path`, each with its module (`native_hooks`,
+/// `lan::guest`…) below `module`.
+fn game_methods(
+    path: &Path,
+    module: &str,
+    methods: &mut Vec<(String, syn::ItemFn)>,
+) -> Result<(), String> {
+    for entry in fs::read_dir(path).map_err(|e| e.to_string())? {
+        let path = entry.map_err(|e| e.to_string())?.path();
+        let stem = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or_default();
+        let inner = format!("{module}::{stem}");
+        if path.is_dir() {
+            game_methods(&path, &inner, methods)?;
+        } else if path.extension().is_some_and(|ext| ext == "rs") {
+            let source = fs::read_to_string(&path).map_err(|e| e.to_string())?;
+            let file = syn::parse_file(&source).map_err(|e| format!("{}: {e}", path.display()))?;
+            for item in file.items {
+                if let Item::Impl(item) = item
+                    && item.trait_.is_none()
+                    && let Type::Path(ty) = &*item.self_ty
+                    && ty.path.segments.len() == 1
+                    && ty.path.segments[0].ident == "Game"
+                {
+                    methods.extend(impl_functions(item).map(|method| (inner.clone(), method)));
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+=======
+/// The inherent `Game` methods of the files under `path`, each with its module (`native_hooks`,
+/// `lan::guest`…) below `module`.
+fn game_methods(
+    path: &Path,
+    module: &str,
+    methods: &mut Vec<(String, syn::ItemFn)>,
+) -> Result<(), String> {
+    for entry in fs::read_dir(path).map_err(|e| e.to_string())? {
+        let path = entry.map_err(|e| e.to_string())?.path();
+        let stem = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or_default();
+        let inner = format!("{module}::{stem}");
+        if path.is_dir() {
+            game_methods(&path, &inner, methods)?;
+        } else if path.extension().is_some_and(|ext| ext == "rs") {
+            let source = fs::read_to_string(&path).map_err(|e| e.to_string())?;
+            // Only a top-level `impl ... Game` is taken below, and that needs both words in the
+            // text: a file without them is not parsed (about 200 of game/'s 708 files).
+            if !source.contains("impl") || !source.contains("Game") {
+                continue;
+            }
+            let file = syn::parse_file(&source).map_err(|e| format!("{}: {e}", path.display()))?;
+            for item in file.items {
+                if let Item::Impl(item) = item
+                    && item.trait_.is_none()
+                    && let Type::Path(ty) = &*item.self_ty
+                    && ty.path.segments.len() == 1
+                    && ty.path.segments[0].ident == "Game"
+                {
+                    methods.extend(impl_functions(item).map(|method| (inner.clone(), method)));
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+>>>>>>> theirs
 fn doc_comments(
     attrs: &[syn::Attribute],
     name: &str,
@@ -1091,6 +1168,7 @@ mod tests {
             lf(&std::fs::read_to_string(&second).unwrap()),
             lf(&second_shipped)
         );
+<<<<<<< ours
         assert_eq!(std::fs::read_to_string(decoy).unwrap(), decoy_source);
         assert_eq!(lf(&std::fs::read_to_string(&hooks).unwrap()), lf(&shipped));
         assert_eq!(
@@ -1101,6 +1179,22 @@ mod tests {
                 .unwrap()
                 .hooks,
         );
+||||||| base
+        assert_eq!(
+            super::sources(&root, super::FillMode::Require)
+                .unwrap()
+                .hooks,
+            super::sources(&real, super::FillMode::Require)
+                .unwrap()
+                .hooks,
+        );
+        super::sources(&root, super::FillMode::Require).unwrap();
+=======
+        // Parsing the sources is the slow part, so each tree is parsed once.
+        let filled = super::sources(&root, super::FillMode::Require).unwrap();
+        let shipped_sources = super::sources(&real, super::FillMode::Require).unwrap();
+        assert_eq!(filled.hooks, shipped_sources.hooks);
+>>>>>>> theirs
         std::fs::remove_dir_all(root).unwrap();
     }
 

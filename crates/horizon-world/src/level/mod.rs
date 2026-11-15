@@ -152,6 +152,7 @@ mod fire_tests;
 #[cfg(test)]
 mod growth_tests;
 #[cfg(test)]
+<<<<<<< ours
 mod infiniburn_tests;
 #[cfg(test)]
 mod piston_carry_tests;
@@ -161,6 +162,11 @@ mod state_change_tests;
 #[cfg(test)]
 mod survive_tests;
 #[cfg(test)]
+||||||| base
+=======
+mod sculk_vein_water_tests;
+#[cfg(test)]
+>>>>>>> theirs
 mod tests;
 
 pub use bonemeal::{BonemealCheck, TemplateSettings};

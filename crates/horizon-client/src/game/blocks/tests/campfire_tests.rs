@@ -56,6 +56,7 @@ fn campfire_game<'a>(pos: [i32; 3], resources: &'a mut Option<Arc<Resources>>) -
             f64::from(pos[1]) + 1.0,
             f64::from(pos[2]) + 0.5,
         ],
+        inside: false,
     });
     game
 }

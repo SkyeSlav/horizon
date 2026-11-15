@@ -562,6 +562,52 @@ impl Mob {
     pub fn height(&self) -> f32 {
         self.dims().1 as f32
     }
+    /// `EntityAttachment.NAME_TAG` of the current pose, before
+    /// `SubmitNodeCollector.submitNameTag` lifts it 0.5: the box height
+    /// (`EntityAttachment.Fallback.AT_HEIGHT`), unless the type attaches the
+    /// tag elsewhere, scaled like the box (`EntityDimensions.scale`).
+    pub fn name_tag_height(&self) -> f64 {
+        if self.kind.species == super::Species::Sniffer {
+            // `EntityTypes.SNIFFER`: `.nameTagOffset(2.05F)` over a 1.75 box.
+            // `Sniffer.DIGGING_DIMENSIONS` is built without the attachment, so
+            // a digging sniffer falls back to its 1.75 - 0.4 box.
+            let height = if super::sniffer::digging(self) {
+                1.75_f32 - 0.4
+            } else {
+                2.05_f32
+            };
+            // `getAgeScale()` (a baby sniffer is `Baby::Scale(0.5)`), then
+            // `getScale()`; `EntityAttachments.scale` multiplies the point in
+            // `Vec3`'s doubles, so these are double products.
+            let age = match super::species::def(self.kind.species).baby {
+                super::species::Baby::Scale(s, _) if self.is_baby() => s as f32,
+                _ => 1.0,
+            };
+            f64::from(height) * f64::from(age) * f64::from(self.model_scale())
+        } else {
+            f64::from(self.height())
+        }
+    }
+    /// `Entity.saveWithoutId`'s `CustomName`: the whole component as
+    /// `ComponentSerialization.CODEC` writes it (a name tag's `custom_name`
+    /// keeps its colour), else the plain text. `None` without a name.
+    pub fn custom_name_tag(&self) -> Option<horizon_world::nbt::Tag> {
+        let name = self.custom_name.as_ref()?;
+        Some(match &self.custom_name_text {
+            Some(text) => crate::scoreboard::component_tag(&text.component()),
+            None => horizon_world::nbt::Tag::String(name.as_str().into()),
+        })
+    }
+    /// Whether the save's `CustomName` is not this mob's name, style included:
+    /// a rename to the same text with another colour still changes it.
+    pub fn custom_name_changed(&self, saved: Option<&horizon_world::nbt::Tag>) -> bool {
+        match (&self.custom_name_text, saved) {
+            (Some(current), Some(saved)) => crate::entity_nbt::name_text(saved) != *current,
+            (Some(_), None) => true,
+            // A plain name with no component (a mod's) still compares as text.
+            (None, _) => saved.and_then(crate::entity_nbt::custom_name) != self.custom_name,
+        }
+    }
     /// `AgeableMob.isBaby`: `canBeABaby() && getAge() < 0`. The age alone is
     /// not enough — a frog, a parrot, a zombie nautilus, a camel husk, a slime,
     /// a magma cube, a piglin brute, a tadpole, or anything that is not an
@@ -1481,6 +1527,7 @@ impl Mob {
         }
     }
     /// LivingEntity.travel.
+<<<<<<< ours
     pub fn travel(
         &mut self,
         w: &MobWorld,
@@ -1489,6 +1536,23 @@ impl Mob {
         events: &mut Vec<MobEvent>,
     ) {
         if super::ai::custom_travel(self, w, level, input, events) {
+||||||| base
+    pub fn travel(&mut self, w: &MobWorld, input: Vec3, events: &mut Vec<MobEvent>) {
+        if super::ai::custom_travel(self, w, input, events) {
+=======
+    pub fn travel(&mut self, w: &MobWorld, mut input: Vec3, events: &mut Vec<MobEvent>) {
+        // Camel.travel: on the ground, a camel that sits or changes pose keeps
+        // the vertical part of its motion and drops the horizontal input.
+        if super::camel::is_camel(self.species())
+            && self.on_ground
+            && super::camel::refuse_to_move(self)
+        {
+            let vertical = Vec3::new(0.0, 1.0, 0.0);
+            self.velocity = self.velocity.multiply(vertical);
+            input = input.multiply(vertical);
+        }
+        if super::ai::custom_travel(self, w, input, events) {
+>>>>>>> theirs
             return;
         }
         if self.kind.flags.flying {
@@ -1562,6 +1626,7 @@ impl Mob {
     }
     /// LivingEntity.travelFlying: no gravity, `0.91F` drag in the air,
     /// `0.8F` in water and 0.5 in lava. A happy ghast swims as fast as it
+<<<<<<< ours
     /// flies (`HappyGhast.travel`); the others at 0.02.
     fn travel_flying(
         &mut self,
@@ -1572,9 +1637,23 @@ impl Mob {
     ) {
         let fluid_speed = if self.species() == super::Species::HappyGhast {
             self.kind.air_speed
+||||||| base
+    /// flies (`HappyGhast.travel`); the others at 0.02.
+    fn travel_flying(&mut self, w: &MobWorld, input: Vec3, events: &mut Vec<MobEvent>) {
+        let fluid_speed = if self.species() == super::Species::HappyGhast {
+            self.kind.air_speed
+=======
+    /// flies (`HappyGhast.travel`, at its `flying_speed` attribute); the others
+    /// at 0.02.
+    fn travel_flying(&mut self, w: &MobWorld, input: Vec3, events: &mut Vec<MobEvent>) {
+        let (fluid_speed, air_speed) = if self.species() == super::Species::HappyGhast {
+            let speed = super::happy_ghast::travel_speed(self);
+            (speed, speed)
+>>>>>>> theirs
         } else {
-            0.02
+            (0.02, self.kind.air_speed)
         };
+<<<<<<< ours
         self.travel_flying_speeds(
             w,
             level,
@@ -1584,6 +1663,18 @@ impl Mob {
             fluid_speed,
             self.kind.air_speed,
         );
+||||||| base
+        self.travel_flying_speeds(
+            w,
+            input,
+            events,
+            fluid_speed,
+            fluid_speed,
+            self.kind.air_speed,
+        );
+=======
+        self.travel_flying_speeds(w, input, events, fluid_speed, fluid_speed, air_speed);
+>>>>>>> theirs
     }
     /// `LivingEntity.travelFlying(input, waterSpeed, lavaSpeed, airSpeed)`:
     /// the speeds vary per mob (an allay flies at the speed its move control
@@ -3811,6 +3902,23 @@ mod farmland_event_tests {
 #[cfg(test)]
 #[path = "living_climbable_tests.rs"]
 mod climbable_tests;
+<<<<<<< ours
+||||||| base
+#[cfg(test)]
+#[path = "living_tests.rs"]
+mod tests;
+/// `Entity.move`'s fall-reset ray for a mob, with the world's
+/// `minecraft:fall_damage_resetting` blocks.
+=======
+#[cfg(test)]
+#[path = "name_tag_nbt_tests.rs"]
+mod name_tag_nbt_tests;
+#[cfg(test)]
+#[path = "living_tests.rs"]
+mod tests;
+/// `Entity.move`'s fall-reset ray for a mob, with the world's
+/// `minecraft:fall_damage_resetting` blocks.
+>>>>>>> theirs
 fn fall_reset_hit(w: &MobWorld, from: Vec3, moved: Vec3) -> bool {
     let reset = w.block_tags.get("minecraft:fall_damage_resetting");
     crate::entities::fall_reset_hit(

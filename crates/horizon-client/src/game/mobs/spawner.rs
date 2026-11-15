@@ -146,6 +146,7 @@ impl Game<'_> {
         );
         let mut events = Vec::new();
         let mut planned: Vec<Planned> = Vec::new();
+<<<<<<< ours
         // A minecart spawner has no block.
         let source = cart
             .is_none()
@@ -160,6 +161,19 @@ impl Game<'_> {
                              r: &SpawnerSpawn,
                              rng: &mut LevelRandom| {
                 l.game.plan_spawner_mob(l, r, source, &mut planned, rng)
+||||||| base
+        {
+            let level = self.natural_level();
+            let mut spawn = |l: &super::natural_spawning::GameLevel, r: &SpawnerSpawn| {
+                l.game.plan_spawner_mob(l, r, &mut planned)
+=======
+        {
+            let level = self.natural_level();
+            let mut spawn = |l: &super::natural_spawning::GameLevel,
+                             random: &mut LevelRandom,
+                             r: &SpawnerSpawn| {
+                l.game.plan_spawner_mob(l, r, random, &mut planned)
+>>>>>>> theirs
             };
             spawner.server_tick(&level, &mut random, pos, &mut spawn, &mut events);
             (
@@ -230,13 +244,19 @@ impl Game<'_> {
         &self,
         l: &super::natural_spawning::GameLevel,
         r: &SpawnerSpawn,
+<<<<<<< ours
         source: Option<mod_api::SpawnSource>,
+||||||| base
+=======
+        random: &mut LevelRandom,
+>>>>>>> theirs
         planned: &mut Vec<Planned>,
         random: &mut horizon_core::random::LegacyRandom,
     ) -> Option<SpawnerAdded> {
         let kind = self.res.mob_types().get(r.id)?.clone();
         let [x, y, z] = r.position;
         let at = Vec3::new(x, y, z);
+<<<<<<< ours
         let (bounds, key) = if r.finalize {
             // The mob a listened position check created, else a new one.
             let mut mob = l
@@ -247,6 +267,19 @@ impl Game<'_> {
             } else {
                 SpawnReason::Spawner
             };
+||||||| base
+        let bounds = if r.finalize {
+            let mut mob = Mob::new(0, kind, at, r.yaw);
+            let facts = self.biome_facts(x.floor() as i32, y.floor() as i32, z.floor() as i32);
+            let difficulty = self.local_difficulty(r.position);
+            spawning::finalize(&mut mob, &facts, &difficulty);
+=======
+        let bounds = if r.finalize {
+            let mut mob = Mob::new(0, kind, at, r.yaw);
+            let facts = self.biome_facts(x.floor() as i32, y.floor() as i32, z.floor() as i32);
+            let difficulty = self.local_difficulty(r.position);
+            spawning::finalize(&mut mob, &facts, &difficulty, random);
+>>>>>>> theirs
             // TrialSpawner.spawnMob: setPersistenceRequired.
             mob.persistent = r.trial;
             let mut group = None;

@@ -468,7 +468,13 @@ pub trait TrialSpawnerExt: Sized {
         pos: [i32; 3],
         state: TrialState,
         ominous: bool,
+<<<<<<< ours
         spawn: &mut dyn FnMut(&L, &SpawnerSpawn, &mut R) -> Option<Uuid>,
+||||||| base
+        spawn: &mut dyn FnMut(&L, &SpawnerSpawn) -> Option<Uuid>,
+=======
+        spawn: &mut dyn FnMut(&L, &mut R, &SpawnerSpawn) -> Option<Uuid>,
+>>>>>>> theirs
         eject: &mut dyn FnMut(&str, &mut R) -> bool,
         events: &mut Vec<TrialEvent>,
     ) -> TrialState;
@@ -480,7 +486,13 @@ pub trait TrialSpawnerExt: Sized {
         random: &mut R,
         pos: [i32; 3],
         state: TrialState,
+<<<<<<< ours
         spawn: &mut dyn FnMut(&L, &SpawnerSpawn, &mut R) -> Option<Uuid>,
+||||||| base
+        spawn: &mut dyn FnMut(&L, &SpawnerSpawn) -> Option<Uuid>,
+=======
+        spawn: &mut dyn FnMut(&L, &mut R, &SpawnerSpawn) -> Option<Uuid>,
+>>>>>>> theirs
         eject: &mut dyn FnMut(&str, &mut R) -> bool,
         events: &mut Vec<TrialEvent>,
     ) -> TrialState;
@@ -490,7 +502,13 @@ pub trait TrialSpawnerExt: Sized {
         l: &L,
         random: &mut R,
         pos: [i32; 3],
+<<<<<<< ours
         spawn: &mut dyn FnMut(&L, &SpawnerSpawn, &mut R) -> Option<Uuid>,
+||||||| base
+        spawn: &mut dyn FnMut(&L, &SpawnerSpawn) -> Option<Uuid>,
+=======
+        spawn: &mut dyn FnMut(&L, &mut R, &SpawnerSpawn) -> Option<Uuid>,
+>>>>>>> theirs
         events: &mut Vec<TrialEvent>,
     ) -> Option<Uuid>;
 }
@@ -887,7 +905,13 @@ impl TrialSpawnerExt for TrialSpawner {
         pos: [i32; 3],
         state: TrialState,
         ominous: bool,
+<<<<<<< ours
         spawn: &mut dyn FnMut(&L, &SpawnerSpawn, &mut R) -> Option<Uuid>,
+||||||| base
+        spawn: &mut dyn FnMut(&L, &SpawnerSpawn) -> Option<Uuid>,
+=======
+        spawn: &mut dyn FnMut(&L, &mut R, &SpawnerSpawn) -> Option<Uuid>,
+>>>>>>> theirs
         eject: &mut dyn FnMut(&str, &mut R) -> bool,
         events: &mut Vec<TrialEvent>,
     ) -> TrialState {
@@ -913,7 +937,13 @@ impl TrialSpawnerExt for TrialSpawner {
         random: &mut R,
         pos: [i32; 3],
         state: TrialState,
+<<<<<<< ours
         spawn: &mut dyn FnMut(&L, &SpawnerSpawn, &mut R) -> Option<Uuid>,
+||||||| base
+        spawn: &mut dyn FnMut(&L, &SpawnerSpawn) -> Option<Uuid>,
+=======
+        spawn: &mut dyn FnMut(&L, &mut R, &SpawnerSpawn) -> Option<Uuid>,
+>>>>>>> theirs
         eject: &mut dyn FnMut(&str, &mut R) -> bool,
         events: &mut Vec<TrialEvent>,
     ) -> TrialState {
@@ -1044,7 +1074,13 @@ impl TrialSpawnerExt for TrialSpawner {
         l: &L,
         random: &mut R,
         pos: [i32; 3],
+<<<<<<< ours
         spawn: &mut dyn FnMut(&L, &SpawnerSpawn, &mut R) -> Option<Uuid>,
+||||||| base
+        spawn: &mut dyn FnMut(&L, &SpawnerSpawn) -> Option<Uuid>,
+=======
+        spawn: &mut dyn FnMut(&L, &mut R, &SpawnerSpawn) -> Option<Uuid>,
+>>>>>>> theirs
         events: &mut Vec<TrialEvent>,
     ) -> Option<Uuid> {
         let data = self.next_or_create(random, events).clone();
@@ -1114,7 +1150,13 @@ impl TrialSpawnerExt for TrialSpawner {
             equipment: data.equipment.as_ref(),
             trial: true,
         };
+<<<<<<< ours
         let uuid = spawn(l, &request, random)?;
+||||||| base
+        let uuid = spawn(l, &request)?;
+=======
+        let uuid = spawn(l, random, &request)?;
+>>>>>>> theirs
         let flame = i32::from(self.is_ominous);
         events.push(TrialEvent::LevelEvent(3011, pos, flame));
         events.push(TrialEvent::LevelEvent(3012, block, flame));

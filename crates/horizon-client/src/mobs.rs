@@ -51,6 +51,7 @@ pub mod hostile;
 mod hurt_by;
 pub mod illager;
 pub mod illusioner;
+pub mod invulnerable;
 pub mod item_break;
 pub mod keyframes;
 pub mod landing;
@@ -1554,6 +1555,10 @@ pub struct Mob {
     /// direction and feet, which `SulfurCube.knockback` turns the launch by. Set by whoever deals
     /// the blow (`Game::attacker_aim`) and cleared once it is dealt.
     pub attacker_aim: Option<Aim>,
+    /// `DamageSource.isCreativePlayer()` of the blow being dealt: its causing entity is a
+    /// player in creative mode, whose hits `Entity.isInvulnerableToBase` lets through. Set by
+    /// whoever deals the blow (`Game::hurt_by_player`) and cleared once it is dealt.
+    pub creative_attacker: bool,
     /// The horizontal motion `(x, z)` of the projectile that is the direct entity of the blow
     /// being dealt (`Projectile.calculateHorizontalHurtKnockbackDirection`): the knock goes the
     /// way it was travelling. None for any other direct entity.
@@ -3614,6 +3619,7 @@ impl Mob {
             silent: false,
             invulnerable_flag: false,
             attacker_aim: None,
+            creative_attacker: false,
             projectile_motion: None,
             climbing: false,
             on_climbable: false,
@@ -3835,6 +3841,7 @@ impl Mob {
     pub fn damage(&mut self, level: &mut DamageLevel<'_>, amount: f32, source: Damage) -> bool {
         self.damage_with(level, amount, source, None)
     }
+<<<<<<< ours
     /// `LivingEntity.isInvulnerableTo` and dead or removed: only #bypasses_invulnerability gets
     /// past the flag. Fire-immune mobs also refuse fire, except a ghast's reflected fireball.
     /// The guard every damage hook runs after (`LivingIncomingDamageEvent`).
@@ -3851,6 +3858,23 @@ impl Mob {
         &*self.kind.id == "minecraft:ghast"
             && source.kind == DamageKind::Fireball
             && source.attacker == Some(Who::Player)
+||||||| base
+    /// `LivingEntity.isInvulnerableTo` and dead or removed: only #bypasses_invulnerability gets
+    /// past the flag. The guard every damage hook runs after (`LivingIncomingDamageEvent`).
+    pub fn refuses_damage(&self, source: &Damage) -> bool {
+        self.extra.client_side
+            || !self.alive()
+            || self.removed
+            || (self.is_invulnerable() && !source.kind.bypasses_invulnerability())
+    }
+    /// `Entity.isInvulnerable`: `Invulnerable`, or `invulnerable_time` left.
+    pub fn is_invulnerable(&self) -> bool {
+        self.invulnerable_flag || self.invulnerable_time > 0
+=======
+    /// `Entity.isInvulnerable`: `Invulnerable`, or `invulnerable_time` left.
+    pub fn is_invulnerable(&self) -> bool {
+        self.invulnerable_flag || self.invulnerable_time > 0
+>>>>>>> theirs
     }
     /// `LivingEntity.hurtServer`'s partial mob adapter, with health reductions inline.
     /// `damage` by a source with a weapon: `armor_effectiveness` runs the
@@ -4278,8 +4302,16 @@ impl Mob {
         let cloud = self.species() == Species::Enderman
             && direct == "minecraft:area_effect_cloud"
             && !self.removed
+<<<<<<< ours
             && !(self.is_invulnerable() && !source.kind.bypasses_invulnerability());
         let hurt = self.damage(level, amount, source);
+||||||| base
+            && !(self.is_invulnerable() && !source.kind.bypasses_invulnerability());
+        let hurt = self.damage(amount, source);
+=======
+            && !self.is_invulnerable_to(&source);
+        let hurt = self.damage(amount, source);
+>>>>>>> theirs
         if cloud {
             enderman::teleport_chance(self, &source);
         }

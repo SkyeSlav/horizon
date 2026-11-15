@@ -2,6 +2,27 @@
 //! `tick_experience`), the stacks a destroyed container lets fall, and spawning and merging orbs.
 use super::*;
 
+<<<<<<< ours
+||||||| base
+mod ahead;
+
+=======
+mod ahead;
+
+/// A dropped item's `bobOffs` (its bob and spin phase) from its random's draw `drawn`, or under
+/// `HORIZON_STILL` from a random seeded by its position alone: a client seeds an item's random
+/// with the server's entity id, which follows the order chunks load in and differs between
+/// launches. The draw is made either way, so the item's random stays where vanilla's would be.
+pub(super) fn bob_offset(position: Vec3, drawn: f32, still: bool) -> f32 {
+    let drawn = if still {
+        horizon_client::mobs::entity_random(0, position).next_float()
+    } else {
+        drawn
+    };
+    drawn * std::f32::consts::PI * 2.0
+}
+
+>>>>>>> theirs
 impl Game<'_> {
     pub(super) fn tick_items(&mut self) {
         let mut round = self.item_update_round();
@@ -228,7 +249,8 @@ impl Game<'_> {
                 },
             );
             if environment.should_play_lava_hurt_sound(item.ticks) {
-                let pitch = 2.0 + self.world.random.next_float() * 0.4;
+                // `Entity.lavaHurt` pitches the burn from `this.random`, the item's own.
+                let pitch = 2.0 + item.random.next_float() * 0.4;
                 self.audio.play(
                     "minecraft:entity.generic.burn",
                     Some([item.position.x, item.position.y, item.position.z]),
@@ -274,8 +296,147 @@ impl Game<'_> {
         );
         let feet = [p.position.x, p.position.y, p.position.z];
         let own = self.level.ensure_player_uuid();
+<<<<<<< ours
         self.native_player_pickups(&mut items, (min, max), feet, own);
         self.put_back_dropped(items);
+||||||| base
+        let mut kept = Vec::with_capacity(items.len());
+        for mut item in items {
+            let b = item.bounds();
+            let touching = b.min_position().x < max[0]
+                && b.max_position().x > min[0]
+                && b.min_position().y < max[1]
+                && b.max_position().y > min[1]
+                && b.min_position().z < max[2]
+                && b.max_position().z > min[2];
+            // ItemEntity.playerTouch: no pickup delay, and the target (if any) is this player.
+            if touching && item.pickup_delay == 0 && item.target.is_none_or(|t| t == own) {
+                if self.native_pickup_refused(&item.stack, item.thrower, item.position) {
+                    item.pickup_delay = 10;
+                    kept.push(item);
+                    continue;
+                }
+                let before = item.stack.count;
+                let kind = item.stack.item.clone();
+                let thrower = item.thrower;
+                match self.give(item.stack.clone()) {
+                    None => {
+                        self.award_stat("picked_up", &kind, before as i32);
+                        if let Some(thrower) = thrower {
+                            self.trigger_thrown_picked_up_by_player(&item.stack, thrower);
+                        }
+                        self.add_pickup(
+                            pickups::Taken::Item(Box::new(item)),
+                            pickups::Collector::Player,
+                        );
+                        let pitch = ((self.world.random.next_float()
+                            - self.world.random.next_float())
+                            * 0.7
+                            + 1.0)
+                            * 2.0;
+                        self.audio
+                            .play("minecraft:entity.item.pickup", Some(feet), 0.2, pitch);
+                        continue;
+                    }
+                    Some(rest) => {
+                        // ItemEntity.playerTouch: `Inventory.add` is true once any
+                        // of the stack went in, so a partial pickup still takes
+                        // (animation and sound) and awards the stat with the
+                        // count the stack had before it (`take(this, count)`,
+                        // `awardStat(..., count)`).
+                        if rest.count < before {
+                            self.award_stat("picked_up", &kind, before as i32);
+                            if let Some(thrower) = thrower {
+                                self.trigger_thrown_picked_up_by_player(&rest, thrower);
+                            }
+                            self.add_pickup(
+                                pickups::Taken::Item(Box::new(item.clone())),
+                                pickups::Collector::Player,
+                            );
+                            // handleTakeItemEntity: the random pitch of a full pickup.
+                            let pitch = ((self.world.random.next_float()
+                                - self.world.random.next_float())
+                                * 0.7
+                                + 1.0)
+                                * 2.0;
+                            self.audio
+                                .play("minecraft:entity.item.pickup", Some(feet), 0.2, pitch);
+                        }
+                        item.stack = rest;
+                    }
+                }
+            }
+            kept.push(item);
+        }
+        self.restore_item_batch(kept.into());
+=======
+        let mut kept = Vec::with_capacity(items.len());
+        for mut item in items {
+            let b = item.bounds();
+            let touching = b.min_position().x < max[0]
+                && b.max_position().x > min[0]
+                && b.min_position().y < max[1]
+                && b.max_position().y > min[1]
+                && b.min_position().z < max[2]
+                && b.max_position().z > min[2];
+            // ItemEntity.playerTouch: no pickup delay, and the target (if any) is this player.
+            if touching && item.pickup_delay == 0 && item.target.is_none_or(|t| t == own) {
+                if self.native_pickup_refused(&item.stack, item.thrower, item.position) {
+                    item.pickup_delay = 10;
+                    kept.push(item);
+                    continue;
+                }
+                let before = item.stack.count;
+                let kind = item.stack.item.clone();
+                let thrower = item.thrower;
+                match self.give(item.stack.clone()) {
+                    None => {
+                        self.award_stat("picked_up", &kind, before as i32);
+                        if let Some(thrower) = thrower {
+                            self.trigger_thrown_picked_up_by_player(&item.stack, thrower);
+                        }
+                        self.add_pickup(
+                            pickups::Taken::Item(Box::new(item)),
+                            pickups::Collector::Player,
+                        );
+                        // `ClientPacketListener.handleTakeItemEntity` pitches the
+                        // pickup from the listener's own random, not the level's.
+                        let mut r = random_source::create();
+                        let pitch = ((r.next_float() - r.next_float()) * 0.7 + 1.0) * 2.0;
+                        self.audio
+                            .play("minecraft:entity.item.pickup", Some(feet), 0.2, pitch);
+                        continue;
+                    }
+                    Some(rest) => {
+                        // ItemEntity.playerTouch: `Inventory.add` is true once any
+                        // of the stack went in, so a partial pickup still takes
+                        // (animation and sound) and awards the stat with the
+                        // count the stack had before it (`take(this, count)`,
+                        // `awardStat(..., count)`).
+                        if rest.count < before {
+                            self.award_stat("picked_up", &kind, before as i32);
+                            if let Some(thrower) = thrower {
+                                self.trigger_thrown_picked_up_by_player(&rest, thrower);
+                            }
+                            self.add_pickup(
+                                pickups::Taken::Item(Box::new(item.clone())),
+                                pickups::Collector::Player,
+                            );
+                            // handleTakeItemEntity: the random pitch of a full pickup,
+                            // from the listener's own random as above.
+                            let mut r = random_source::create();
+                            let pitch = ((r.next_float() - r.next_float()) * 0.7 + 1.0) * 2.0;
+                            self.audio
+                                .play("minecraft:entity.item.pickup", Some(feet), 0.2, pitch);
+                        }
+                        item.stack = rest;
+                    }
+                }
+            }
+            kept.push(item);
+        }
+        self.restore_item_batch(kept.into());
+>>>>>>> theirs
         self.spawn_destroyed_contents(destroyed);
     }
     /// `ItemUtils.onContainerDestroyed`: spilled stacks use their own constructor
@@ -518,6 +679,7 @@ impl Game<'_> {
             health: 5,
             air: 300,
             following: None,
+            fire_ticks: 0,
         });
         // ServerLevel.addFreshEntity.
         self.native_joins_flush(false, 0);
@@ -596,8 +758,8 @@ impl Game<'_> {
         for o in taken {
             // ClientPacketListener.handleTakeItemEntity: every orb taken sounds
             // at the orb, whether mending took its points or not.
-            let pitch =
-                (self.world.random.next_float() - self.world.random.next_float()) * 0.35 + 0.9;
+            let mut r = random_source::create();
+            let pitch = (r.next_float() - r.next_float()) * 0.35 + 0.9;
             let at = [o.position.x, o.position.y, o.position.z];
             self.audio.play(
                 "minecraft:entity.experience_orb.pickup",
@@ -618,6 +780,7 @@ impl Game<'_> {
     /// `Player.dropEquipment` for the player who died: unless keep_inventory
     /// is on, `destroyVanishingCursedItems`, then `Inventory.dropAll` from
     /// `at` (the eyes less 0.3): slots 0..36, armor feet to head (36..39),
+<<<<<<< ours
     /// the off hand (40), each thrown in a random direction. The mods hear
     /// the drops (`native_living_drops`) before they join the level.
     pub(super) fn drop_inventory(&mut self, at: [f64; 3], dying: &creatures::DyingDrops<'_>) {
@@ -641,6 +804,65 @@ impl Game<'_> {
             let angle = f64::from(r.next_float()) * std::f64::consts::TAU;
             Some([-angle.sin() * strength, 0.2, angle.cos() * strength])
         });
+||||||| base
+    /// the off hand (40), each thrown in a random direction. The mods
+    /// (`native_loot_drops`, the dying player `who`: uuid and entity id)
+    /// may add to, change or take out the stacks before they are thrown.
+    pub(super) fn drop_inventory(&mut self, at: [f64; 3], who: (u128, i32)) {
+        if self.ui.rules.bool("keep_inventory") {
+            return;
+        }
+        let mut stacks = death_drops(&mut self.inventory, &mut self.offhand, &mut self.armor);
+        self.apply_equipment();
+        let context = horizon_client::mod_api::NativeLootDrops {
+            table: "",
+            dimension: self.dim.id(),
+            origin: at,
+            block: None,
+            entity: Some((who.1 as u32, "minecraft:player")),
+            player: Some(who.0),
+            tool: None,
+            explosion: None,
+            used: false,
+        };
+        self.native_loot_drops(&context, &mut stacks);
+        stacks.retain(|stack| stack.count > 0 && &*stack.item != "minecraft:air");
+        for stack in stacks {
+            let r = &mut self.world.random;
+            let v = horizon_client::entities::drop_motion(r, self.yaw, self.pitch, true);
+            self.spawn_item(stack, at, v, 40);
+        }
+=======
+    /// the off hand (40), each thrown in a random direction. The mods
+    /// (`native_loot_drops`, the dying player `who`: uuid and entity id)
+    /// may add to, change or take out the stacks before they are thrown.
+    pub(super) fn drop_inventory(&mut self, at: [f64; 3], who: (u128, i32)) {
+        if self.ui.rules.bool("keep_inventory") {
+            return;
+        }
+        let mut stacks = death_drops(&mut self.inventory, &mut self.offhand, &mut self.armor);
+        self.apply_equipment();
+        let context = horizon_client::mod_api::NativeLootDrops {
+            table: "",
+            dimension: self.dim.id(),
+            origin: at,
+            block: None,
+            entity: Some((who.1 as u32, "minecraft:player")),
+            player: Some(who.0),
+            tool: None,
+            explosion: None,
+            used: false,
+        };
+        self.native_loot_drops(&context, &mut stacks);
+        stacks.retain(|stack| stack.count > 0 && &*stack.item != "minecraft:air");
+        // `Inventory.dropAll` scatters every stack from `this.random`, the
+        // dying player's own, never the level's.
+        let mut r = random_source::entity();
+        for stack in stacks {
+            let v = horizon_client::entities::drop_motion(&mut r, self.yaw, self.pitch, true);
+            self.spawn_item(stack, at, v, 40);
+        }
+>>>>>>> theirs
     }
 
     /// Item entity `i` leaves the level (`Entity.discard`); mods hear it.
@@ -810,6 +1032,7 @@ impl Game<'_> {
         eye: [f64; 3],
         randomly: bool,
         thrown_from_hand: bool,
+<<<<<<< ours
     ) -> Option<u32> {
         let r = &mut self.world.random;
         let v = horizon_client::entities::drop_motion(r, self.yaw, self.pitch, randomly);
@@ -821,6 +1044,82 @@ impl Game<'_> {
             self.next_entity
         } else {
             self.toss_item(thrown, at, v, uuid)?
+||||||| base
+    ) {
+        let r = &mut self.world.random;
+        let v = horizon_client::entities::drop_motion(r, self.yaw, self.pitch, false);
+        // `getEyeY() - 0.3F`.
+        let y = eye[1] - f64::from(0.3f32);
+        self.spawn_item(thrown, [eye[0], y, eye[2]], v, 40);
+        // A native mod can keep the item out of the level (native_entity_join_level).
+        if thrown_from_hand {
+            let uuid = self.acting_player_uuid();
+            if let Some(item) = self.just_spawned_item() {
+                item.thrower = Some(uuid);
+            }
+        }
+    }
+
+    /// DropExperienceBlock / RedStoneOreBlock / SculkBlock experience ranges.
+    pub(super) fn block_experience(&mut self, name: &str) -> u32 {
+        let (min, max) = match name.trim_start_matches("minecraft:") {
+            "coal_ore" | "deepslate_coal_ore" => (0, 2),
+            "nether_gold_ore" => (0, 1),
+            "lapis_ore" | "deepslate_lapis_ore" | "nether_quartz_ore" => (2, 5),
+            "diamond_ore" | "deepslate_diamond_ore" | "emerald_ore" | "deepslate_emerald_ore" => {
+                (3, 7)
+            }
+            "redstone_ore" | "deepslate_redstone_ore" => (1, 5),
+            "sculk" => (1, 1),
+            "sculk_catalyst" | "sculk_sensor" | "calibrated_sculk_sensor" | "sculk_shrieker" => {
+                (5, 5)
+            }
+            // SpawnerBlock.spawnAfterBreak: 15 + nextInt(15) + nextInt(15).
+            "spawner" => {
+                let r = &mut self.world.random;
+                let a = r.next_int_bound(15).unwrap_or(0);
+                return (15 + a + r.next_int_bound(15).unwrap_or(0)) as u32;
+            }
+            _ => (0, 0),
+=======
+    ) {
+        // `this.random` of the thrower (`Entity.random`), never the level's.
+        let mut r = random_source::entity();
+        let v = horizon_client::entities::drop_motion(&mut r, self.yaw, self.pitch, false);
+        // `getEyeY() - 0.3F`.
+        let y = eye[1] - f64::from(0.3f32);
+        self.spawn_item(thrown, [eye[0], y, eye[2]], v, 40);
+        // A native mod can keep the item out of the level (native_entity_join_level).
+        if thrown_from_hand {
+            let uuid = self.acting_player_uuid();
+            if let Some(item) = self.just_spawned_item() {
+                item.thrower = Some(uuid);
+            }
+        }
+    }
+
+    /// DropExperienceBlock / RedStoneOreBlock / SculkBlock experience ranges.
+    pub(super) fn block_experience(&mut self, name: &str) -> u32 {
+        let (min, max) = match name.trim_start_matches("minecraft:") {
+            "coal_ore" | "deepslate_coal_ore" => (0, 2),
+            "nether_gold_ore" => (0, 1),
+            "lapis_ore" | "deepslate_lapis_ore" | "nether_quartz_ore" => (2, 5),
+            "diamond_ore" | "deepslate_diamond_ore" | "emerald_ore" | "deepslate_emerald_ore" => {
+                (3, 7)
+            }
+            "redstone_ore" | "deepslate_redstone_ore" => (1, 5),
+            "sculk" => (1, 1),
+            "sculk_catalyst" | "sculk_sensor" | "calibrated_sculk_sensor" | "sculk_shrieker" => {
+                (5, 5)
+            }
+            // SpawnerBlock.spawnAfterBreak: 15 + nextInt(15) + nextInt(15).
+            "spawner" => {
+                let r = &mut self.world.random;
+                let a = r.next_int_bound(15).unwrap_or(0);
+                return (15 + a + r.next_int_bound(15).unwrap_or(0)) as u32;
+            }
+            _ => (0, 0),
+>>>>>>> theirs
         };
         let item = self.dropped.iter_mut().rev().find(|d| d.id == id)?;
         item.thrower = uuid;
@@ -989,3 +1288,49 @@ mod escape_tests {
         assert_eq!(game.world.random.next_float(), level.next_float());
     }
 }
+<<<<<<< ours
+||||||| base
+
+#[cfg(test)]
+#[path = "item_void_tests.rs"]
+mod item_void_tests;
+#[cfg(test)]
+#[path = "wither_star_tests.rs"]
+mod wither_star_tests;
+=======
+
+#[cfg(test)]
+#[path = "item_void_tests.rs"]
+mod item_void_tests;
+#[cfg(test)]
+#[path = "thrown_items_tests.rs"]
+mod thrown_items_tests;
+#[cfg(test)]
+#[path = "wither_star_tests.rs"]
+mod wither_star_tests;
+#[cfg(test)]
+mod bob_tests {
+    use horizon_core::geometry::Vec3;
+    use horizon_core::random::RandomSource;
+
+    /// The bob a client gives the item with entity id `id` at `at`.
+    fn bob(id: u32, at: Vec3, still: bool) -> f32 {
+        let mut random = (*horizon_client::mobs::entity_random(id, at)).clone();
+        super::bob_offset(at, random.next_float(), still)
+    }
+
+    /// Under `HORIZON_STILL` the item's position decides its bob, not the id the server gave
+    /// it; without it the bob is the id-seeded random's own draw.
+    #[test]
+    fn a_still_items_bob_comes_from_its_position() {
+        let at = Vec3::new(0.5, 64.0, 2.5);
+        assert_eq!(bob(17, at, true), bob(22, at, true));
+        for id in [17, 22] {
+            let mut random = (*horizon_client::mobs::entity_random(id, at)).clone();
+            let vanilla = random.next_float() * std::f32::consts::PI * 2.0;
+            assert_eq!(bob(id, at, false), vanilla);
+        }
+        assert_ne!(bob(17, at, false), bob(22, at, false));
+    }
+}
+>>>>>>> theirs

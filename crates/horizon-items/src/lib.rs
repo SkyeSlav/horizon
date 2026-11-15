@@ -19,8 +19,14 @@ pub mod item_abilities;
 pub mod item_data;
 pub mod item_nbt;
 pub mod items;
+<<<<<<< ours
 pub mod kinetic_weapon;
 mod loot_tags;
+||||||| base
+=======
+#[cfg(test)]
+mod loot_predicate_tests;
+>>>>>>> theirs
 pub mod mining;
 pub mod native_enchantment_hooks;
 pub mod properties;

@@ -567,6 +567,7 @@ impl Game<'_> {
         at: [f64; 3],
         site: SpawnSite,
     ) -> Option<u32> {
+<<<<<<< ours
         // Dragons have a separate entity implementation, but eggs use the same spawn path.
         if matches!(kind, "ender_dragon" | "minecraft:ender_dragon") {
             return self.spawn_dragon_spawned(at, site);
@@ -581,6 +582,15 @@ impl Game<'_> {
         self.spawn_mob(kind, at, false, site)
     }
     fn create_mob_reason(
+||||||| base
+        self.spawn_mob_internal(kind, at, persistent, scripted, natural, true, yaw)
+    }
+    fn spawn_mob_internal(
+=======
+        self.spawn_mob_internal(kind, at, persistent, scripted, natural, true, yaw)
+    }
+    pub(super) fn spawn_mob_internal(
+>>>>>>> theirs
         &mut self,
         kind: &str,
         at: [f64; 3],
@@ -619,6 +629,7 @@ impl Game<'_> {
         // `EntityType.create`: the mob is constructed before `finalizeSpawn`.
         self.initialize_entity(mod_api::Holder::Entity(mob.id), &kind);
         mob.persistent = persistent;
+<<<<<<< ours
         match site {
             SpawnSite::Raw => return Some(mob),
             SpawnSite::Finalizing(reason) => match self.finalize_with(&mut mob, reason, None) {
@@ -636,6 +647,39 @@ impl Game<'_> {
                     &difficulty,
                     horizon_client::mobs::spawn_rules::Reason::MobSummoned,
                 );
+||||||| base
+        if finalize {
+            let facts = self.biome_facts(
+                at[0].floor() as i32,
+                at[1].floor() as i32,
+                at[2].floor() as i32,
+            );
+            let difficulty = self.local_difficulty(at);
+            spawning::finalize(&mut mob, &facts, &difficulty);
+            if !scripted {
+                let reason = if persistent {
+                    horizon_client::mobs::raider::Reason::Other
+                } else {
+                    horizon_client::mobs::raider::Reason::Natural
+                };
+                horizon_client::mobs::raider::finalize(&mut mob, reason);
+=======
+        if finalize {
+            let facts = self.biome_facts(
+                at[0].floor() as i32,
+                at[1].floor() as i32,
+                at[2].floor() as i32,
+            );
+            let difficulty = self.local_difficulty(at);
+            spawning::finalize(&mut mob, &facts, &difficulty, &mut self.world.random);
+            if !scripted {
+                let reason = if persistent {
+                    horizon_client::mobs::raider::Reason::Other
+                } else {
+                    horizon_client::mobs::raider::Reason::Natural
+                };
+                horizon_client::mobs::raider::finalize(&mut mob, reason);
+>>>>>>> theirs
             }
         }
         Some(mob)
@@ -822,11 +866,51 @@ impl Game<'_> {
             self.lan_entity_event(id as i32, event, at);
         }
     }
+<<<<<<< ours
     /// Finalize a converted frog or witch before it joins the level.
     fn finalize_converted(&mut self, mob: &mut Mob) {
         // A mod that stops a conversion's finalization leaves the mob as converted.
         self.finalize_with(mob, SpawnReason::Conversion, None);
         mob.persistent = true;
+||||||| base
+    /// What `Villager.thunderHit`'s and `Tadpole.ageUp`'s after-step gives the
+    /// new mob: the spawn finalization of a conversion, then persistence.
+    fn finalize_converted(&mut self, id: u32) {
+        let Some(at) = self.mobs.iter().find(|m| m.id == id).map(|m| m.position) else {
+            return;
+        };
+        let facts = self.biome_facts(
+            at.x.floor() as i32,
+            at.y.floor() as i32,
+            at.z.floor() as i32,
+        );
+        let difficulty = self.local_difficulty([at.x, at.y, at.z]);
+        if let Some(m) = self.mobs.iter_mut().find(|m| m.id == id) {
+            spawning::finalize(m, &facts, &difficulty);
+            // `Raider.finalizeSpawn`, which the witch's conversion reaches too.
+            horizon_client::mobs::raider::finalize(m, horizon_client::mobs::raider::Reason::Other);
+            m.persistent = true;
+        }
+=======
+    /// What `Villager.thunderHit`'s and `Tadpole.ageUp`'s after-step gives the
+    /// new mob: the spawn finalization of a conversion, then persistence.
+    fn finalize_converted(&mut self, id: u32) {
+        let Some(at) = self.mobs.iter().find(|m| m.id == id).map(|m| m.position) else {
+            return;
+        };
+        let facts = self.biome_facts(
+            at.x.floor() as i32,
+            at.y.floor() as i32,
+            at.z.floor() as i32,
+        );
+        let difficulty = self.local_difficulty([at.x, at.y, at.z]);
+        if let Some(m) = self.mobs.iter_mut().find(|m| m.id == id) {
+            spawning::finalize(m, &facts, &difficulty, &mut self.world.random);
+            // `Raider.finalizeSpawn`, which the witch's conversion reaches too.
+            horizon_client::mobs::raider::finalize(m, horizon_client::mobs::raider::Reason::Other);
+            m.persistent = true;
+        }
+>>>>>>> theirs
     }
     /// `Mob.convertTo(type, ConversionParams.single(...))`: a new mob of
     /// `kind`, made without spawn finalization unless its conversion asks, takes
@@ -1460,7 +1544,7 @@ impl Game<'_> {
                 .map(|e| e.id.trim_start_matches("minecraft:"))
                 .collect();
             let bounds = m.bounds();
-            self.effects_on_death(&names, bounds, false, Some(m.id), Some(&mut m.random));
+            self.effects_on_death(&names, bounds, m.silent, Some(m.id), Some(&mut m.random));
         }
         self.deliver_pending_mob_actions(level_id)?;
         self.finish_creature_entities(&mut laps, &primable)
@@ -1660,6 +1744,7 @@ impl Game<'_> {
             pos,
             source,
         );
+<<<<<<< ours
         self.finish_mob_death(m, &mut dying, source);
     }
     /// `AbstractCubeMob.remove`: split only as the dead body is removed.
@@ -1681,6 +1766,79 @@ impl Game<'_> {
                     self.mobs.push(child);
                     self.native_mobs_joined(self.mobs.len() - 1, false);
                 }
+||||||| base
+        self.create_wither_rose(m);
+        if m.species() == Species::CopperGolem {
+            // CopperGolem.dropEquipment: the preserved equipment too.
+            self.golem_drop_equipment(&mut dying);
+        }
+    }
+    /// 🤖 Agent: `AbstractCubeMob.remove`'s split: a grown cube mob leaves its
+    /// smaller halves behind when its body goes, twenty ticks after the death
+    /// (`LivingEntity.tickDeath`), not when it dies.
+    fn split_dead_cube(&mut self, m: &Mob) {
+        if m.species() == Species::SulfurCube {
+            self.split_sulfur_cube(m);
+            return;
+        }
+        // 🤖 Agent: AbstractCubeMob.getSplitCount: two to four smaller slimes.
+        let size = m.extra.size;
+        if size <= 1 {
+            return;
+        }
+        let mut n = 2 + self.world.random.next_int_bound(3).unwrap_or(0);
+        let mut cancel = false;
+        let mut count = n as u32;
+        let kind = super::native_hooks::mob_kind(m);
+        self.native_mob_split(m.id, &kind, size, size / 2, &mut count, &mut cancel);
+        n = if cancel { 0 } else { count.min(64) as _ };
+        for k in 0..n {
+            let off = |kk: i32| (f64::from(kk % 2) - 0.5) * f64::from(size) / 4.0;
+            let at = [
+                m.position.x + off(k),
+                m.position.y + 0.5,
+                m.position.z + off(k / 2),
+            ];
+            if let Some(id) = self.spawn_mob_raw(&m.kind.id, at, m.persistent)
+                && let Some(c) = self.mobs.iter_mut().find(|c| c.id == id)
+            {
+                horizon_client::mobs::cube::set_size(c, size / 2);
+=======
+        self.create_wither_rose(m);
+        if m.species() == Species::CopperGolem {
+            // CopperGolem.dropEquipment: the preserved equipment too.
+            self.golem_drop_equipment(&mut dying);
+        }
+    }
+    /// 🤖 Agent: `AbstractCubeMob.remove`'s split: a grown cube mob leaves its
+    /// smaller halves behind when its body goes, twenty ticks after the death
+    /// (`LivingEntity.tickDeath`), not when it dies.
+    fn split_dead_cube(&mut self, m: &Mob) {
+        if m.species() == Species::SulfurCube {
+            self.split_sulfur_cube(m);
+            return;
+        }
+        let size = m.extra.size;
+        if size <= 1 {
+            return;
+        }
+        // The count (getSplitCount: two to four smaller slimes) and each child's yaw come from the
+        // dying cube's own random; the body goes with this call, so its copy draws what it would.
+        let mut own = m.random.clone();
+        let mut n = 2 + own.next_int_bound(3).unwrap_or(0);
+        let mut cancel = false;
+        let mut count = n as u32;
+        let kind = super::native_hooks::mob_kind(m);
+        self.native_mob_split(m.id, &kind, size, size / 2, &mut count, &mut cancel);
+        n = if cancel { 0 } else { count.min(64) as _ };
+        for k in 0..n {
+            if let Some(id) = self.spawn_split_cube(m, k)
+                && let Some(c) = self.mobs.iter_mut().find(|c| c.id == id)
+            {
+                // setUpSplitCube: setSize(halfSize, true), then snapTo with a yaw of its own.
+                horizon_client::mobs::cube::set_size(c, size / 2);
+                super::sulfur_cubes::snap_split_yaw(c, own.next_float() * 360.0);
+>>>>>>> theirs
             }
         }
     }
@@ -2349,10 +2507,9 @@ impl Game<'_> {
                     let ctx = self.who_context(Some(Who::Mob(source)), None);
                     self.post_game_event(event, at, ctx);
                 }
-                // A mob's own `gameEvent(..)` calls: Armadillo.rollUp/rollOut's
-                // ENTITY_ACTION, Creeper.tick's PRIME_FUSE, Mob.ate's EAT, a fox's
-                // DRINK, the shulker's lid, an evoker's vexes (ENTITY_PLACE),
-                // Enderman.teleport's TELEPORT, onEquipItem's EQUIP/UNEQUIP.
+                // A mob's own `gameEvent(..)` calls: Armadillo.rollUp/rollOut's ENTITY_ACTION,
+                // PRIME_FUSE, EAT, a fox's DRINK, the shulker's lid, an evoker's vexes
+                // (ENTITY_PLACE), TELEPORT, EQUIP/UNEQUIP, updateFallFlying's ELYTRA_GLIDE.
                 MobEvent::GameEvent {
                     event, at, source, ..
                 } if matches!(
@@ -2367,6 +2524,7 @@ impl Game<'_> {
                         | "minecraft:teleport"
                         | "minecraft:equip"
                         | "minecraft:unequip"
+                        | "minecraft:elytra_glide"
                 ) =>
                 {
                     let ctx = self.who_context(Some(Who::Mob(source)), None);
@@ -4389,7 +4547,13 @@ impl Game<'_> {
         }
     }
 
+<<<<<<< ours
     pub(super) fn tick_projectiles_now(&mut self) -> Result<()> {
+||||||| base
+    fn tick_projectiles(&mut self) -> Result<()> {
+=======
+    pub(super) fn tick_projectiles(&mut self) -> Result<()> {
+>>>>>>> theirs
         if self.creatures.projectiles.is_empty() {
             self.flush_lan_explosions();
             return self.flush_wind_bursts();
@@ -4590,6 +4754,7 @@ impl Game<'_> {
                             (p.position, e)
                         }));
                     }
+<<<<<<< ours
                     let wind = matches!(
                         p.kind,
                         ProjectileKind::WindCharge | ProjectileKind::BreezeWindCharge
@@ -4619,6 +4784,61 @@ impl Game<'_> {
                         }
                         deflections.push((id, [at.x, at.y, at.z]));
                         return;
+||||||| base
+                    deflections.push(id);
+                    continue;
+                }
+                // AbstractWindCharge.tick: out of the world's top it bursts.
+                if wind && keep && p.position.y > 350.0 {
+                    hits.push((
+                        p.clone(),
+                        Hit::Block {
+                            pos: [0; 3],
+                            at: p.position,
+                            face: [0; 3],
+                        },
+                    ));
+                    keep_flags[i] = false;
+                    continue;
+                }
+                vehicle_winds.met(wind_before, hit);
+                if hit != Hit::None {
+                    if let Some(before) = before {
+                        impacts.push(Impact {
+                            index: i,
+                            before,
+                            hit,
+                            hit_slot: hits.len(),
+                            events: events_from..arrow_events.len(),
+                        });
+=======
+                    deflections.push(id);
+                    continue;
+                }
+                // AbstractWindCharge.tick: above the world's top it bursts.
+                if wind && keep && super::wind::above_the_top(self.world.shape, p.position.y) {
+                    hits.push((
+                        p.clone(),
+                        Hit::Block {
+                            pos: [0; 3],
+                            at: p.position,
+                            face: [0; 3],
+                        },
+                    ));
+                    keep_flags[i] = false;
+                    continue;
+                }
+                vehicle_winds.met(wind_before, hit);
+                if hit != Hit::None {
+                    if let Some(before) = before {
+                        impacts.push(Impact {
+                            index: i,
+                            before,
+                            hit,
+                            hit_slot: hits.len(),
+                            events: events_from..arrow_events.len(),
+                        });
+>>>>>>> theirs
                     }
                     // AbstractWindCharge.tick: out of the world's top it bursts.
                     if wind && keep && p.position.y > 350.0 {
@@ -6363,6 +6583,8 @@ impl Game<'_> {
         let Some(index) = self.mob_interaction_target(target) else {
             return Ok(false);
         };
+        // CamelHusk.interact: any click on it keeps it (`setPersistenceRequired`).
+        horizon_client::mobs::camel::keep_on_interact(&mut self.mobs[index]);
         // PlayerInteractTrigger: the name tag as it was before it named the mob.
         let used = self.held().cloned();
         if self.name_mob(index) {
@@ -6372,11 +6594,67 @@ impl Game<'_> {
             }
             return Ok(true);
         }
+<<<<<<< ours
         // Shears ask the mob's entity parts first, then fire `player_shear_entity`.
         if self.held_shears()
             && let Some(consumed) = self.player_shear(index)
         {
             return Ok(consumed);
+||||||| base
+        if self
+            .held()
+            .is_some_and(|stack| &*stack.item == "minecraft:shears")
+        {
+            let mob = &self.mobs[index];
+            let shearable = match mob.species() {
+                Species::Sheep => !mob.extra.sheared && !mob.is_baby(),
+                Species::Mooshroom => !mob.is_baby(),
+                Species::SnowGolem | Species::Bogged => mob.alive() && !mob.extra.sheared,
+                _ => false,
+            };
+            if shearable
+                && let (Some(player), Some(name)) =
+                    (self.lan_acting_uuid, self.lan_acting_name.clone())
+            {
+                let mut cancel = false;
+                self.native_player_shear_entity(
+                    player,
+                    &name,
+                    mob.id as i32,
+                    self.hand == Hand::Off,
+                    &mut cancel,
+                );
+                if cancel {
+                    return Ok(true);
+                }
+            }
+=======
+        let shears = self.held().is_some_and(|s| &*s.item == "minecraft:shears");
+        if shears {
+            let mob = &self.mobs[index];
+            let shearable = match mob.species() {
+                Species::Sheep => !mob.extra.sheared && !mob.is_baby(),
+                Species::Mooshroom => !mob.is_baby(),
+                Species::SnowGolem | Species::Bogged => mob.alive() && !mob.extra.sheared,
+                _ => false,
+            };
+            if shearable
+                && let (Some(player), Some(name)) =
+                    (self.lan_acting_uuid, self.lan_acting_name.clone())
+            {
+                let mut cancel = false;
+                self.native_player_shear_entity(
+                    player,
+                    &name,
+                    mob.id as i32,
+                    self.hand == Hand::Off,
+                    &mut cancel,
+                );
+                if cancel {
+                    return Ok(true);
+                }
+            }
+>>>>>>> theirs
         }
         if self.spawn_egg_offspring(index) {
             self.swing_arm();
@@ -8488,6 +8766,7 @@ pub(super) fn from_loot(stack: &horizon_world::loot::LootStack) -> ItemStack {
     }
     item
 }
+<<<<<<< ours
 impl Game<'_> {
     /// The rest of `NetherPortalBlock.randomTick` after a won roll: with a
     /// player close enough for spawning, a zombified piglin spawns on the block
@@ -8584,6 +8863,125 @@ impl Game<'_> {
                 .map(|id| id as u32),
             None => None,
         })
+||||||| base
+impl Game<'_> {
+    /// The rest of `NetherPortalBlock.randomTick` after a won roll: with a
+    /// player close enough for spawning, a zombified piglin spawns on the block
+    /// under the portal column when it is a valid spawn.
+    pub(super) fn portal_spawn(&mut self, pos: [i32; 3]) {
+        // ChunkMap.anyPlayerCloseEnoughForSpawning: a non-spectator within 128
+        // blocks of the chunk centre.
+        let centre = [
+            f64::from((pos[0] >> 4) * 16 + 8),
+            f64::from((pos[2] >> 4) * 16 + 8),
+        ];
+        let close = self.level_players().iter().any(|p| {
+            let (dx, dz) = (p.position.x - centre[0], p.position.z - centre[1]);
+            !p.spectator && dx * dx + dz * dz < 16384.0
+        });
+        if !close {
+            return;
+        }
+        let mut y = pos[1];
+        while &*self
+            .res
+            .facts()
+            .get(self.world.block(pos[0], y, pos[2]))
+            .name
+            == "minecraft:nether_portal"
+        {
+            y -= 1;
+        }
+        // isValidSpawn: a sturdy top face (portal frames emit no light).
+        let below = self.res.facts().get(self.world.block(pos[0], y, pos[2]));
+        if below.sturdy_full & (1 << 1) == 0 {
+            return;
+        }
+        let at = [
+            f64::from(pos[0]) + 0.5,
+            f64::from(y + 1),
+            f64::from(pos[2]) + 0.5,
+        ];
+        // setPortalCooldown: the new piglin does not travel at once.
+        if let Some(id) = self.spawn_mob("minecraft:zombified_piglin", at, false) {
+            self.set_portal_cooldown(id);
+        }
+    }
+}
+/// `LivingEntity.knockback` on `p`: [`Game::knock_back_player`]; 1.8.9's
+/// `EntityLivingBase.knockBack` under `legacy` rules.
+fn knock_back(
+    p: &mut horizon_client::motion::PlayerMotion,
+    random: &mut horizon_core::random::LegacyRandom,
+    power: f64,
+    (xd, zd): (f64, f64),
+    source: HurtSource<'_>,
+    legacy: bool,
+) {
+    let resistance = p.attribute("minecraft:knockback_resistance").unwrap_or(0.0);
+    // The native hook runs first, on the raw strength (`LivingKnockBackEvent`), then the
+    // resistance scales what it left.
+    let mut knock = Knock {
+        strength: power,
+        x: xd,
+        z: zd,
+    };
+    if knockback_canceled(Hurting::Player(p.entity_id, source), &mut knock) {
+        return;
+    }
+    let Knock {
+        strength: power,
+        x: mut xd,
+        z: mut zd,
+    } = knock;
+    if legacy && horizon_client::legacy_combat::resists(resistance, random.next_double()) {
+        return;
+    }
+    let power = if legacy {
+        power
+    } else {
+        power * (1.0 - resistance)
+    };
+    if power <= 0.0 {
+        return;
+=======
+/// `LivingEntity.knockback` on `p`: [`Game::knock_back_player`]; 1.8.9's
+/// `EntityLivingBase.knockBack` under `legacy` rules.
+fn knock_back(
+    p: &mut horizon_client::motion::PlayerMotion,
+    random: &mut horizon_core::random::LegacyRandom,
+    power: f64,
+    (xd, zd): (f64, f64),
+    source: HurtSource<'_>,
+    legacy: bool,
+) {
+    let resistance = p.attribute("minecraft:knockback_resistance").unwrap_or(0.0);
+    // The native hook runs first, on the raw strength (`LivingKnockBackEvent`), then the
+    // resistance scales what it left.
+    let mut knock = Knock {
+        strength: power,
+        x: xd,
+        z: zd,
+    };
+    if knockback_canceled(Hurting::Player(p.entity_id, source), &mut knock) {
+        return;
+    }
+    let Knock {
+        strength: power,
+        x: mut xd,
+        z: mut zd,
+    } = knock;
+    if legacy && horizon_client::legacy_combat::resists(resistance, random.next_double()) {
+        return;
+    }
+    let power = if legacy {
+        power
+    } else {
+        power * (1.0 - resistance)
+    };
+    if power <= 0.0 {
+        return;
+>>>>>>> theirs
     }
     /// Whether a mod may answer `can_entity_grief` differently from the rule:
     /// the sites that skip their whole work while griefing is off skip it only

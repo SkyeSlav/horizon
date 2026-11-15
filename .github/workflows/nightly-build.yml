@@ -33,6 +33,7 @@ run-name: ${{ inputs.kind == 'snapshot' && format('snapshot build {0}', inputs.b
 #   gh workflow run "nightly build"                     # now (skips when the pick is the same commit as last night's)
 #   gh workflow run "nightly build" -f force=true       # build and publish even if unchanged
 #   gh workflow run "nightly build" -f dry_run=true     # build and sign with a throwaway key, publish nothing
+<<<<<<< ours
 # Dry picks use only nightly/dry-run-<run>-<attempt>, removed by always-run cleanup; nightly-state and real build
 # numbering/quota stay untouched, including on a failed build. A hard-killed cleanup may leave only that isolated ref.
 # By dispatch only: the daily run starts it through release.yml when every leg is green (CI tiers, owner 2026-11-13).
@@ -41,6 +42,10 @@ run-name: ${{ inputs.kind == 'snapshot' && format('snapshot build {0}', inputs.b
 # release-blocker hold), signed for the `snapshot` channel and its version, and published as the pre-release
 # snapshot-<date>-<short> ("Snapshot <date> · <short>"); never the `nightly` tag, its rotation or nightly-source tags.
 # The newest snapshot, and every snapshot of the last 7 days, stay (nightly.py prune-snapshots).
+||||||| base
+=======
+# Since 2026-11-15 only by hand (release.yml, `/nightly`, or a dispatch): no scheduled build.
+>>>>>>> theirs
 on:
   workflow_dispatch:
     inputs:

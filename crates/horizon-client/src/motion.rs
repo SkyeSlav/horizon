@@ -1496,9 +1496,10 @@ impl MotionWorld<'_, '_, '_> {
     }
     /// The part of `applyEffectsFromBlocks` a server's player must see before
     /// its landing is checked: `ServerGamePacketListenerImpl.handleMovePlayer`
-    /// runs `move` (whose `checkInsideBlocks` lets a cobweb or a sweet berry
-    /// bush call `makeStuckInBlock`, forgetting the fall) before
-    /// `doCheckFallDamage`. Only the fall and the impulse are applied; the
+    /// runs `move` and then `doCheckFallDamage`, and `checkInsideBlocks` lets a
+    /// cobweb, a sweet berry bush or powder snow (while the block at its feet
+    /// is powder snow) call `makeStuckInBlock`, forgetting the fall, before
+    /// that check reads it. Only the fall and the impulse are applied; the
     /// slowing is the client's, and `server_block_damage` does the rest. The
     /// moves stay in the history for it.
     pub fn server_stuck_in_blocks(&mut self, from: Vec3) -> Result<()> {
@@ -1715,6 +1716,7 @@ impl MotionWorld<'_, '_, '_> {
             mod_api::EntityWrite::Push(v) => {
                 self.player.velocity = self.player.velocity.add_vector(triple(v));
             }
+<<<<<<< ours
             mod_api::EntityWrite::SetMovement(v) => self.player.velocity = triple(v),
             mod_api::EntityWrite::StuckIn(v) => {
                 self.make_stuck_in_block(triple(v));
@@ -1737,6 +1739,232 @@ impl MotionWorld<'_, '_, '_> {
                         duration,
                         amplifier,
                     });
+||||||| base
+            let inside = !(powder_snow || content_top.is_some()) || {
+                let context = self.context();
+                let binding = self.collision_binding;
+                let shape = binding.collision_shape_with_context(
+                    &mut self.collisions(),
+                    state,
+                    p,
+                    &context,
+                )?;
+                powder_snow && (shape.is_empty() || shape.boxes() == VoxelShape::block().boxes())
+                    || {
+                        let offset = Vec3::new(f64::from(p.x), f64::from(p.y), f64::from(p.z));
+                        let mut boxes: Vec<_> = shape.moved(offset).boxes().to_vec();
+                        if let Some(top) = content_top {
+                            // The cauldron's shape or its content,
+                            // Block.column(12, 4, top).
+                            boxes.push(Aabb::new(
+                                Vec3::new(2.0 / 16.0, 4.0 / 16.0, 2.0 / 16.0).add_vector(offset),
+                                Vec3::new(14.0 / 16.0, top, 14.0 / 16.0).add_vector(offset),
+                            ));
+                        }
+                        self.player
+                            .dimensions
+                            .bounds(from)
+                            .collided_along_vector(to.subtract(from), &boxes)
+                    }
+            };
+            if inside && visited.insert(p.pack()) {
+                // The server's early pass: only what `makeStuckInBlock` does
+                // there, before the landing is checked.
+                if pass == BlockPass::ServerStuck {
+                    if matches!(name, "minecraft:cobweb" | "minecraft:sweet_berry_bush") {
+                        self.server_stuck_in_block();
+                    }
+                    continue;
+                }
+                crate::block_contact::emit(crate::block_contact::Event::Inside(
+                    crate::block_contact::Contact {
+                        entity: self.player.entity_id,
+                        kind: "minecraft:player",
+                        block: name,
+                        state,
+                        position: p,
+                    },
+                ));
+                // CactusBlock, CampfireBlock and the cauldrons' entityInside
+                // (`entity.hurt`, the fire and the fill level), and
+                // WitherRoseBlock's server-side effect.
+                match name {
+                    "minecraft:cactus" => self.environment_hurt("minecraft:cactus", 1.0)?,
+                    "minecraft:lava_cauldron" => self.lava_cauldron_inside()?,
+                    "minecraft:water_cauldron" | "minecraft:powder_snow_cauldron" => {
+                        self.layered_cauldron_inside(p);
+                    }
+                    "minecraft:wither_rose" => {
+                        self.player.events.push(MotionEvent::InsideWitherRose);
+                    }
+                    "minecraft:campfire" | "minecraft:soul_campfire" => {
+                        let lit = self
+                            .assets
+                            .registry
+                            .state(state)
+                            .and_then(|s| s.properties.get("lit"))
+                            .is_some_and(|v| v == "true");
+                        let damage = if name == "minecraft:campfire" {
+                            1.0
+                        } else {
+                            2.0
+                        };
+                        if lit {
+                            self.environment_hurt("minecraft:campfire", damage)?;
+                        }
+                    }
+                    "minecraft:sweet_berry_bush" if damage_only => {
+                        self.sweet_berry_bush_damage(state)?;
+                    }
+                    // HoneyBlock.entityInside: a server's player slides too, so
+                    // its fall distance resets (its client moves it).
+                    "minecraft:honey_block" => self.honey_block_inside(p)?,
+                    // PowderSnowBlock.entityInside's FREEZE and its server
+                    // snowflake (`ServerLevel.sendParticles`). The slowing is
+                    // the client's (`makeStuckInBlock`).
+                    "minecraft:powder_snow" if damage_only => {
+                        self.powder_snow_snowflake(p);
+                        entered.push((step, p));
+                    }
+                    _ => {}
+                }
+                // ServerPlayer.onInsideBlock: the server's pass reports it too,
+                // as the enter_block trigger is the server's to fire.
+                self.player.events.push(MotionEvent::EnterBlock { state });
+                if damage_only {
+                    continue;
+                }
+                match name {
+                    "minecraft:powder_snow" => {
+                        self.powder_snow_inside(p)?;
+                        entered.push((step, p));
+                    }
+                    "minecraft:cobweb" => self.web_inside(),
+                    "minecraft:sweet_berry_bush" => self.sweet_berry_bush_inside(state)?,
+                    "minecraft:bubble_column" => {
+                        let precise = moved_far || deflated.intersects(Aabb::block(p));
+                        self.bubble_column_inside(state, p, precise)?
+                    }
+                    "minecraft:nether_portal" => self
+                        .player
+                        .events
+                        .push(MotionEvent::InsidePortal { pos: p }),
+                    _ => {}
+=======
+            let inside = !(powder_snow || content_top.is_some()) || {
+                let context = self.context();
+                let binding = self.collision_binding;
+                let shape = binding.collision_shape_with_context(
+                    &mut self.collisions(),
+                    state,
+                    p,
+                    &context,
+                )?;
+                powder_snow && (shape.is_empty() || shape.boxes() == VoxelShape::block().boxes())
+                    || {
+                        let offset = Vec3::new(f64::from(p.x), f64::from(p.y), f64::from(p.z));
+                        let mut boxes: Vec<_> = shape.moved(offset).boxes().to_vec();
+                        if let Some(top) = content_top {
+                            // The cauldron's shape or its content,
+                            // Block.column(12, 4, top).
+                            boxes.push(Aabb::new(
+                                Vec3::new(2.0 / 16.0, 4.0 / 16.0, 2.0 / 16.0).add_vector(offset),
+                                Vec3::new(14.0 / 16.0, top, 14.0 / 16.0).add_vector(offset),
+                            ));
+                        }
+                        self.player
+                            .dimensions
+                            .bounds(from)
+                            .collided_along_vector(to.subtract(from), &boxes)
+                    }
+            };
+            if inside && visited.insert(p.pack()) {
+                // The server's early pass: only what `makeStuckInBlock` does
+                // there, before the landing is checked.
+                if pass == BlockPass::ServerStuck {
+                    // `PowderSnowBlock.entityInside` sticks a living entity only
+                    // while the block at its own feet is powder snow.
+                    let snow = name == "minecraft:powder_snow" && self.feet_in_powder_snow();
+                    if snow || matches!(name, "minecraft:cobweb" | "minecraft:sweet_berry_bush") {
+                        self.server_stuck_in_block();
+                    }
+                    continue;
+                }
+                crate::block_contact::emit(crate::block_contact::Event::Inside(
+                    crate::block_contact::Contact {
+                        entity: self.player.entity_id,
+                        kind: "minecraft:player",
+                        block: name,
+                        state,
+                        position: p,
+                    },
+                ));
+                // CactusBlock, CampfireBlock and the cauldrons' entityInside
+                // (`entity.hurt`, the fire and the fill level), and
+                // WitherRoseBlock's server-side effect.
+                match name {
+                    "minecraft:cactus" => self.environment_hurt("minecraft:cactus", 1.0)?,
+                    "minecraft:lava_cauldron" => self.lava_cauldron_inside()?,
+                    "minecraft:water_cauldron" | "minecraft:powder_snow_cauldron" => {
+                        self.layered_cauldron_inside(p);
+                    }
+                    "minecraft:wither_rose" => {
+                        self.player.events.push(MotionEvent::InsideWitherRose);
+                    }
+                    "minecraft:campfire" | "minecraft:soul_campfire" => {
+                        let lit = self
+                            .assets
+                            .registry
+                            .state(state)
+                            .and_then(|s| s.properties.get("lit"))
+                            .is_some_and(|v| v == "true");
+                        let damage = if name == "minecraft:campfire" {
+                            1.0
+                        } else {
+                            2.0
+                        };
+                        if lit {
+                            self.environment_hurt("minecraft:campfire", damage)?;
+                        }
+                    }
+                    "minecraft:sweet_berry_bush" if damage_only => {
+                        self.sweet_berry_bush_damage(state)?;
+                    }
+                    // HoneyBlock.entityInside: a server's player slides too, so
+                    // its fall distance resets (its client moves it).
+                    "minecraft:honey_block" => self.honey_block_inside(p)?,
+                    // PowderSnowBlock.entityInside's FREEZE and its server
+                    // snowflake (`ServerLevel.sendParticles`). The slowing is
+                    // the client's (`makeStuckInBlock`).
+                    "minecraft:powder_snow" if damage_only => {
+                        self.powder_snow_snowflake(p);
+                        entered.push((step, p));
+                    }
+                    _ => {}
+                }
+                // ServerPlayer.onInsideBlock: the server's pass reports it too,
+                // as the enter_block trigger is the server's to fire.
+                self.player.events.push(MotionEvent::EnterBlock { state });
+                if damage_only {
+                    continue;
+                }
+                match name {
+                    "minecraft:powder_snow" => {
+                        self.powder_snow_inside(p)?;
+                        entered.push((step, p));
+                    }
+                    "minecraft:cobweb" => self.web_inside(),
+                    "minecraft:sweet_berry_bush" => self.sweet_berry_bush_inside(state)?,
+                    "minecraft:bubble_column" => {
+                        let precise = moved_far || deflated.intersects(Aabb::block(p));
+                        self.bubble_column_inside(state, p, precise)?
+                    }
+                    "minecraft:nether_portal" => self
+                        .player
+                        .events
+                        .push(MotionEvent::InsidePortal { pos: p }),
+                    _ => {}
+>>>>>>> theirs
                 }
             }
         }
@@ -1788,6 +2016,13 @@ impl MotionWorld<'_, '_, '_> {
             });
         }
         Ok(())
+    }
+    /// `Entity.getInBlockState`: whether the block at the player's own position
+    /// (its feet) is powder snow.
+    fn feet_in_powder_snow(&mut self) -> bool {
+        let feet = BlockPos::containing(self.player.position);
+        let state = self.assets.registry.state(self.block(feet));
+        state.is_some_and(|s| s.name == "minecraft:powder_snow")
     }
     /// `Player.makeStuckInBlock` as a server's player sees it: its client
     /// moves it and applies the slowing, but the fall is forgotten and the
@@ -1891,13 +2126,7 @@ impl MotionWorld<'_, '_, '_> {
     /// `PowderSnowBlock.entityInside` for the player: stuck while the block
     /// at its feet is powder snow, with a snowflake now and then (server).
     fn powder_snow_inside(&mut self, p: BlockPos) -> Result<()> {
-        let feet = BlockPos::containing(self.player.position);
-        let in_block = self
-            .assets
-            .registry
-            .state(self.block(feet))
-            .is_some_and(|s| s.name == "minecraft:powder_snow");
-        if !in_block {
+        if !self.feet_in_powder_snow() {
             return Ok(());
         }
         self.make_stuck_in_block(Vec3::new(f64::from(0.9_f32), 1.5, f64::from(0.9_f32)));
@@ -1910,13 +2139,7 @@ impl MotionWorld<'_, '_, '_> {
     /// `PowderSnowBlock.entityInside`'s server particle: one snowflake at
     /// the top of `p` when the player moved horizontally this tick.
     fn powder_snow_snowflake(&mut self, p: BlockPos) {
-        let feet = BlockPos::containing(self.player.position);
-        if !self
-            .assets
-            .registry
-            .state(self.block(feet))
-            .is_some_and(|s| s.name == "minecraft:powder_snow")
-        {
+        if !self.feet_in_powder_snow() {
             return;
         }
         // ServerPlayer.getKnownMovement: this tick's movement.
@@ -2381,6 +2604,7 @@ impl EntityMoveWorld for MotionWorld<'_, '_, '_> {
         emission::apply_movement_emission(self, kind, movement, position, state)
     }
     fn block_speed_factor(&mut self) -> Result<f32> {
+<<<<<<< ours
         let efficiency = self.player.attribute("minecraft:movement_efficiency")? as f32;
         let location = self.location();
         let context = self.loop_context;
@@ -2393,6 +2617,20 @@ impl EntityMoveWorld for MotionWorld<'_, '_, '_> {
             location,
         )?;
         Ok(block + efficiency * (1.0 - block))
+||||||| base
+        let efficiency = self.player.attribute("minecraft:movement_efficiency")? as f32;
+        let location = self.location();
+        let block = movement_support::block_speed_factor(
+            &mut RegistryMovementWorld {
+                properties: &self.resources.blocks,
+                world: self,
+            },
+            location,
+        )?;
+        Ok(block + efficiency * (1.0 - block))
+=======
+        self.player_block_speed_factor()
+>>>>>>> theirs
     }
 }
 // The player's footsteps and swim sounds. Flapping and the step game event
@@ -3708,6 +3946,83 @@ mod tests {
         assert_eq!(land(&mut scene, 24.5, false).health.health(), 20.0);
         assert_eq!(land(&mut scene, 22.5, false).health.health(), 12.0);
         assert_eq!(land(&mut scene, 20.5, true).health.health(), 12.0);
+    }
+
+    /// A server's player sinking in powder snow: `PowderSnowBlock.entityInside`
+    /// calls `makeStuckInBlock` while the block at its feet is powder snow,
+    /// which forgets the fall in the same early pass, so the fall that carried
+    /// it into the column is not counted (`fall_one_cm`) and the stone under
+    /// the column does not hurt. The same sink with no snow in it is hurt.
+    #[test]
+    fn a_server_player_sinking_in_powder_snow_takes_no_fall_damage() {
+        let root = std::env::var_os("HORIZON_TEST_RESOURCES")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|| {
+                Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .join("../../.local/horizon-client")
+                    .join(horizon_core::VANILLA_VERSION)
+            });
+        if !root.join("movement-properties.nbt").exists() {
+            return;
+        }
+        let assets = Assets::load(&root).unwrap();
+        let render = assets.reload(&root).unwrap();
+        let binding = crate::collisions::load(&root, assets.registry).unwrap();
+        let resources = MotionResources::load(&root, &assets).unwrap();
+        let mut scene = World::test_scene(&assets, &render, 1).unwrap();
+        let snow = assets
+            .registry
+            .default_state("minecraft:powder_snow")
+            .unwrap();
+        let stone = assets.registry.default_state("minecraft:stone").unwrap();
+        scene.set(20, 2, 20, stone).unwrap();
+        scene.set(20, 3, 20, snow).unwrap();
+        scene.set(20, 4, 20, snow).unwrap();
+        scene.set(24, 2, 20, stone).unwrap();
+        // The feet end on the stone, inside the column's bottom block.
+        let sink = |scene: &mut World, x: f64| {
+            let at = Vec3::new(x, 3.0, 20.5);
+            let mut player = PlayerMotion::new(&resources, at).unwrap();
+            player.fall_distance = 10.0;
+            let from = Vec3::new(x, 4.5, 20.5);
+            let delta = at.subtract(from);
+            player
+                .history
+                .add(horizon_world::entity_move::MovementRecord {
+                    from,
+                    to: at,
+                    original: Some(delta),
+                });
+            let mut w = MotionWorld {
+                entities: &[],
+                player: &mut player,
+                scene,
+                assets: &assets,
+                collision_binding: &binding,
+                resources: &resources,
+                health: &resources.health,
+            };
+            w.server_stuck_in_blocks(from).unwrap();
+            let remembered = w.player.fall_distance;
+            let pos = BlockPos::new(x.floor() as i32, 2, 20);
+            let state = w.block(pos);
+            w.check_fall_damage(delta.y, true, state, pos).unwrap();
+            (player, remembered)
+        };
+        let (sunk, remembered) = sink(&mut scene, 20.5);
+        assert_eq!(remembered, 0.0, "the column forgets the fall");
+        assert_eq!(sunk.health.health(), 20.0, "no fall damage on the stone");
+        assert!(
+            !sunk.events.iter().any(|e| matches!(
+                e,
+                MotionEvent::Fall(
+                    crate::landing::FallEvent::Statistic(_)
+                        | crate::landing::FallEvent::Damage { .. }
+                )
+            )),
+            "no fall distance is counted and no fall damage is dealt"
+        );
+        assert_eq!(sink(&mut scene, 24.5).0.health.health(), 12.0, "bare stone");
     }
 
     #[test]
@@ -6235,5 +6550,48 @@ mod tests {
                 "client_side={client_side} flying={flying} sneaking={sneaking}"
             );
         }
+    }
+
+    /// `Player.getBlockSpeedFactor`: `!abilities.flying && !isFallFlying() ?
+    /// super.getBlockSpeedFactor() : 1.0F` (#16176). A creative player flying
+    /// at y -59.8 over soul sand (its top at -60.125) or gliding there moves as
+    /// it does over grass; walking on the soul sand it keeps 0.4 of its speed.
+    #[test]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
+    fn a_flying_or_gliding_player_is_not_slowed_by_soul_sand() {
+        let root = std::path::PathBuf::from(
+            std::env::var_os("HORIZON_TEST_RESOURCES").expect("HORIZON_TEST_RESOURCES"),
+        );
+        let assets = Assets::load(&root).unwrap();
+        let render = assets.reload(&root).unwrap();
+        let binding = crate::collisions::load(&root, assets.registry).unwrap();
+        let resources = MotionResources::load(&root, &assets).unwrap();
+        let mut scene = World::test_scene(&assets, &render, 2).unwrap();
+        // How much of a 0.1 step east the move leaves in the velocity.
+        let mut kept = |floor: &str, y: f64, flying: bool, gliding: bool| {
+            let state = assets.registry.default_state(floor).unwrap();
+            scene.set(20, -61, 20, state).unwrap();
+            let mut player = PlayerMotion::new(&resources, Vec3::new(20.5, y, 20.5)).unwrap();
+            (player.may_fly, player.flying) = (flying, flying);
+            (player.glider, player.fall_flying) = (gliding, gliding);
+            player.velocity = Vec3::new(0.1, 0.0, 0.0);
+            let mut w = MotionWorld {
+                entities: &[],
+                player: &mut player,
+                scene: &mut scene,
+                assets: &assets,
+                collision_binding: &binding,
+                resources: &resources,
+                health: &resources.health,
+            };
+            w.move_self(Vec3::new(0.1, 0.0, 0.0)).unwrap();
+            w.player.velocity.x / 0.1
+        };
+        let (soul_sand, grass) = ("minecraft:soul_sand", "minecraft:grass_block");
+        assert_eq!(kept(grass, -59.8, true, false), 1.0);
+        assert_eq!(kept(soul_sand, -59.8, true, false), 1.0, "flying");
+        assert_eq!(kept(soul_sand, -59.8, false, true), 1.0, "gliding");
+        let walking = kept(soul_sand, -60.125, false, false);
+        assert!((walking - 0.4).abs() < 1.0e-6, "walking: {walking}");
     }
 }

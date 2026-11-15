@@ -197,8 +197,16 @@ impl Game<'_> {
             });
             let loot = self.server_loot.get();
             let seed = self.level.seed;
+<<<<<<< ours
             let mut spawn = |l: &GameLevel, r: &SpawnerSpawn, rng: &mut LevelRandom| {
                 let added = l.game.plan_spawner_mob(l, r, source, &mut planned, rng)?;
+||||||| base
+            let mut spawn = |l: &GameLevel, r: &SpawnerSpawn| {
+                let added = l.game.plan_spawner_mob(l, r, &mut planned)?;
+=======
+            let mut spawn = |l: &GameLevel, random: &mut LevelRandom, r: &SpawnerSpawn| {
+                let added = l.game.plan_spawner_mob(l, r, random, &mut planned)?;
+>>>>>>> theirs
                 let uuid = match planned.last_mut() {
                     Some(Planned::Loaded(Tag::Compound(tag), _, _)) => {
                         let tag_uuid =

@@ -400,7 +400,115 @@ impl Game<'_> {
         options: &ParticleOptions,
         state: Option<BlockStateId>,
     ) -> Option<Particle> {
+<<<<<<< ours
         self.lan.as_ref()?.hub.particle(options, state)
+||||||| base
+        Self::hub_particle(&self.lan.as_ref()?.hub, options, state)
+    }
+
+    /// `network_particle` for a hub that is out of `self.lan` meanwhile (a
+    /// guest's turn).
+    pub(super) fn hub_particle(
+        hub: &Hub,
+        options: &ParticleOptions,
+        state: Option<BlockStateId>,
+    ) -> Option<Particle> {
+        // A native mod's own type: no registry id, so the sentinel and the name.
+        if let Some(name) = &options.mod_particle {
+            return Some(Particle {
+                id: MOD_PARTICLE_ID,
+                data: Some(ParticleData::Mod(name.clone())),
+            });
+        }
+        let name = format!("minecraft:{}", options.ty.name());
+        let id = hub.registry_id("minecraft:particle_type", &name)?;
+        use ParticleType as T;
+        let c = options.color;
+        let data = match options.ty {
+            T::Block | T::BlockMarker | T::FallingDust | T::DustPillar | T::BlockCrumble => {
+                Some(ParticleData::State(state?.0 as i32))
+            }
+            T::Dust => Some(ParticleData::ColorScale(rgb_int(rgb(c)), options.scale)),
+            T::DustColorTransition => Some(ParticleData::ColorScale2(
+                rgb_int(rgb(c)),
+                rgb_int(options.to_color),
+                options.scale,
+            )),
+            T::Effect | T::InstantEffect => {
+                Some(ParticleData::ColorPower(rgb_int(rgb(c)), options.scale))
+            }
+            T::EntityEffect | T::TintedLeaves => Some(ParticleData::Color(
+                (((c[3].clamp(0.0, 1.0) * 255.0).round() as i32) << 24) | rgb_int(rgb(c)),
+            )),
+            T::DragonBreath | T::SculkCharge => Some(ParticleData::Scalar(options.scale)),
+            T::Shriek => Some(ParticleData::Delay(options.scale as i32)),
+            T::Geyser | T::GeyserPlume => Some(ParticleData::Geyser(options.geyser?.0)),
+            T::GeyserBase | T::GeyserPoof => {
+                let (water_blocks, burst_impulse_base) = options.geyser?;
+                Some(ParticleData::GeyserBase(water_blocks, burst_impulse_base))
+            }
+            T::Vibration => {
+                let (source, _, ticks) = options.vibration.clone()?;
+                Some(ParticleData::Vibration { source, ticks })
+            }
+            T::Item | T::Trail => return None,
+            _ => None,
+        };
+        Some(Particle { id, data })
+=======
+        Self::hub_particle(&self.lan.as_ref()?.hub, options, state)
+    }
+
+    /// `network_particle` for a hub that is out of `self.lan` meanwhile (a
+    /// guest's turn).
+    pub(super) fn hub_particle(
+        hub: &Hub,
+        options: &ParticleOptions,
+        state: Option<BlockStateId>,
+    ) -> Option<Particle> {
+        // A native mod's own type: no registry id, so the sentinel and the name.
+        if let Some(name) = &options.mod_particle {
+            return Some(Particle {
+                id: MOD_PARTICLE_ID,
+                data: Some(ParticleData::Mod(name.clone())),
+            });
+        }
+        let name = format!("minecraft:{}", options.ty.name());
+        let id = hub.registry_id("minecraft:particle_type", &name)?;
+        use ParticleType as T;
+        let c = options.color;
+        let data = match options.ty {
+            T::Block | T::BlockMarker | T::FallingDust | T::DustPillar | T::BlockCrumble => {
+                Some(ParticleData::State(state?.0 as i32))
+            }
+            T::Dust => Some(ParticleData::ColorScale(rgb_int(rgb(c)), options.scale)),
+            T::DustColorTransition => Some(ParticleData::ColorScale2(
+                rgb_int(rgb(c)),
+                rgb_int(options.to_color),
+                options.scale,
+            )),
+            T::Effect | T::InstantEffect => {
+                Some(ParticleData::ColorPower(rgb_int(rgb(c)), options.scale))
+            }
+            T::EntityEffect | T::TintedLeaves | T::Flash => Some(ParticleData::Color(
+                (((c[3].clamp(0.0, 1.0) * 255.0).round() as i32) << 24) | rgb_int(rgb(c)),
+            )),
+            T::DragonBreath | T::SculkCharge => Some(ParticleData::Scalar(options.scale)),
+            T::Shriek => Some(ParticleData::Delay(options.scale as i32)),
+            T::Geyser | T::GeyserPlume => Some(ParticleData::Geyser(options.geyser?.0)),
+            T::GeyserBase | T::GeyserPoof => {
+                let (water_blocks, burst_impulse_base) = options.geyser?;
+                Some(ParticleData::GeyserBase(water_blocks, burst_impulse_base))
+            }
+            T::Vibration => {
+                let (source, _, ticks) = options.vibration.clone()?;
+                Some(ParticleData::Vibration { source, ticks })
+            }
+            T::Item | T::Trail => return None,
+            _ => None,
+        };
+        Some(Particle { id, data })
+>>>>>>> theirs
     }
 
     /// This window plays on an older release's server through the adapter.
@@ -1249,6 +1357,30 @@ pub(in crate::game) mod tests {
                 id: -1,
                 y_offset: -0.25,
             },
+        );
+    }
+
+    /// `ParticleTypes.STREAM_CODEC` for `ColorParticleOption` (`flash`, with
+    /// `entity_effect` and `tinted_leaves`): the colour as its ARGB int.
+    #[test]
+    fn flash_particles_carry_their_colour_to_guests() {
+        let (hub, rx_near, rx_far) = test_hub("FlashTest", {
+            // `Particle::read` reads a flash's colour from its pinned id, 52.
+            let mut names = vec!["minecraft:empty".to_string(); 52];
+            names.push("minecraft:flash".to_string());
+            names
+        });
+
+        let at = [0.0, 64.0, 0.0];
+        let options = ParticleOptions::colored(ParticleType::Flash, [1.0, 0.0, 0.0, 1.0]);
+        send_hub_level_particles(&hub, &options, at, [0.0; 3], 0.0, 1, None);
+
+        assert!(rx_far.try_recv().is_err(), "only players within 32 blocks");
+        let p = level_particles(&rx_near);
+        assert_eq!(p.particle.id, 52);
+        assert_eq!(
+            p.particle.data,
+            Some(ParticleData::Color(0xFFFF_0000u32 as i32))
         );
     }
 }

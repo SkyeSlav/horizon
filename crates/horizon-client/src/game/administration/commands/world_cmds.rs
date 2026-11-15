@@ -808,46 +808,13 @@ impl Game<'_> {
             _ => None,
         };
         let field = |key: &str| opts.as_ref().and_then(|c| c.get(&key.into()).cloned());
-        let number = |t: &Tag| -> Option<f32> {
-            Some(match t {
-                Tag::Byte(v) => f32::from(*v),
-                Tag::Short(v) => f32::from(*v),
-                Tag::Int(v) => *v as f32,
-                Tag::Long(v) => *v as f32,
-                Tag::Float(v) => f32::from_bits(*v),
-                Tag::Double(v) => f64::from_bits(*v) as f32,
-                _ => return None,
-            })
-        };
         let string = |t: &Tag| match t {
             Tag::String(s) => Some(s.to_string_lossy()),
             _ => None,
         };
-        // ExtraCodecs.RGB_COLOR_CODEC: an int or a list of three floats.
-        let rgb = match field("color") {
-            Some(Tag::List(l)) if l.len() >= 3 => [
-                number(&l[0]).unwrap_or(1.0),
-                number(&l[1]).unwrap_or(0.0),
-                number(&l[2]).unwrap_or(0.0),
-            ],
-            Some(Tag::Int(v)) => [
-                ((v >> 16) & 255) as f32 / 255.0,
-                ((v >> 8) & 255) as f32 / 255.0,
-                (v & 255) as f32 / 255.0,
-            ],
-            _ => [1.0, 0.0, 0.0],
-        };
         // The block state of a block particle, for its packet.
         let mut block_state = None;
         let options = match ty {
-            ParticleType::Dust => ParticleOptions::dust(
-                rgb,
-                field("scale")
-                    .as_ref()
-                    .and_then(number)
-                    .unwrap_or(1.0)
-                    .clamp(0.01, 4.0),
-            ),
             // ItemParticleOption: an item id, or a stack {id, ...}.
             ParticleType::Item => {
                 let id = match field("item") {
@@ -869,6 +836,7 @@ impl Game<'_> {
                 ParticleOptions::simple(ty)
             }
             ParticleType::Block
+            | ParticleType::BlockCrumble
             | ParticleType::FallingDust
             | ParticleType::DustPillar
             | ParticleType::BlockMarker => {
@@ -913,7 +881,13 @@ impl Game<'_> {
                     _ => ParticleOptions::simple(ty),
                 }
             }
-            _ => ParticleOptions::simple(ty),
+            // Every other type with options decodes its own codec
+            // (`ParticleTypes.CODEC`): dust, spells, sculk charge, shriek,
+            // geysers. A type without options keeps the defaults.
+            _ => opts
+                .as_ref()
+                .and_then(|c| crate::game::potions::particle_options(ty, c))
+                .unwrap_or_else(|| ParticleOptions::simple(ty)),
         };
         let pos = self
             .position_arg(ctx, "pos")
@@ -1234,22 +1208,24 @@ impl Game<'_> {
                         )))
                     }
                     _ => {
-                        let Some(handle) = player.attributes.get_instance(Some(key)).ok().flatten()
-                        else {
-                            return Err(no_attribute(&name, &description));
-                        };
-                        let found = player
+                        // getAttributeModifier: getEntityWithAttribute checks
+                        // hasAttribute, then hasModifier and getModifierValue read
+                        // the cached instance or the type's supplier. None of
+                        // them calls getInstance, so a failed lookup leaves the
+                        // attribute map (and the `attributes` list a save packs)
+                        // untouched.
+                        if !player
                             .attributes
-                            .edit(&handle, |value, _| {
-                                Ok(value
-                                    .modifiers()
-                                    .iter()
-                                    .find(|m| m.id() == modifier_id)
-                                    .map(|m| m.amount()))
-                            })
+                            .has_attribute(Some(key.clone()))
+                            .map_err(unavailable)?
+                        {
+                            return Err(no_attribute(&name, &description));
+                        }
+                        let Some(v) = player
+                            .attributes
+                            .modifier_value(Some(key), &modifier_id)
                             .ok()
-                            .flatten();
-                        let Some(v) = found else {
+                        else {
                             return Err(text_error(
                                 "commands.attribute.failed.no_modifier",
                                 &[
@@ -1732,7 +1708,199 @@ impl Game<'_> {
             return Err(err(
                 "commands.ride.mount.failure.generic",
                 &[&name.plain(), &vehicle_name.plain()],
+<<<<<<< ours
             ));
+||||||| base
+            )
+        };
+        // Only players and mobs ride.
+        if !(target == Target::Player || rider.is_some()) {
+            return Err(generic());
+        }
+        // `RideCommand.mount` forces the ride (`startRiding(vehicle, true, true)`),
+        // which skips `canRide` and `canAddPassenger`: a boat under water still
+        // takes the rider. Horizon's boats seat at most `max_passengers`, so a
+        // full boat still refuses. Minecarts carry only players here: Horizon's
+        // carts have no mob passengers yet.
+        match vehicle {
+            Target::Boat(id) => {
+                let Some(i) = self.boats.iter().position(|b| b.id == id) else {
+                    return Err(generic());
+                };
+                if self.boat_passengers(id) >= self.boats[i].max_passengers() {
+                    return Err(generic());
+                }
+                if let Some(rider) = rider {
+                    if !self.try_mount_mob(rider, id) {
+                        return Err(generic());
+                    }
+                } else {
+                    if !self.native_may_board(id) {
+                        return Err(generic());
+                    }
+                    self.yaw = self.boats[i].yaw;
+                    // ServerPlayer.startRiding seats the player immediately.
+                    let at = self.player_boat_seat(i);
+                    if let Some(player) = self.player.as_mut() {
+                        player.position = at;
+                        player.velocity = horizon_core::geometry::Vec3::ZERO;
+                        player.teleported = true;
+                    }
+                    self.previous_position = at;
+                    // sendEventAndTriggers: START_RIDING_TRIGGER.
+                    self.start_riding(id);
+                }
+                return Ok(());
+            }
+            Target::Cart(id) => {
+                if target != Target::Player
+                    || self.ridden_by_guest(id)
+                    || !self.native_may_board(id)
+                {
+                    return Err(generic());
+                }
+                self.start_riding(id);
+                return Ok(());
+            }
+            // An armor stand, a display, a marker, an interaction or any entity Horizon keeps as its
+            // compound: the forced ride takes it too, and the rider sits on its passenger point.
+            Target::Stand(id) | Target::Other(id) => {
+                let Some(seat) = self.seat(id) else {
+                    return Err(generic());
+                };
+                if let Some(rider) = rider {
+                    if !self.try_mount_mob(rider, id) {
+                        return Err(generic());
+                    }
+                } else {
+                    if !self.native_may_board(id) {
+                        return Err(generic());
+                    }
+                    self.board_seat(id, seat);
+                }
+                return Ok(());
+            }
+            _ => {}
+        }
+        // Mobs carry players and mobs.
+        let Target::Mob(mob_id) = vehicle else {
+            return Err(generic());
+        };
+        if !self.mobs.iter().any(|m| m.id == mob_id && m.alive()) {
+            return Err(generic());
+        }
+        if let Some(rider) = rider {
+            // Entity.startRiding.
+            if !self.try_mount_mob(rider, mob_id) {
+                return Err(generic());
+            }
+            return Ok(());
+        }
+        if !self.native_may_board(mob_id) {
+            return Err(generic());
+        }
+        if let Some(m) = self.mobs.iter_mut().find(|m| m.id == mob_id) {
+            m.extra.flag = false;
+            m.extra.counter = 0;
+            self.yaw = m.yaw;
+=======
+            )
+        };
+        // Only players and mobs ride.
+        if !(target == Target::Player || rider.is_some()) {
+            return Err(generic());
+        }
+        // `RideCommand.mount` forces the ride (`startRiding(vehicle, true, true)`),
+        // which skips `canRide` and `canAddPassenger`: a boat under water still
+        // takes the rider. Horizon's boats seat at most `max_passengers`, so a
+        // full boat still refuses.
+        match vehicle {
+            Target::Boat(id) => {
+                let Some(i) = self.boats.iter().position(|b| b.id == id) else {
+                    return Err(generic());
+                };
+                if self.boat_passengers(id) >= self.boats[i].max_passengers() {
+                    return Err(generic());
+                }
+                if let Some(rider) = rider {
+                    if !self.try_mount_mob(rider, id) {
+                        return Err(generic());
+                    }
+                } else {
+                    if !self.native_may_board(id) {
+                        return Err(generic());
+                    }
+                    // ServerPlayer.startRiding seats the player immediately,
+                    // keeping its rotation (`Relative.ROTATION`).
+                    let at = self.player_boat_seat(i);
+                    if let Some(player) = self.player.as_mut() {
+                        player.position = at;
+                        player.velocity = horizon_core::geometry::Vec3::ZERO;
+                        player.teleported = true;
+                    }
+                    self.previous_position = at;
+                    // sendEventAndTriggers: START_RIDING_TRIGGER.
+                    self.start_riding(id);
+                }
+                return Ok(());
+            }
+            Target::Cart(id) => {
+                if let Some(rider) = rider {
+                    // A cart carries any mob the forced ride puts in it
+                    // (`Entity.positionRider` seats it, game/minecarts.rs).
+                    if !self.try_mount_mob(rider, id) {
+                        return Err(generic());
+                    }
+                    return Ok(());
+                }
+                if self.ridden_by_guest(id) || !self.native_may_board(id) {
+                    return Err(generic());
+                }
+                self.start_riding(id);
+                return Ok(());
+            }
+            // An armor stand, a display, an interaction or any entity Horizon keeps as its
+            // compound: the forced ride takes it too, and the rider sits on its passenger point.
+            // A marker takes no rider at all (`Marker.couldAcceptPassenger`).
+            Target::Stand(id) | Target::Other(id) => {
+                let Some(seat) = self.seat(id) else {
+                    return Err(generic());
+                };
+                if let Some(rider) = rider {
+                    if !self.try_mount_mob(rider, id) {
+                        return Err(generic());
+                    }
+                } else {
+                    if !self.native_may_board(id) {
+                        return Err(generic());
+                    }
+                    self.board_seat(id, seat);
+                }
+                return Ok(());
+            }
+            _ => {}
+        }
+        // Mobs carry players and mobs.
+        let Target::Mob(mob_id) = vehicle else {
+            return Err(generic());
+        };
+        if !self.mobs.iter().any(|m| m.id == mob_id && m.alive()) {
+            return Err(generic());
+        }
+        if let Some(rider) = rider {
+            // Entity.startRiding.
+            if !self.try_mount_mob(rider, mob_id) {
+                return Err(generic());
+            }
+            return Ok(());
+        }
+        if !self.native_may_board(mob_id) {
+            return Err(generic());
+        }
+        if let Some(m) = self.mobs.iter_mut().find(|m| m.id == mob_id) {
+            m.extra.flag = false;
+            m.extra.counter = 0;
+>>>>>>> theirs
         }
         Ok(())
     }
@@ -2848,6 +3016,14 @@ impl Game<'_> {
         table.pois.name(table.pois.classify(state)?)
     }
 }
+
+#[cfg(test)]
+#[path = "../particle_command_tests.rs"]
+mod particle_command_tests;
+
+#[cfg(test)]
+#[path = "attribute_tests.rs"]
+mod attribute_tests;
 
 #[cfg(test)]
 mod attribute_modifier_command_tests {

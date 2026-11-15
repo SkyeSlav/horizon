@@ -99,8 +99,16 @@ enum PhysicalKey { Code(i32), Unidentified(i32) }
 struct KeyEvent { physical_key: PhysicalKey, text: &'static str, state: ElementState, repeat: bool }
 enum WindowEvent { KeyboardInput { event: KeyEvent, is_synthetic: bool }, Other }
 fn glfw_modifiers(bits: u32) -> u32 { bits }
+<<<<<<< ours
 struct Game { window: Option<Window>, modifiers: u32, early: bool, input: bool,
               calls: Vec<&'static str>, observed: Vec<(&'static str, Option<&'static str>, u32, KeyAction, u32)> }
+||||||| base
+struct Game { window: Option<Window>, modifiers: u32, early: bool, scripted: bool,
+              calls: Vec<&'static str>, observed: Vec<(KeyEvent, u32)> }
+=======
+struct Game { window: Option<Window>, modifiers: u32, early: bool, scripted: bool, unclaimed_window: bool,
+              calls: Vec<&'static str>, observed: Vec<(KeyEvent, u32)> }
+>>>>>>> theirs
 impl Game {
     fn scripted_run(&self) -> bool { false }
     fn with_user_input<R>(&mut self, input: bool, f: impl FnOnce(&mut Self) -> R) -> R {
@@ -127,6 +135,7 @@ impl Game {
 }
 #[test]
 fn all_actions_consumption_and_window_gates() {
+<<<<<<< ours
     for (state, repeat, action) in [(ElementState::Pressed, false, KeyAction::Press),
         (ElementState::Pressed, true, KeyAction::Repeat), (ElementState::Released, false, KeyAction::Release)] {
         // The handler blanks its copy's text; the hook still sees the original layout key.
@@ -145,13 +154,75 @@ fn all_actions_consumption_and_window_gates() {
                     assert_eq!(game.calls, expected);
                     assert_eq!(game.observed, if fires { vec![(name, Some("key.keyboard.z"), raw, action, 5)] } else { vec![] });
                 }
+||||||| base
+    for (pressed, repeat) in [(true, false), (true, true), (false, false)] {
+        for early in [false, true] {
+            let original = KeyEvent { physical_key: -1, logical_key: "logical", location: 2,
+                text: "z", pressed, repeat };
+            for (window, id, synthetic, fires) in [(true,7,false,true), (true,8,false,false),
+                (true,7,true,false), (false,7,false,false)] {
+                let mut game = Game { window: window.then_some(Window), modifiers: 5, early,
+                    scripted: false, calls: vec![], observed: vec![] };
+                game.window_event(&ActiveEventLoop, id, WindowEvent::KeyboardInput { event: original.clone(), is_synthetic: synthetic });
+                let mut expected = vec!["handle"];
+                if !early { expected.push("finish"); }
+                if fires { expected.push("hook"); }
+                assert_eq!(game.calls, expected);
+                assert_eq!(game.observed, if fires { vec![(original.clone(),5)] } else { vec![] });
+=======
+    for (pressed, repeat) in [(true, false), (true, true), (false, false)] {
+        for early in [false, true] {
+            let original = KeyEvent { physical_key: -1, logical_key: "logical", location: 2,
+                text: "z", pressed, repeat };
+            for (window, id, synthetic, fires) in [(true,7,false,true), (true,8,false,false),
+                (true,7,true,false), (false,7,false,false)] {
+                let mut game = Game { window: window.then_some(Window), modifiers: 5, early,
+                    scripted: false, unclaimed_window: false, calls: vec![], observed: vec![] };
+                game.window_event(&ActiveEventLoop, id, WindowEvent::KeyboardInput { event: original.clone(), is_synthetic: synthetic });
+                let mut expected = vec!["handle"];
+                if !early { expected.push("finish"); }
+                if fires { expected.push("hook"); }
+                assert_eq!(game.calls, expected);
+                assert_eq!(game.observed, if fires { vec![(original.clone(),5)] } else { vec![] });
+>>>>>>> theirs
             }
         }
     }
+<<<<<<< ours
     let mut game = Game { window: Some(Window), modifiers: 5, early: false, input: false, calls: vec![], observed: vec![] };
+||||||| base
+    let mut game = Game { window: Some(Window), modifiers: 5, early: false, scripted: false,
+        calls: vec![], observed: vec![] };
+=======
+    let mut game = Game { window: Some(Window), modifiers: 5, early: false, scripted: false,
+        unclaimed_window: false, calls: vec![], observed: vec![] };
+>>>>>>> theirs
     game.window_event(&ActiveEventLoop, 7, WindowEvent::Other);
     assert!(game.observed.is_empty());
+<<<<<<< ours
 
+||||||| base
+    // A person's key during a scripted run reaches no mod either.
+    let mut game = Game { window: Some(Window), modifiers: 5, early: false, scripted: true,
+        calls: vec![], observed: vec![] };
+    let key = KeyEvent { physical_key: -1, logical_key: "logical", location: 2, text: "z",
+        pressed: true, repeat: false };
+    game.window_event(&ActiveEventLoop, 7, WindowEvent::KeyboardInput { event: key, is_synthetic: false });
+    assert!(game.observed.is_empty());
+=======
+    // A person's key during a scripted run reaches no mod either.
+    let mut game = Game { window: Some(Window), modifiers: 5, early: false, scripted: true,
+        unclaimed_window: false, calls: vec![], observed: vec![] };
+    let key = KeyEvent { physical_key: -1, logical_key: "logical", location: 2, text: "z",
+        pressed: true, repeat: false };
+    game.window_event(&ActiveEventLoop, 7, WindowEvent::KeyboardInput { event: key.clone(), is_synthetic: false });
+    assert!(game.observed.is_empty());
+    // Nor does their key at an agent's window no one has clicked yet.
+    let mut game = Game { window: Some(Window), modifiers: 5, early: false, scripted: false,
+        unclaimed_window: true, calls: vec![], observed: vec![] };
+    game.window_event(&ActiveEventLoop, 7, WindowEvent::KeyboardInput { event: key, is_synthetic: false });
+    assert!(game.observed.is_empty());
+>>>>>>> theirs
 }
 """.replace("METHOD", actual)
         target = ROOT / "target"

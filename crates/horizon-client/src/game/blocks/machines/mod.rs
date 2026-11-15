@@ -318,19 +318,6 @@ impl Containers<'_> {
             });
         }
         let entity = self.world.block_entities.get(&pos)?;
-        // A beehive keeps bees, not items, a campfire cooks its own and
-        // suspicious sand or gravel hides its loot: none is a `Container`
-        // (HopperBlockEntity.getContainerAt), so a dropper drops in front of
-        // them and a hopper leaves them alone.
-        if matches!(
-            entity,
-            BlockEntity::Beehive(_)
-                | BlockEntity::Campfire(_)
-                | BlockEntity::Brushable(_)
-                | BlockEntity::EndPortal
-        ) {
-            return None;
-        }
         // A mod's block entity is a container when its block says so. The one
         // ticking now is out of the world (an empty id marks its place): what
         // went into its place would be lost when it comes back.
@@ -345,6 +332,14 @@ impl Containers<'_> {
                 container: Some(container),
             });
         }
+        // Non-container block entities (signs, banners, beacons, skulls, etc.,
+        // or beehives/campfires/brushables) are not `Container`s
+        // (HopperBlockEntity.getContainerAt), so a dropper drops in front of
+        // them and a hopper leaves them alone.
+        let size = entity.slots().len();
+        if size == 0 {
+            return None;
+        }
         let kind = match (entity, name) {
             (BlockEntity::Furnace(_), _) => Kind::Furnace,
             (BlockEntity::Crafter(_), _) => Kind::Crafter,
@@ -355,7 +350,6 @@ impl Containers<'_> {
             (_, n) if is_shulker_box(n) => Kind::Shulker,
             _ => Kind::Generic,
         };
-        let size = entity.slots().len();
         if horizon_client::containers::is_chest_block(name) {
             let is_blocked = |p: Pos| {
                 let above = self.world.block(p.0, p.1 + 1, p.2);
@@ -1183,7 +1177,83 @@ impl Game<'_> {
         let Some(view) = c.view(pos, false) else {
             return;
         };
+<<<<<<< ours
         if self.hoppers.get(&pos).is_some_and(|h| h.cooldown > 0) || !enabled {
+||||||| base
+        if items.len() != HOPPER_SLOTS {
+            return;
+        }
+        let is_empty = items
+            .iter()
+            .all(|s| s.as_ref().is_none_or(|s| s.count == 0));
+        let has_empty_slot = items
+            .iter()
+            .any(|s| s.as_ref().is_none_or(|s| s.count == 0));
+
+        let above = (pos.0, pos.1 + 1, pos.2);
+        // Fast path for empty hopper with no source container and no item entities:
+        // if empty, cannot eject; if no container above, cannot suck container;
+        // if no dropped items nearby, cannot suck entities -> nothing can happen!
+        if is_empty
+            && self.world.block_entities.get(&above).is_none()
+            && self.carts.is_empty()
+            && self.boats.is_empty()
+            && (self.dropped.is_empty()
+                || self
+                    .item_columns
+                    .as_mut()
+                    .is_some_and(|c| !c.may_reach(&self.dropped, pos.0, pos.2)))
+            && self
+                .pack
+                .assets
+                .registry
+                .state(self.world.block(above.0, above.1, above.2))
+                .is_none_or(|s| {
+                    // Composters and decorated pots are containers without a
+                    // modeled block entity.
+                    s.name != "minecraft:composter" && s.name != "minecraft:decorated_pot"
+                })
+        {
+=======
+        if items.len() != HOPPER_SLOTS {
+            return;
+        }
+        let is_empty = items
+            .iter()
+            .all(|s| s.as_ref().is_none_or(|s| s.count == 0));
+        let has_empty_slot = items
+            .iter()
+            .any(|s| s.as_ref().is_none_or(|s| s.count == 0));
+
+        let above = (pos.0, pos.1 + 1, pos.2);
+        // Fast path for empty hopper with no source container and no item entities:
+        // if empty, cannot eject; if no container above, cannot suck container;
+        // if no dropped items nearby, cannot suck entities -> nothing can happen!
+        if is_empty
+            && self
+                .world
+                .block_entities
+                .get(&above)
+                .is_none_or(|e| !matches!(e, BlockEntity::Mod(_)) && e.slots().is_empty())
+            && self.carts.is_empty()
+            && self.boats.is_empty()
+            && (self.dropped.is_empty()
+                || self
+                    .item_columns
+                    .as_mut()
+                    .is_some_and(|c| !c.may_reach(&self.dropped, pos.0, pos.2)))
+            && self
+                .pack
+                .assets
+                .registry
+                .state(self.world.block(above.0, above.1, above.2))
+                .is_none_or(|s| {
+                    // Composters and decorated pots are containers without a
+                    // modeled block entity.
+                    s.name != "minecraft:composter" && s.name != "minecraft:decorated_pot"
+                })
+        {
+>>>>>>> theirs
             return;
         }
         self.native_prepare_hopper_transfer([pos.0, pos.1, pos.2]);
@@ -3401,6 +3471,59 @@ mod can_take_tests {
             game.containers()
                 .can_take_into(&shelf_view, 0, &book, Direction::Down, &empty_hopper),
             "an empty hopper takes the book"
+        );
+    }
+
+    /// A non-container block entity above a hopper (such as a sign holding lava)
+    /// has no slots, so `view` returns `None`. The hopper does not treat it as a
+    /// container, allowing item entities resting on the rim to be picked up.
+    #[test]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
+    fn non_container_block_entity_above_hopper_does_not_block_item_suction() {
+        let mut game = server_game();
+        let hopper_pos = (2, 4, 3);
+        let sign_pos = (2, 5, 3);
+        let hopper_state = game
+            .pack
+            .assets
+            .registry
+            .default_state("minecraft:hopper")
+            .unwrap();
+        let sign_state = game
+            .pack
+            .assets
+            .registry
+            .default_state("minecraft:oak_sign")
+            .unwrap();
+        game.world
+            .set(hopper_pos.0, hopper_pos.1, hopper_pos.2, hopper_state)
+            .unwrap();
+        game.world
+            .set(sign_pos.0, sign_pos.1, sign_pos.2, sign_state)
+            .unwrap();
+        game.world
+            .block_entities
+            .insert(hopper_pos, BlockEntity::Chest(vec![None; 5]));
+        game.world
+            .block_entities
+            .insert(sign_pos, BlockEntity::Sign(Default::default()));
+
+        assert!(
+            game.containers().view(sign_pos, false).is_none(),
+            "a sign is not a container"
+        );
+        assert!(
+            game.containers().hopper_insertion_view(sign_pos).is_none(),
+            "a sign has no hopper insertion view"
+        );
+        let hopper_view = game
+            .containers()
+            .view(hopper_pos, false)
+            .expect("hopper view");
+        assert!(
+            game.suck_from_container(sign_pos, [2.5, 5.5, 3.5], &hopper_view)
+                .is_none(),
+            "suck_from_container returns None so hopper falls through to suck_item_entities"
         );
     }
 }

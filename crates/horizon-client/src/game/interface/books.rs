@@ -430,14 +430,20 @@ impl Game<'_> {
             return;
         };
         if let Some(title) = title {
-            let mut written = ItemStack::new("minecraft:written_book", 1);
-            written.data_mut().written = Some(WrittenBook {
+            // `signBook` transmutes the carried stack, so a renamed book and
+            // quill stays renamed and keeps its other components.
+            let mut written = stack.transmute("minecraft:written_book", stack.count);
+            let data = written.data_mut();
+            data.writable_pages = Vec::new();
+            data.written = Some(WrittenBook {
                 title,
                 author,
                 generation: 0,
                 pages,
                 page_tags: Vec::new(),
-                resolved: false,
+                // `signBook`'s `new WrittenBookContent(..., true)`: the pages
+                // are literals, so the content is already resolved.
+                resolved: true,
             });
             *stack = written;
         } else {
@@ -527,14 +533,29 @@ impl Game<'_> {
                 _ => {}
             },
             Some(BookScreen::Edit { signing: true, .. }) => match key {
+<<<<<<< ours
                 Some(KeyCode::Escape) => {
                     self.set_book_signing(false);
                 }
+||||||| base
+                Some(KeyCode::Escape) => {
+                    if let Some(BookScreen::Edit { signing, .. }) = self.book.as_mut() {
+                        *signing = false;
+                    }
+                }
+=======
+                // `BookSignScreen` overrides neither `onClose` nor
+                // `shouldCloseOnEsc`: Escape is `Screen.onClose`, which closes
+                // the whole book and saves nothing.
+                Some(KeyCode::Escape) => self.close_book(),
+                // `BookSignScreen.keyPressed` signs whenever the title box is
+                // not empty, blank or not, and trims the title on send.
+>>>>>>> theirs
                 Some(KeyCode::Enter | KeyCode::NumpadEnter) => {
-                    let blank = self.book.as_ref().is_some_and(
-                        |b| matches!(b, BookScreen::Edit { title, .. } if title.trim().is_empty()),
+                    let empty = self.book.as_ref().is_some_and(
+                        |b| matches!(b, BookScreen::Edit { title, .. } if title.is_empty()),
                     );
-                    if !blank {
+                    if !empty {
                         self.save_book(true);
                     }
                 }
@@ -546,7 +567,10 @@ impl Game<'_> {
                 }
             },
             Some(BookScreen::Edit { .. }) => match key {
-                Some(KeyCode::Escape) => self.save_book(false),
+                // `BookEditScreen` overrides neither `onClose` nor
+                // `shouldCloseOnEsc` either: Escape is `Screen.onClose`, and
+                // only Done calls `saveChanges`.
+                Some(KeyCode::Escape) => self.close_book(),
                 Some(KeyCode::PageUp) => self.turn_page(false),
                 Some(KeyCode::PageDown) => self.turn_page(true),
                 Some(KeyCode::ArrowUp) => self.book_move_line(-1),
@@ -1845,7 +1869,17 @@ mod lectern_books_tag_tests {
 }
 
 #[cfg(test)]
+<<<<<<< ours
 #[path = "tests/lectern_tests.rs"]
+||||||| base
+#[path = "lectern_tests.rs"]
+=======
+#[path = "book_escape_tests.rs"]
+mod book_escape_tests;
+
+#[cfg(test)]
+#[path = "lectern_tests.rs"]
+>>>>>>> theirs
 mod lectern_tests;
 
 #[cfg(test)]
@@ -2181,11 +2215,127 @@ mod sign_tests {
     }
 }
 
+<<<<<<< ours
 fn link_cursor(style: &horizon_client::text::Style) -> Option<horizon_client::widgets::Cursor> {
     style
         .click
         .is_some()
         .then_some(horizon_client::widgets::Cursor::PointingHand)
+||||||| base
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::game::native_machines::tests::server_game;
+
+    /// `LecternBlock.resetBookState`: the book coming off a lectern clears
+    /// `has_book` and posts `block_change` at it.
+    #[test]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
+    fn a_lectern_book_removal_posts_block_change() {
+        let mut game = server_game();
+        let key = (2, 4, 3);
+        let state = game
+            .pack
+            .assets
+            .registry
+            .default_state("minecraft:lectern")
+            .unwrap();
+        game.world.set(key.0, key.1, key.2, state).unwrap();
+        game.world.block_entities.put(
+            key,
+            BlockEntity::Lectern(Lectern {
+                book: Some(ItemStack::new("minecraft:written_book", 1)),
+                page: 0,
+            }),
+        );
+        game.set_lectern_property(key, "has_book", true);
+        super::super::sculk::TEST_POSTED_EVENTS.with(|e| *e.borrow_mut() = Some(Vec::new()));
+
+        game.set_lectern_has_book(key, false, None);
+
+        let has_book = game
+            .pack
+            .assets
+            .registry
+            .state(game.world.block(key.0, key.1, key.2))
+            .and_then(|s| s.properties.get("has_book").cloned());
+        assert_eq!(
+            has_book.as_deref(),
+            Some("false"),
+            "the lectern has no book"
+        );
+        super::super::sculk::TEST_POSTED_EVENTS.with(|e| {
+            assert!(
+                e.borrow().as_ref().unwrap().contains(&(
+                    "minecraft:block_change",
+                    [2.5, 4.5, 3.5],
+                    None
+                )),
+                "{:?}",
+                e.borrow()
+            );
+        });
+    }
+=======
+#[cfg(test)]
+#[path = "sign_book_tests.rs"]
+mod sign_book_tests;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::game::native_machines::tests::server_game;
+
+    /// `LecternBlock.resetBookState`: the book coming off a lectern clears
+    /// `has_book` and posts `block_change` at it.
+    #[test]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
+    fn a_lectern_book_removal_posts_block_change() {
+        let mut game = server_game();
+        let key = (2, 4, 3);
+        let state = game
+            .pack
+            .assets
+            .registry
+            .default_state("minecraft:lectern")
+            .unwrap();
+        game.world.set(key.0, key.1, key.2, state).unwrap();
+        game.world.block_entities.put(
+            key,
+            BlockEntity::Lectern(Lectern {
+                book: Some(ItemStack::new("minecraft:written_book", 1)),
+                page: 0,
+            }),
+        );
+        game.set_lectern_property(key, "has_book", true);
+        super::super::sculk::TEST_POSTED_EVENTS.with(|e| *e.borrow_mut() = Some(Vec::new()));
+
+        game.set_lectern_has_book(key, false, None);
+
+        let has_book = game
+            .pack
+            .assets
+            .registry
+            .state(game.world.block(key.0, key.1, key.2))
+            .and_then(|s| s.properties.get("has_book").cloned());
+        assert_eq!(
+            has_book.as_deref(),
+            Some("false"),
+            "the lectern has no book"
+        );
+        super::super::sculk::TEST_POSTED_EVENTS.with(|e| {
+            assert!(
+                e.borrow().as_ref().unwrap().contains(&(
+                    "minecraft:block_change",
+                    [2.5, 4.5, 3.5],
+                    None
+                )),
+                "{:?}",
+                e.borrow()
+            );
+        });
+    }
+>>>>>>> theirs
 }
 #[cfg(test)]
 mod link_cursor_tests {

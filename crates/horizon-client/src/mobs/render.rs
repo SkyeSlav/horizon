@@ -12,6 +12,11 @@ use horizon_core::geometry::trig::Mth;
 use std::borrow::Cow;
 use std::f32::consts::PI;
 
+// The invisible body a viewer still sees (`Entity.isInvisibleTo`), beside this file.
+#[path = "invisible_body.rs"]
+mod invisible_body;
+pub use invisible_body::render_seen_invisible;
+
 /// A texture lookup into the shared atlas (name without namespace -> uv rect).
 pub type Atlas<'a> = &'a dyn Fn(&str) -> Option<[f32; 4]>;
 
@@ -1468,6 +1473,7 @@ pub fn render_with(
     extra: &[(&Part, [f32; 4], u32, u32, bool)],
     out: &mut Vec<Vertex>,
 ) {
+<<<<<<< ours
     render_with_hidden(
         m,
         alpha,
@@ -1499,6 +1505,10 @@ pub fn render_with_hidden(
     mut parts: Option<&mut Option<mod_api::PosedParts>>,
     out: &mut Vec<Vertex>,
 ) {
+||||||| base
+=======
+    let paint = Some(body_color(m, alpha));
+>>>>>>> theirs
     // The invisibility effect hides the model (a drinking wandering trader);
     // an illusioner shows its four mirror images instead.
     if m.is_invisible() {
@@ -1509,6 +1519,7 @@ pub fn render_with_hidden(
                 let shifted =
                     camera - glam::DVec3::new(off[0] + w[0], off[1] + w[1], off[2] + w[2]);
                 let base = base_transform(m, alpha, shifted);
+<<<<<<< ours
                 render_visible(
                     m,
                     alpha,
@@ -1523,10 +1534,16 @@ pub fn render_with_hidden(
                     out,
                     None,
                 );
+||||||| base
+                render_visible(m, alpha, base, atlas, light, data, extra, true, out, None);
+=======
+                render_visible(m, alpha, base, atlas, light, data, extra, paint, out, None);
+>>>>>>> theirs
             }
         }
         return;
     }
+<<<<<<< ours
     render_visible(
         m,
         alpha,
@@ -1541,6 +1558,23 @@ pub fn render_with_hidden(
         out,
         None,
     );
+||||||| base
+    render_visible(
+        m,
+        alpha,
+        base_transform(m, alpha, camera),
+        atlas,
+        light,
+        data,
+        extra,
+        true,
+        out,
+        None,
+    );
+=======
+    let base = base_transform(m, alpha, camera);
+    render_visible(m, alpha, base, atlas, light, data, extra, paint, out, None);
+>>>>>>> theirs
 }
 /// `render` with the model's ordinary draws posed on the GPU when the mob
 /// allows it (`super::skin`): the same picture, no vertices on the CPU.
@@ -1581,9 +1615,15 @@ pub fn render_skinned(
         light,
         data,
         &[],
+<<<<<<< ours
         true,
         hidden,
         parts,
+||||||| base
+        true,
+=======
+        Some(body_color(m, alpha)),
+>>>>>>> theirs
         out,
         Some(skin),
     );
@@ -1845,6 +1885,7 @@ pub fn render_layers(
     out: &mut Vec<Vertex>,
 ) {
     let base = base_transform(m, alpha, camera);
+<<<<<<< ours
     render_visible(
         m,
         alpha,
@@ -1859,6 +1900,11 @@ pub fn render_layers(
         out,
         None,
     );
+||||||| base
+    render_visible(m, alpha, base, atlas, light, data, extra, false, out, None);
+=======
+    render_visible(m, alpha, base, atlas, light, data, extra, None, out, None);
+>>>>>>> theirs
 }
 /// A mob drawn under `origin` instead of at its position (the spinning mob
 /// of `SpawnerRenderer.submitEntityInSpawner`).
@@ -1872,6 +1918,7 @@ pub fn render_posed(
     out: &mut Vec<Vertex>,
 ) {
     let base = base_transform_at(m, alpha, origin);
+<<<<<<< ours
     render_visible(
         m,
         alpha,
@@ -1886,6 +1933,12 @@ pub fn render_posed(
         out,
         None,
     );
+||||||| base
+    render_visible(m, alpha, base, atlas, light, data, &[], true, out, None);
+=======
+    let paint = Some(body_color(m, alpha));
+    render_visible(m, alpha, base, atlas, light, data, &[], paint, out, None);
+>>>>>>> theirs
 }
 /// The custom model's key of a body model: `main` is the wide player model, `kind.model`.
 fn cem_key(model_key: &str) -> &str {
@@ -2066,9 +2119,16 @@ fn render_visible(
     light: u32,
     data: &MobData,
     extra: &[(&Part, [f32; 4], u32, u32, bool)],
+<<<<<<< ours
     body_visible: bool,
     hidden: mod_api::HiddenParts,
     parts: Option<&mut Option<mod_api::PosedParts>>,
+||||||| base
+    body_visible: bool,
+=======
+    // `submit`'s `tintedColor` to draw the body in, or `None` for its layers only.
+    paint: Option<u32>,
+>>>>>>> theirs
     out: &mut Vec<Vertex>,
     skin: Option<&mut super::skin::Skin>,
 ) {
@@ -2221,7 +2281,7 @@ fn render_visible(
                 None
             }
         });
-        if body_visible && let Some(uv) = uv {
+        if let (Some(tint), Some(uv)) = (paint, uv) {
             let start = out.len();
             put(
                 skin,
@@ -2230,7 +2290,7 @@ fn render_visible(
                 body_poses,
                 uv,
                 0.0,
-                body_color(m, alpha),
+                tint,
                 light,
                 body_overlay(m, alpha),
                 out,
@@ -2243,13 +2303,14 @@ fn render_visible(
                     body_poses,
                     glow,
                     0.0,
-                    body_color(m, alpha),
+                    tint,
                     FULL_BRIGHT,
                     0,
                     out,
                 );
             }
-            if translucent_body(m) {
+            // A body below full alpha (`forceTransparent`'s 654311423) blends too.
+            if translucent_body(m) || tint >> 24 != 0xFF {
                 mark_oit(&mut out[start..]);
             }
         }
