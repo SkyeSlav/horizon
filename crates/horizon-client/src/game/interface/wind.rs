@@ -14,9 +14,9 @@ use horizon_client::{
     projectiles::{Hit, Projectile, ProjectileKind},
 };
 use horizon_core::{
-    geometry::{Aabb, Direction, Vec3},
+    geometry::{Direction, Vec3},
     position::BlockPos,
-    random::{LegacyRandom, RandomSource},
+    random::RandomSource,
 };
 use horizon_world::level::PlayerContext;
 use std::collections::BTreeSet;
