@@ -273,7 +273,7 @@ fn what_a_listener_moves_waits_for_the_next_telling() {
 
 #[test]
 #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
-fn no_listener_files_no_entity() {
+fn no_listener_still_files_server_entities() {
     with_game(|game| {
         let id = game
             .spawn_mob_spawned(
@@ -283,7 +283,14 @@ fn no_listener_files_no_entity() {
             )
             .unwrap();
         game.teleport_to(Target::Mob(id), [40.0, 70.0, 3.0], None, true);
-        assert!(game.native_lifecycle.entity_sections.filed.is_empty());
+        assert_eq!(
+            game.native_lifecycle
+                .entity_sections
+                .filed
+                .get(&id)
+                .map(|(_, section)| *section),
+            Some([2, 4, 0])
+        );
     });
 }
 
