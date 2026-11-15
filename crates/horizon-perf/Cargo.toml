@@ -31,5 +31,10 @@ wasm = []
 name = "horizon-perf"
 path = "src/main.rs"
 
+[[test]]
+name = "wasm"
+path = "tests/wasm.rs"
+required-features = ["wasm"]
+
 [lints]
 workspace = true

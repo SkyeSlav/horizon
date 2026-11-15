@@ -1,8 +1,8 @@
 //! The agreement test of `docs/perf-platform.md` §11 (W1): the C ABI, called natively, gives the
 //! bytes the CLI prints for the same capture, query and summary. Run with
-//! `cargo test -p horizon-perf --features wasm --test it wasm::`.
+//! `cargo test -p horizon-perf --features wasm --test wasm`.
 
-use crate::common;
+mod common;
 
 use std::time::Duration;
 

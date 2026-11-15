@@ -16,7 +16,8 @@ def git(*args):
 
 
 def main():
-    crates = sorted({Path(p).parents[2] for p in git("ls-tree", "-r", "--name-only", UPSTREAM).splitlines()
+    upstream_paths = set(git("ls-tree", "-r", "--name-only", UPSTREAM).splitlines())
+    crates = sorted({Path(p).parents[2] for p in upstream_paths
                      if p.endswith("/tests/it/main.rs")})
     crates.append(Path("crates/horizon-game"))  # Owns the fork's executable.
     # The launch contract tests require CARGO_BIN_EXE_horizon-client, owned by horizon-game.
@@ -29,6 +30,12 @@ def main():
         dest.mkdir(parents=True, exist_ok=True)
         sources = sorted(tests.glob("*.rs")) + sorted((tests / "integration").glob("*.rs"))
         for source in sources:
+            # Keep every upstream root-level test in place, including the tests
+            # explicitly owned by client-lib, perf's wasm target and player_block_speed.
+            if source.parent == tests and str(source) in upstream_paths:
+                continue
+            if crate.name == "horizon-client" and source.stem in lib_tests:
+                continue
             if source.name == "main.rs":
                 # Upstream's generated module list replaces the old list and its source-text test.
                 git("rm", source)
@@ -42,25 +49,15 @@ def main():
             moved[(crate.name, source.stem)] = "it"
         modules = sorted(f.stem for f in dest.glob("*.rs") if f.name != "main.rs")
         for module in modules:
-            package = "horizon-client-lib" if crate.name == "horizon-client" and module in lib_tests else crate.name
-            moved[(package, module)] = "it"
-        if crate.name == "horizon-client":
-            modules = [m for m in modules if m not in lib_tests]
+            moved[(crate.name, module)] = "it"
         main_path = dest / "main.rs"
         text = main_path.read_text() if main_path.exists() else "//! Integration tests linked into one binary.\n"
         if crate.name == "horizon-client":
             text = text.replace("mod launch_api;\n", "")
         for name in modules:
             if f"mod {name};" not in text:
-                if crate.name == "horizon-perf" and name == "wasm":
-                    text += '#[cfg(feature = "wasm")]\n'
                 text += f"mod {name};\n"
         main_path.write_text(text)
-    lib_dest = Path("crates/horizon-client-lib/tests/it")
-    lib_dest.mkdir(parents=True, exist_ok=True)
-    (lib_dest / "main.rs").write_text(
-        "//! Client library integration tests linked into one binary.\n\n"
-        + "".join(f'#[path = "../../../horizon-client/tests/it/{name}.rs"]\nmod {name};\n' for name in sorted(lib_tests)))
     for path in Path("tools/ci/ignored-tests").glob("*.txt"):
         lines = []
         for line in path.read_text().splitlines():

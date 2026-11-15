@@ -13,13 +13,7 @@ use std::fs;
 use std::path::Path;
 
 #[test]
-#[ignore = "daily"]
 fn registration_limits_and_defaults_are_bound_to_the_connection() {
-    if crate::in_own_process(
-        "custom_component_api::registration_limits_and_defaults_are_bound_to_the_connection",
-    ) {
-        return;
-    }
     assert_eq!(
         custom::install(122, vec!["minecraft:no".into()]),
         Err(InstallError::InvalidName)

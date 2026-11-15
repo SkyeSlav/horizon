@@ -26,7 +26,6 @@ mod movement_properties;
 mod native_load_hooks;
 mod placement_bounds;
 mod placement_queries;
-mod player_block_speed;
 mod processor_bounds;
 mod registered_biome_source;
 mod retrogen_biomes;

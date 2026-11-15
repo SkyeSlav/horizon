@@ -16,7 +16,7 @@ use horizon_client::{
     world::World,
 };
 use horizon_world::{native_load_context::DataLoadOrigin, registry::BlockStateId};
-#[path = "../../src/test_resources.rs"]
+#[path = "../src/test_resources.rs"]
 mod test_resources;
 use std::{
     collections::HashMap,

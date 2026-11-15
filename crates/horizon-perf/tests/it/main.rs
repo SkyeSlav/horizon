@@ -27,5 +27,3 @@ mod summary;
 mod summary_client;
 mod summary_samples;
 mod summary_sections;
-#[cfg(feature = "wasm")]
-mod wasm;
