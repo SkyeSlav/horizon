@@ -92,6 +92,22 @@ fn layers_conditions_unknown_ids_and_integer_boundaries() {
     assert_eq!(priorities.get("test:unspecified"), 0);
 }
 
+/// A layer contributed without its source shifts no label onto another layer: the overlay is
+/// refused whole.
+#[test]
+fn an_overlay_with_layers_but_no_sources_is_refused() {
+    let root = Fixture::new("unpaired");
+    let files = vec![(
+        "recipe_priorities".into(),
+        vec![br#"{"entries":{"test:a":5}}"#.to_vec()],
+    )];
+    let refused = Priorities::load(&root.0, &PackOverlay::new(&files)).err();
+    assert_eq!(
+        refused.map(|e| e.to_string()).as_deref(),
+        Some("recipe priorities overlay refused: 1 layers but 0 sources")
+    );
+}
+
 #[test]
 fn every_projection_uses_the_same_priority_order() {
     let root = Fixture::new("projections");

@@ -75,7 +75,17 @@ impl Priorities {
                 .find(|(key, _)| key == id)
                 .map_or(&[][..], |(_, layers)| layers.as_slice())
         };
-        for (bytes, source) in named(PRIORITY_LAYERS).iter().zip(named(PRIORITY_SOURCES)) {
+        let layers = named(PRIORITY_LAYERS);
+        let sources = named(PRIORITY_SOURCES);
+        if layers.len() != sources.len() {
+            return Err(format!(
+                "recipe priorities overlay refused: {} layers but {} sources",
+                layers.len(),
+                sources.len()
+            )
+            .into());
+        }
+        for (bytes, source) in layers.iter().zip(sources) {
             if let Err(e) = priorities.layer(&String::from_utf8_lossy(source), bytes, &conditions) {
                 log::warn!("recipe priorities layer refused, {e}");
             }
