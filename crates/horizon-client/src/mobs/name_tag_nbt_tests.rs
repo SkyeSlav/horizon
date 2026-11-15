@@ -56,9 +56,9 @@ fn kind() -> Arc<MobType> {
         brain: super::super::Brain::Passive,
         anim: super::super::Anim::Humanoid { zombie_arms: false },
         sounds: ["entity.cow.hurt", "entity.cow.hurt", "entity.cow.death"],
-        step_sound: None,
         food: Default::default(),
         tempt: Default::default(),
+        ..(*crate::mobs::sensor_scan_tests::kind()).clone()
     })
 }
 

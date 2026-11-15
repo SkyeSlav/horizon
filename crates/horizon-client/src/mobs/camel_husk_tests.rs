@@ -37,14 +37,17 @@ fn a_camel_husk_never_breeds() {
     let Some((mut husk, husk_partner, mut camel, camel_partner, mut fed)) = mobs else {
         return;
     };
-    let seen = [husk_partner.seen(None), camel_partner.seen(None)];
+    let seen = [
+        husk_partner.seen(None, &crate::items::Items::empty()),
+        camel_partner.seen(None, &crate::items::Items::empty()),
+    ];
     let ran = with_test_world(&seen, |w, _| {
-        let mut lr = LegacyRandom::new(0);
+        let mut lr = crate::health::TestLevel::new(0);
         let mut events = Vec::new();
         let husk_breeds = {
             let mut cx = Cx {
                 w,
-                lr: &mut lr,
+                level: &mut lr.level(),
                 events: &mut events,
             };
             Breed::new(1.0).can_use(&mut husk, &mut cx)
@@ -55,7 +58,7 @@ fn a_camel_husk_never_breeds() {
         let camel_breeds = {
             let mut cx = Cx {
                 w,
-                lr: &mut lr,
+                level: &mut lr.level(),
                 events: &mut events,
             };
             Breed::new(1.0).can_use(&mut camel, &mut cx)
@@ -82,7 +85,7 @@ fn an_unsaddled_camel_sits_down_under_its_rider() {
         with_test_world(&[], |_, types| {
             let kind = Arc::new(types.types["minecraft:camel"].clone());
             let mut m = Mob::new(1, kind, Vec3::new(0.5, 64.0, 0.5), 0.0);
-            m.extra.saddled = saddled;
+            m.extra.set_saddled(saddled);
             if rider {
                 m.rider = Some(crate::mobs::equine::Rider::default());
             }
@@ -94,11 +97,11 @@ fn an_unsaddled_camel_sits_down_under_its_rider() {
         m.on_ground = true;
         let mut started = false;
         with_test_world(&[], |w, _| {
-            let mut lr = LegacyRandom::new(0);
+            let mut lr = crate::health::TestLevel::new(0);
             let mut events = Vec::new();
             let mut cx = Cx {
                 w,
-                lr: &mut lr,
+                level: &mut lr.level(),
                 events: &mut events,
             };
             started = (0..64).any(|_| RandomSitting.can_use(&mut m, &mut cx));

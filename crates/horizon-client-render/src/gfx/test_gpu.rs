@@ -100,6 +100,7 @@ pub(crate) fn instance() -> wgpu::Instance {
 /// Players' DirectX 12 compiles with FXC, part of Windows, and with DXC
 /// (`dxcompiler.dll`, beside the game in the Windows x64 zip) on integrated
 /// GPUs (`gfx/dx12_compiler.rs`); the two compile some shaders differently.
+#[cfg(test)]
 pub(crate) fn each_adapter() -> impl Iterator<Item = (wgpu::Adapter, &'static str)> {
     [
         (wgpu::Backends::VULKAN, Default::default(), "Vulkan"),
