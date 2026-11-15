@@ -16,7 +16,7 @@ and worlds. Each entry names its version field, its documentation and its level 
 | Control endpoints | the game's socket file (TCP form), `.horizon/api.json` | none | preview | [agent-control.md](agent-control.md), [server-reference.md](server-reference.md) |
 | Release checksums | `SHA256SUMS`, `SHA256SUMS.sig` on releases since signing began (#1011) | the signed text names the tag | stable | [security.md](../security.md) |
 | Worlds | the world folder | vanilla 26.3's (`DataVersion`) | vanilla's | [world-data.md](../world-data.md) |
-| Recipe priorities | `data/<namespace>/recipe_priorities.json` in server data packs/content roots | none (NeoForge format) | preview | [NeoForge data files](../modding/src/reference/neoforge-data.md#recipe-priorities) |
+| Recipe priorities | `data/<namespace>/recipe_priorities.json` in server data packs/content roots | none (NeoForge format) | preview | [Recipe priorities](../modding/src/how-to/items/recipe-priorities.md) |
 
 Worlds are vanilla's format, so any tool that reads a 26.3 world reads a Horizon world; Horizon adds itself to
 `level.dat`'s `ServerBrands` as vanilla's server does.
