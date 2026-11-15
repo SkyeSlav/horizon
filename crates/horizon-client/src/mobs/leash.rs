@@ -1027,6 +1027,7 @@ mod tests {
     /// riderless husk and a wild zombie horse take a lead even though both are
     /// in the monster category, and a mob on a husk's back refuses it.
     #[test]
+    #[ignore = "daily"]
     fn a_camel_husk_takes_a_lead_until_a_mob_rides_it() {
         let ran = crate::mobs::world::with_test_world(&[], |_, types| {
             let new = |kind: &str| {

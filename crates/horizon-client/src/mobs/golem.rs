@@ -1085,6 +1085,7 @@ mod tests {
     /// `TargetingConditions.forCombat().range(64)`, whose range is scaled by
     /// visibility: an invisible player at 9.5 blocks is out of reach.
     #[test]
+    #[ignore = "daily"]
     fn an_invisible_player_does_not_make_a_golem_defend_the_village() {
         use crate::gossip::{GossipType, Gossips};
         let mut outcomes = Vec::new();

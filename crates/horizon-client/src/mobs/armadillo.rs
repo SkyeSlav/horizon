@@ -1016,6 +1016,7 @@ mod armadillo_scute_time_tests {
     /// `readAdditionalSaveData` replaces it only with a saved `scute_time`. A load without the
     /// key keeps the constructor's draw (never 0, #12559) and draws nothing more.
     #[test]
+    #[ignore = "daily"]
     fn an_armadillo_loaded_without_scute_time_keeps_the_constructors_draw() {
         let ran = crate::mobs::world::with_test_world(&[], |_, all| {
             check(Arc::new(all.types["minecraft:armadillo"].clone()));

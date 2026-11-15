@@ -1,0 +1,15 @@
+# Resource-dependent mob regressions added by the upstream sync after the missing-data daily migration.
+horizon-client-lib mobs::ai::burn_and_rose_tests::a_mob_falling_past_a_wither_rose_gets_wither_and_one_beside_it_does_not lib daily resources
+horizon-client-lib mobs::ai::cramming_tests::a_ridden_horse_is_not_counted_for_cramming lib daily resources
+horizon-client-lib mobs::armadillo::armadillo_scute_time_tests::an_armadillo_loaded_without_scute_time_keeps_the_constructors_draw lib daily resources
+horizon-client-lib mobs::camel::camel_husk_tests::a_camel_husk_never_breeds lib daily resources
+horizon-client-lib mobs::camel::camel_husk_tests::a_camel_is_tempted_by_cactus lib daily resources
+horizon-client-lib mobs::camel::camel_husk_tests::an_unsaddled_camel_sits_down_under_its_rider lib daily resources
+horizon-client-lib mobs::camel::camel_pose_tests::a_sitting_baby_camel_does_not_follow_its_parent lib daily resources
+horizon-client-lib mobs::camel::camel_pose_tests::a_walk_target_stands_a_sitting_camel_up_and_then_it_walks lib daily resources
+horizon-client-lib mobs::camel::camel_pose_tests::pressing_forward_during_the_kneel_waits_for_the_transition lib daily resources
+horizon-client-lib mobs::dolphin::treasure_play_tests::a_dolphin_hearts_its_treasure_on_the_levels_random_every_40_ticks lib daily resources
+horizon-client-lib mobs::dolphin::treasure_play_tests::a_silent_dolphin_makes_no_sound_swimming_to_an_item lib daily resources
+horizon-client-lib mobs::golem::tests::an_invisible_player_does_not_make_a_golem_defend_the_village lib daily resources
+horizon-client-lib mobs::leash::tests::a_camel_husk_takes_a_lead_until_a_mob_rides_it lib daily resources
+horizon-client-lib mobs::ravager::sight_tests::a_stunned_or_roaring_ravager_does_not_see_the_player lib daily resources

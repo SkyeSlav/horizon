@@ -6287,6 +6287,7 @@ mod burn_and_rose_tests {
     /// rose's cell between the two boxes and gets wither, while one standing
     /// beside it does not.
     #[test]
+    #[ignore = "daily"]
     fn a_mob_falling_past_a_wither_rose_gets_wither_and_one_beside_it_does_not() {
         let ran = crate::mobs::world::with_built_test_world(
             &[],
