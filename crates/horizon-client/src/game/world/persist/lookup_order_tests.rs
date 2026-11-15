@@ -60,7 +60,7 @@ fn snapshot(game: &mut Game<'_>) -> Vec<i32> {
 }
 
 #[test]
-#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
+#[ignore = "daily"]
 fn chunk_loaded_families_keep_vanilla_lookup_and_save_order() {
     with_game(|game| {
         let a = (0, 0);
@@ -160,10 +160,12 @@ fn chunk_loaded_families_keep_vanilla_lookup_and_save_order() {
             .iter_mut()
             .find(|t| uuids.get(&t.id) == Some(&[2703, 0, 0, 1]));
         let tnt = tnt.unwrap();
+        let from = [tnt.position.x, tnt.position.y, tnt.position.z];
         tnt.position.y = -20.0;
-        // Its movement boundary reports the crossing as it happens.
+        let to = [tnt.position.x, tnt.position.y, tnt.position.z];
         let tnt = tnt.id;
-        game.resident_entities.table.get_mut().entered_section(tnt);
+        // Exercise the real movement boundary, including the admission journal.
+        game.entity_section_moved(tnt, Some(from), to);
         lookup.push(snapshot(game));
         let mut chunks = game.entity_chunks(&HashSet::from([a, b]), false);
         chunks.sort_by_key(|(key, _)| *key);
