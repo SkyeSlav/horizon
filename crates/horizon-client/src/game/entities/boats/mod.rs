@@ -1119,7 +1119,10 @@ impl Game<'_> {
         if driven.contains(&id) {
             let mut b = self.boats[i].clone();
             self.boat_stuck_in_blocks(&mut b);
-            self.boats[i] = b;
+            self.boats.update(i, |boat| {
+                boat.stuck = b.stuck;
+                boat.fall_distance = b.fall_distance;
+            });
             self.refresh_boat_status(i);
         }
         if self.boats[i].out_of_control >= 60.0 {

@@ -504,8 +504,7 @@ impl Game<'_> {
                 center,
                 radius,
                 1.0,
-                super::wind::Source::wind_charged(player, silent),
-                cause,
+                super::wind::Source::wind_charged(player, silent).with_cause(cause),
             );
         }
     }

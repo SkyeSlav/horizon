@@ -973,13 +973,6 @@ impl Game<'_> {
             Target::Rocket(id) | Target::Trident(id) => {
                 Some(self.persist.raw.entry(id).or_insert_with(empty))
             }
-            // `tags_of` reads a spawner's compound, and its chunk saves it
-            // (`ominous_item_spawner_to_nbt`); without this arm `/tag` wrote
-            // nothing and still reported success.
-            Target::Spawner(id) => {
-                let s = self.ominous_spawners.iter_mut().find(|s| s.id == id)?;
-                Some(&mut **s.raw.get_or_insert_with(|| Box::new(empty())))
-            }
             _ => None,
         }
     }
@@ -1002,6 +995,30 @@ impl Game<'_> {
                             .collect(),
                     ),
                 );
+            });
+            return true;
+        }
+        if let Target::Spawner(id) = t {
+            let Some(i) = self.ominous_spawners.iter().position(|s| s.id == id) else {
+                return false;
+            };
+            self.ominous_spawners.update(i, |spawner| {
+                let raw = &mut **spawner.raw.get_or_insert_with(|| Box::new(empty()));
+                if tags.is_empty() {
+                    if let Tag::Compound(map) = raw {
+                        map.remove(&"Tags".into());
+                    }
+                } else {
+                    set_key(
+                        raw,
+                        "Tags",
+                        Tag::List(
+                            tags.iter()
+                                .map(|s| Tag::String(s.as_str().into()))
+                                .collect(),
+                        ),
+                    );
+                }
             });
             return true;
         }

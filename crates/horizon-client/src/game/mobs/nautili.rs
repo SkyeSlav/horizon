@@ -190,5 +190,5 @@ impl Game<'_> {
 }
 
 #[cfg(test)]
-#[path = "nautili_tests.rs"]
+#[path = "tests/nautili_tests.rs"]
 mod nautili_tests;
