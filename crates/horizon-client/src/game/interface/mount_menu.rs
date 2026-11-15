@@ -619,7 +619,7 @@ impl Game<'_> {
 }
 
 #[cfg(test)]
-#[path = "mount_menu_reach_tests.rs"]
+#[path = "tests/mount_menu_reach_tests.rs"]
 mod reach_tests;
 
 #[cfg(test)]
