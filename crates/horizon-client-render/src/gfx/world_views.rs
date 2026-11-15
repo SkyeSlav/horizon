@@ -410,8 +410,8 @@ mod tests {
     fn full_light_is_explicit_for_each_camera() {
         let view = native_render::WorldView::new(1, DVec3::ZERO, 0.0, 0.0, 70.0, [64, 64]);
         for view in [
-            view.clone(),
-            view.clone().with_mirror(),
+            view,
+            view.with_mirror(),
             view.with_clip_plane([0.0, 0.0, 1.0, -1.0]),
         ] {
             assert_eq!(
