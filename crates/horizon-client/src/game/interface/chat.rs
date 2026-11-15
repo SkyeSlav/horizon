@@ -3197,5 +3197,5 @@ mod damage_type_registry_tests {
 }
 
 #[cfg(test)]
-#[path = "end_clock_tests.rs"]
+#[path = "tests/end_clock_tests.rs"]
 mod end_clock_tests;

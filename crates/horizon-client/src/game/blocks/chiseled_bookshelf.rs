@@ -195,5 +195,5 @@ impl Game<'_> {
 }
 
 #[cfg(test)]
-#[path = "chiseled_bookshelf_tests.rs"]
+#[path = "tests/chiseled_bookshelf_tests.rs"]
 mod tests;

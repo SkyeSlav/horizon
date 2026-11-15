@@ -969,7 +969,7 @@ impl Game<'_> {
     }
 }
 #[cfg(test)]
-#[path = "wind_charged_tests.rs"]
+#[path = "tests/wind_charged_tests.rs"]
 mod wind_charged_tests;
 
 #[cfg(test)]

@@ -360,7 +360,7 @@ fn relative(pos: [i32; 3], face: horizon_core::geometry::Direction) -> [i32; 3] 
 }
 
 #[cfg(test)]
-#[path = "adventure_gate_tests.rs"]
+#[path = "tests/adventure_gate_tests.rs"]
 mod adventure_gate_tests;
 
 #[cfg(test)]

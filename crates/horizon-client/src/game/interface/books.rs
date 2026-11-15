@@ -1857,7 +1857,7 @@ mod lectern_books_tag_tests {
 }
 
 #[cfg(test)]
-#[path = "book_escape_tests.rs"]
+#[path = "tests/book_escape_tests.rs"]
 mod book_escape_tests;
 
 #[cfg(test)]
@@ -2198,7 +2198,7 @@ mod sign_tests {
 }
 
 #[cfg(test)]
-#[path = "sign_book_tests.rs"]
+#[path = "tests/sign_book_tests.rs"]
 mod sign_book_tests;
 
 fn link_cursor(style: &horizon_client::text::Style) -> Option<horizon_client::widgets::Cursor> {

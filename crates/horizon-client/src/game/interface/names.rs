@@ -965,7 +965,7 @@ pub(super) fn name_component(m: &Mob, name: &str) -> horizon_core::nbt::Tag {
 }
 
 #[cfg(test)]
-#[path = "name_tag_tests.rs"]
+#[path = "tests/name_tag_tests.rs"]
 mod name_tag_tests;
 
 #[cfg(test)]

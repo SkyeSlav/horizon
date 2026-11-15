@@ -1132,5 +1132,5 @@ mod game_event_tests {
 }
 
 #[cfg(test)]
-#[path = "lodestone_compass_tests.rs"]
+#[path = "tests/lodestone_compass_tests.rs"]
 mod lodestone_compass_tests;

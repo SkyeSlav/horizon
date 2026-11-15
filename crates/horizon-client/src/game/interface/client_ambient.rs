@@ -424,5 +424,5 @@ mod sprint_handle_tests {
 }
 
 #[cfg(test)]
-#[path = "effect_particle_tests.rs"]
+#[path = "tests/effect_particle_tests.rs"]
 mod effect_particle_tests;

@@ -974,5 +974,5 @@ mod styled_name_model_tests {
 }
 
 #[cfg(test)]
-#[path = "item_block_state_tests.rs"]
+#[path = "tests/item_block_state_tests.rs"]
 mod item_block_state_tests;

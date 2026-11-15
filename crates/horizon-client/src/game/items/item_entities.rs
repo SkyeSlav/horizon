@@ -1007,7 +1007,7 @@ mod escape_tests {
 }
 
 #[cfg(test)]
-#[path = "thrown_items_tests.rs"]
+#[path = "tests/thrown_items_tests.rs"]
 mod thrown_items_tests;
 
 #[cfg(test)]

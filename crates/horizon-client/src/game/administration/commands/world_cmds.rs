@@ -2826,7 +2826,7 @@ impl Game<'_> {
 }
 
 #[cfg(test)]
-#[path = "../particle_command_tests.rs"]
+#[path = "particle_command_tests.rs"]
 mod particle_command_tests;
 
 #[cfg(test)]

@@ -3,7 +3,7 @@
 use super::*;
 
 #[cfg(test)]
-#[path = "melee_hit_tests.rs"]
+#[path = "tests/melee_hit_tests.rs"]
 mod hit_tests;
 
 impl Game<'_> {

@@ -34,7 +34,7 @@ use {
 mod respawn_attributes;
 
 #[cfg(test)]
-#[path = "portal_spawn_tests.rs"]
+#[path = "tests/portal_spawn_tests.rs"]
 mod portal_spawn_tests;
 
 /// `Player.getDimensionChangingDelay`.
@@ -2544,5 +2544,5 @@ impl Game<'_> {
 }
 
 #[cfg(test)]
-#[path = "nether_portal_stand_tests.rs"]
+#[path = "tests/nether_portal_stand_tests.rs"]
 mod stand_tests;

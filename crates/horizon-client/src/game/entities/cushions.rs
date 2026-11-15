@@ -809,5 +809,5 @@ mod tests {
 }
 
 #[cfg(test)]
-#[path = "cushion_drop_tests.rs"]
+#[path = "tests/cushion_drop_tests.rs"]
 mod cushion_drop_tests;

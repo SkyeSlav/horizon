@@ -310,5 +310,5 @@ fn shelf_owner_yaw(facing: &str) -> f32 {
 }
 
 #[cfg(test)]
-#[path = "shelf_compass_tests.rs"]
+#[path = "tests/shelf_compass_tests.rs"]
 mod shelf_compass_tests;

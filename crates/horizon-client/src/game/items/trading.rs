@@ -1024,7 +1024,7 @@ fn scrolled(scroll: usize, max: usize, d: f32) -> usize {
 }
 
 #[cfg(test)]
-#[path = "random_sequences_save_tests.rs"]
+#[path = "tests/random_sequences_save_tests.rs"]
 mod random_sequences_save_tests;
 
 #[cfg(test)]

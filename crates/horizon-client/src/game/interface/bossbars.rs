@@ -878,7 +878,7 @@ pub(super) mod audience_tests {
 }
 
 #[cfg(test)]
-#[path = "bossbar_names_tests.rs"]
+#[path = "tests/bossbar_names_tests.rs"]
 mod bossbar_names_tests;
 
 #[cfg(test)]
@@ -941,5 +941,5 @@ mod listing_tests {
 }
 
 #[cfg(test)]
-#[path = "bossbar_store_tests.rs"]
+#[path = "tests/bossbar_store_tests.rs"]
 mod bossbar_store_tests;

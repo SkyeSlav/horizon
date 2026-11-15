@@ -2178,9 +2178,9 @@ pub(in crate::game) mod sneak_dismount_tests;
 mod strider_lava_boarding_tests;
 
 #[cfg(test)]
-#[path = "ride_dismount_tests.rs"]
+#[path = "tests/ride_dismount_tests.rs"]
 mod ride_dismount_tests;
 
 #[cfg(test)]
-#[path = "ride_seat_tests.rs"]
+#[path = "tests/ride_seat_tests.rs"]
 mod ride_seat_tests;

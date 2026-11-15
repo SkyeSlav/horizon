@@ -980,13 +980,13 @@ impl Game<'_> {
 }
 
 #[cfg(test)]
-#[path = "scaffolding_inside_tests.rs"]
+#[path = "tests/scaffolding_inside_tests.rs"]
 mod scaffolding_inside_tests;
 
 #[cfg(test)]
-#[path = "adventure_use_on_tests.rs"]
+#[path = "tests/adventure_use_on_tests.rs"]
 mod adventure_use_on_tests;
 
 #[cfg(test)]
-#[path = "bow_enchantment_tests.rs"]
+#[path = "tests/bow_enchantment_tests.rs"]
 mod bow_enchantment_tests;

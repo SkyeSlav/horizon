@@ -3,7 +3,7 @@
 use super::{Game, commands::Target};
 
 #[cfg(test)]
-#[path = "infested_roll_tests.rs"]
+#[path = "tests/infested_roll_tests.rs"]
 mod infested_roll_tests;
 use horizon_client::{
     health::{Attack, HealthEvent},

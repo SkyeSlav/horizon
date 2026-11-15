@@ -3128,5 +3128,5 @@ mod vehicle_container_tests {
 }
 
 #[cfg(test)]
-#[path = "../finalize_marker_tests.rs"]
+#[path = "finalize_marker_tests.rs"]
 mod finalize_marker_tests;
