@@ -580,6 +580,7 @@ mod target_tests {
     /// `Dolphin.canAttack`: a baby takes nobody as its target, so a hit on it
     /// is not answered; an adult does take the one that hurt it.
     #[test]
+    #[ignore = "daily"]
     fn a_baby_dolphin_spares_whatever_hurt_it() {
         let ran = with_test_world(&[], |w, _| {
             assert!(

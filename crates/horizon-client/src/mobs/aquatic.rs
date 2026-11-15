@@ -1281,6 +1281,7 @@ mod pufferfish_sting_tests {
     use std::sync::Arc;
 
     #[test]
+    #[ignore = "daily"]
     fn mob_tick_dispatches_puffed_contacts_with_or_without_ai() {
         with_test_world(&[], |w, types| {
             let target = Mob::new(
@@ -1390,6 +1391,7 @@ mod pufferfish_sting_tests {
     /// meets its own (inflated by 0.3), not only the player, for
     /// `getPuffState() + 1`.
     #[test]
+    #[ignore = "daily"]
     fn a_puffed_pufferfish_stings_the_mobs_that_touch_it() {
         let mut test_level = crate::health::TestLevel::new(0);
         let level = &mut test_level.level();
@@ -1425,6 +1427,7 @@ mod pufferfish_sting_tests {
     }
 
     #[test]
+    #[ignore = "daily"]
     fn pufferfish_sting_parity_scenarios() {
         let mut test_level = crate::health::TestLevel::new(0);
         let level = &mut test_level.level();
@@ -1694,6 +1697,7 @@ mod pufferfish_sting_tests {
     /// `Pufferfish.PufferfishPuffGoal.canUse` targets players with
     /// `TargetingConditions.forNonCombat()`, which never picks a spectator.
     #[test]
+    #[ignore = "daily"]
     fn a_spectator_does_not_puff_a_pufferfish() {
         use crate::mobs::world::{test_player, with_test_world};
         let mut outcomes = Vec::new();
@@ -1737,7 +1741,7 @@ mod squid_tests {
 
     /// `Squid.aiStep`: sinking velocity on land is applied even when NoAI skips server AI (#14467).
     #[test]
-    fn noai_squid_on_land_sets_sinking_velocity() {
+    fn noai_squid_sinks_in_squid_ai_step() {
         let mut k = crate::mobs::sensor_scan_tests::kind();
         let km = Arc::make_mut(&mut k);
         km.id = "minecraft:squid".into();
@@ -1747,7 +1751,12 @@ mod squid_tests {
         squid.no_ai = true;
         squid_ai_step(&mut squid);
         assert_eq!(squid.velocity, Vec3::new(0.0, -0.0784000015258789, 0.0));
+    }
 
+    /// The same sinking velocity through a whole mob tick in a world.
+    #[test]
+    #[ignore = "daily"]
+    fn noai_squid_on_land_sets_sinking_velocity() {
         use crate::mobs::world::with_test_world;
         let _ = with_test_world(&[], |w, types| {
             let kind = Arc::new(types.types["minecraft:squid"].clone());

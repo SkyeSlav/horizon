@@ -684,6 +684,7 @@ mod tests {
     /// `OfferFlowerGoal`: the search box is the golem's box inflated by
     /// (6, 2, 6) and the candidate must be within six blocks (Euclidean).
     #[test]
+    #[ignore = "daily"]
     fn the_poppy_goes_to_a_villager_in_the_box_within_six_blocks() {
         let cases = [
             (Vec3::new(4.5, 64.0, 0.5), true),
@@ -705,6 +706,7 @@ mod tests {
     /// The candidate must also be in sight, and a fixed-time dimension is
     /// never bright outside.
     #[test]
+    #[ignore = "daily"]
     fn the_poppy_needs_sight_and_a_dimension_with_a_day() {
         let villager = villager_at(2, Vec3::new(4.5, 64.0, 0.5));
         let wall = |world: &mut crate::world::World, r: &horizon_world::registry::BlockRegistry| {
@@ -734,6 +736,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "daily"]
     fn snow_trail_posts_block_place_with_golem_and_snow_state() {
         let ran = crate::mobs::world::with_built_test_world(
             &[],
@@ -786,6 +789,7 @@ mod tests {
     /// below's top face (`Block.isFaceFull(collisionShape, UP)`), or a snow
     /// layer eight deep, whose collision shape is only 14/16 high.
     #[test]
+    #[ignore = "daily"]
     fn snow_trail_follows_is_air_and_the_snow_layer_tags() {
         let cases: &[(&str, &[(&str, &str)], &str, bool)] = &[
             ("minecraft:stone", &[], "minecraft:cave_air", true),
@@ -883,6 +887,7 @@ mod tests {
     /// 7 up or down toward the target and keeps it for `start`, so the golem
     /// walks to that spot rather than straight at the entity.
     #[test]
+    #[ignore = "daily"]
     fn an_iron_golem_walks_to_a_spot_near_its_target() {
         let build = |world: &mut crate::world::World,
                      registry: &horizon_world::registry::BlockRegistry| {
@@ -955,6 +960,7 @@ mod tests {
     /// player forgets its target once and not again until hurt again; with
     /// the rule off it does nothing.
     #[test]
+    #[ignore = "daily"]
     fn a_golem_hurt_by_a_player_forgets_its_target_once_under_universal_anger() {
         for rule in [true, false] {
             with_test_world(&[], |w, _| {
@@ -1012,6 +1018,7 @@ mod tests {
     /// asks it: the creeper that hurt the golem is never fought back, while
     /// a zombie that hurts it is.
     #[test]
+    #[ignore = "daily"]
     fn a_creeper_that_hurts_an_iron_golem_is_never_fought_back() {
         let creeper = mob(2, Species::Creeper, Vec3::new(1.5, 64.0, 0.5));
         let zombie = mob(3, Species::Zombie, Vec3::new(1.5, 64.0, 0.5));
@@ -1049,6 +1056,7 @@ mod tests {
     /// A village golem (not built by a player) still goes after the player
     /// who angered it.
     #[test]
+    #[ignore = "daily"]
     fn a_village_golem_still_targets_the_player_who_angered_it() {
         with_test_world(&[], |w, _| {
             let mut w = w.clone();
@@ -1134,6 +1142,7 @@ mod created_golem_tests {
     /// monsters. The world holds one player, so "its builder" and "a player"
     /// are the same check, as they are in vanilla.
     #[test]
+    #[ignore = "daily"]
     fn a_golem_a_player_built_never_targets_one() {
         let Some((mut built, mut village, zombie)) = angry_golems() else {
             return;
