@@ -175,7 +175,7 @@ wins. Handlers are NeoForge's `ResourceHandler<R>`, and every write runs in a tr
 - **One journal, in the game.** A handler holds no state and no mod writes a journal. A write applies in place;
   the first write to a storage at each depth snapshots it; a nested commit hands its snapshots to its parent;
   an abort restores them. Notifications to the world run once per changed storage at the outermost commit.
-- **One move.** `move_resources` moves items and fluids between two handlers, each step all or nothing, and
+- **One move.** `resource_util::move` moves items and fluids between two handlers, each step all or nothing, and
   energy shares its step. A handler that answers more than it was asked or offered is a mod bug: the move is
   undone and the game warns once, naming the mod.
 - **Exact units.** Fluid amounts are millibuckets. A Fabric amount that is not a whole number of millibuckets

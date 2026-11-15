@@ -1335,7 +1335,7 @@ impl Game<'_> {
         let resource = ItemResource::of(&snapshot);
         mod_api::run_transaction(self, |game, tx| {
             let host: &mut dyn mod_api::ServerHost = game;
-            let went = part.insert_any(host, tx, &resource, stack.count);
+            let went = part.insert_resource(host, tx, &resource, stack.count);
             match part.checked(went, stack.count, &at) {
                 Some(0) | None => Err(()),
                 Some(went) => take(game, went).map(|()| went).ok_or(()),

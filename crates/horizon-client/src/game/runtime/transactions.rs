@@ -2400,7 +2400,7 @@ mod mod_capability_tests {
     use horizon_client::containers::{BlockEntity, ModBlockEntity, ModBlockEntityFields};
     use horizon_core::nbt::{Compound, Tag};
     use mod_api::ServerHost;
-    use mod_api::{BlockSide, HostTransaction, ResourceHandler, move_resources};
+    use mod_api::{BlockSide, HostTransaction, ResourceHandler, resource_util};
     use mod_platform::__private::part_tests::{CHEMICALS, ChemTank, Chemical};
     use std::sync::Arc;
 
@@ -2463,14 +2463,15 @@ mod mod_capability_tests {
             };
 
             let moved = host.transaction(|host, tx| {
-                move_resources(host, &tank, &vat, |c| *c == hydrogen, 250, tx).map_err(drop)
+                resource_util::r#move(host, &tank, &vat, |c| *c == hydrogen, 250, Some(tx))
+                    .map_err(drop)
             });
             assert_eq!(moved, Ok(250));
             assert_eq!(amounts(host), (350, 250));
             assert_eq!(vat.resource(host, 0), Some(hydrogen.clone()));
 
             let aborted = host.transaction(|host, tx| {
-                let moved = move_resources(host, &tank, &vat, |_| true, 100, tx);
+                let moved = resource_util::r#move(host, &tank, &vat, |_| true, 100, Some(tx));
                 assert_eq!(moved.ok(), Some(100));
                 assert_eq!(amounts(host), (250, 350));
                 Err::<(), ()>(())

@@ -66,7 +66,7 @@ impl EnergyHandler for GameEnergy {
 }
 
 /// Moves up to `max` energy out of `from` into `to` (NeoForge's `EnergyHandlerUtil.move`), in
-/// transaction `tx`: how much moved. As one step of `move_resources`: all or nothing in a
+/// transaction `tx`: how much moved. As one step of `resource_util::move`: all or nothing in a
 /// transaction of its own, a move `to` takes only part of tried again with that part, and a
 /// handler answering more than it was asked ending it with [`Overanswered`].
 pub fn move_energy(

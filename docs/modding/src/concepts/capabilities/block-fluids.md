@@ -2,7 +2,7 @@
 
 Look up `level.capability(host, &FLUIDS, pos, side)` to access a block's
 `ResourceHandler<FluidResource>`. Transfer fluids inside a transaction with
-`move_resources`, as you transfer items. `FLUIDS` corresponds to NeoForge's
+`resource_util::move`, as you transfer items. `FLUIDS` corresponds to NeoForge's
 `Capabilities.Fluid.BLOCK`. Amounts are millibuckets (mB); one bucket is 1000 mB.
 
 ## Resources and tanks
@@ -24,7 +24,7 @@ Cauldrons are position-based providers, not block entities. They accept register
 fluids regardless of components and discard those components; extracted fluid is
 plain. An empty cauldron accepts any fluid with registered cauldron content.
 
-If a destination accepts only part of a transfer, `move_resources` rolls back and
+If a destination accepts only part of a transfer, `resource_util::move` rolls back and
 retries with that amount. A full water cauldron asked for a bucket when the
 destination has room for 500 mB supplies one level, 334 mB, without overanswering.
 
@@ -52,7 +52,7 @@ Changes exchange one item, splitting the changed item from a larger stack.
 
 Vanilla buckets expose one 1000 mB tank. Empty buckets accept plain water or lava
 and become filled buckets; filled buckets drain whole and become empty buckets.
-`move_resources` transfers between item and block handlers: a full cauldron can
+`resource_util::move` transfers between item and block handlers: a full cauldron can
 fill a bucket in a player slot, but a cauldron holding two levels cannot.
 
 ## Player interaction

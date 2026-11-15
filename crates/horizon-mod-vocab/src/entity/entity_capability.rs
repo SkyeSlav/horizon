@@ -440,7 +440,7 @@ impl ResourceHandler<ItemResource> for PlayerItems {
     /// Where `Inventory.add` puts it: onto the same item in the selected slot, then in the off
     /// hand, then in the main inventory in order, then into its empty slots in order; never
     /// the armour.
-    fn insert_any(
+    fn insert_resource(
         &self,
         host: &mut dyn ServerHost,
         tx: &Transaction,

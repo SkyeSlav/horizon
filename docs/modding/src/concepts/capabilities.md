@@ -101,16 +101,35 @@ Each method receives the host; the handler holds no borrow of the game.
 | `capacity` | `u32` limit for a specified resource, independent of the index's current contents. This is neither free space nor permission to insert. |
 | `is_valid` | Whether the resource is allowed at an index. The default checks for nonzero capacity; override it for separate acceptance rules and enforce those rules in `insert`. |
 | `insert` / `extract` | Insert or extract up to the requested amount at an index, using a `&Transaction`; return the amount moved. Insertion can refuse even with nonzero capacity. |
+| `insert_resource` / `extract_resource` | NeoForge's `insert` and `extract` without an index (Rust has no overloads): the handler chooses where, by default index by index from 0. |
 
 Keep handler state in transaction-managed storage such as block entity slots, saved compounds or
 attachments. Your handler can look up and call a neighbour's capability through the host.
 
-Use `move_resources(host, &from, &to, filter, max, tx)` to transfer matching resources, up to `max`,
+Use `resource_util::r#move(host, &from, &to, filter, max, Some(tx))` to transfer matching resources, up to `max`,
 from source indices in order into any destination index that accepts them. Each transfer uses a nested
 transaction: rejected items stay in the source, and partial acceptance is retried with the accepted
 amount. The result is `Result<u32, Overanswered>`. If a handler reports more than requested, its transfer
 is undone and `Overanswered` identifies the provider in `owner`. Propagate the error from your
 `host.transaction` closure to abort the whole operation.
+
+`resource_util::move_stacking` inserts into indices that already hold the resource before empty ones.
+`move_first` and `move_first_stacking` move only the first resource that goes (and, from later
+source indices, more of that one), and return which and how much. A missing `tx` (`None`) opens
+a transaction of its own. `move` is a Rust keyword, so it is written `resource_util::r#move`.
+
+The rest of NeoForge's `ResourceHandlerUtil` is in the same module, taking the handler (a
+`Capability` derefs to one): `index_of`, `contains`, `is_empty`, `is_full`, `is_valid` (whether
+any index takes the resource), `redstone_signal_from_resource_handler` (0 to 15),
+`insert_stacking`, `extract_first` and `find_extractable_resource`.
+
+NeoForge's stock handlers are ready to compose: `CombinedResourceHandler` (several handlers'
+indices one after another, sized when built), `RangedResourceHandler` (`of` and
+`of_single_index`, refusing a range the handler lacks), `DelegatingResourceHandler` (the base of
+a wrapper: implement `ResourceHandler` on a struct holding it, change the calls you want and
+forward the rest; its API docs show one), `EmptyResourceHandler::instance()`, `InfiniteResourceHandler` (a
+creative tank) and `VoidingResourceHandler` (a trash can). Handlers added up are asked for at
+most `u32::MAX - 1` at a time, so that a part answering more than it was asked always shows.
 
 There is no `simulate` parameter. To try an operation without keeping its changes, run it in a
 transaction and return `Err` to abort. See [Transactions](transactions.md).

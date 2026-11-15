@@ -20,7 +20,7 @@ keeps is bounded by the number of caches you make.
 ```rust,ignore
 // Each tick, inside a transaction `tx`, with `own` your own handler.
 if let Some(items) = west.get(host) {
-    move_resources(host, items, own, |_| true, 8, tx)?;
+    resource_util::r#move(host, items, own, |_| true, 8, Some(tx))?;
 }
 ```
 

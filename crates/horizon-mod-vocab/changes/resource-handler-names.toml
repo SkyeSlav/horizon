@@ -1,0 +1,3 @@
+ids = ["method:ResourceHandler::insert_any", "method:ResourceHandler::extract_any", "fn:move_resources"]
+why = "The resource-handler kit takes NeoForge's names: ResourceHandler's index-free insert_any and extract_any become insert_resource and extract_resource, and move_resources becomes resource_util::r#move (NeoForge's ResourceHandlerUtil.move), which needs R: PartialEq and takes an optional transaction, opening its own when given none."
+migrate = "Rename handler.insert_any(..) to handler.insert_resource(..) and handler.extract_any(..) to handler.extract_resource(..), same arguments. Replace move_resources(host, from, to, filter, max, &tx) with resource_util::r#move(host, from, to, filter, max, Some(&tx))."

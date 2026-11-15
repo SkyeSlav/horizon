@@ -15,7 +15,7 @@
 //! longer than [`MAX_STORAGE_PAGE`] entries, whatever a caller asks.
 //!
 //! **When not to use it.** A pipe that moves a few items a tick between small containers is
-//! cheaper on `ITEMS` and [`move_resources`](crate::move_resources), slot by slot: in the
+//! cheaper on `ITEMS` and `resource_util::move`, slot by slot: in the
 //! measurements behind this API, 256 pipes moving 8 items a tick each cost 2.8 ms a tick that
 //! way against 3.7 ms through `STORAGE`. `STORAGE` pays off for bulk stores, large moves, and
 //! networks that sleep while idle.
@@ -400,7 +400,7 @@ impl ItemStorage for Slots {
 }
 
 /// Moves up to `max` of `resource` out of `from` into `to`, in transaction `tx`: how much moved.
-/// As one step of [`move_resources`](crate::move_resources): all or nothing in a transaction of
+/// As one step of `resource_util::move`: all or nothing in a transaction of
 /// its own, a move `to` takes only part of tried again with that part, and a handler answering
 /// more than it was asked ending it with [`StorageError::Overanswered`]. Four handler calls
 /// whether one item moves or a million, and only the two questions when `from` has none or `to`

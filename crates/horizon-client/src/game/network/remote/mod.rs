@@ -11654,7 +11654,7 @@ pub(crate) mod tests {
             lan::{Out, PlayerSender},
         };
         use horizon_protocol::{buf::Reader, packets::play::Clientbound as C};
-        use mod_api::{HostTransaction, ITEM_FLUIDS, ItemPlace, ServerHost, move_resources};
+        use mod_api::{HostTransaction, ITEM_FLUIDS, ItemPlace, ServerHost, resource_util};
 
         with_guests(|server| {
             let (tx, rx) = std::sync::mpsc::channel();
@@ -11715,7 +11715,8 @@ pub(crate) mod tests {
                         let source = off.capability(host, &ITEM_FLUIDS).unwrap();
                         let target = main.capability(host, &ITEM_FLUIDS).unwrap();
                         assert_eq!(
-                            move_resources(host, &source, &target, |_| true, 1000, tx).unwrap(),
+                            resource_util::r#move(host, &source, &target, |_| true, 1000, Some(tx))
+                                .unwrap(),
                             1000
                         );
                         if commit { Ok(()) } else { Err(()) }
