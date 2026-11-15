@@ -310,20 +310,24 @@ fn a_command_arrival_holds_movement_until_lit_then_ticks_damage_again() {
 #[ignore = "prepared resources in HORIZON_TEST_RESOURCES"]
 fn respawn_arrivals_hold_movement_then_resume_damage_and_pickups() {
     use horizon_client::items::ItemStack;
+    use horizon_client::lan::guest::InboxItem;
     use horizon_protocol::packets::play::{self, Serverbound as S};
 
     for personal in [false, true] {
-        let (mut game, mut host, _rx) = server();
+        let mut resources = None;
+        let (mut game, _rx) = server(&mut resources);
         let pos = [FAR as i32, 150, FAR as i32];
         let chunk = pos[0] >> 4;
         game.level.world_spawn = Some(pos);
         assert!(game.ui.rules.set_string("respawn_radius", "0"));
-        let guest = &mut host.hub.guests[0];
-        guest.dead = true;
-        guest.health = 0.0;
-        if personal {
-            guest.respawn_elsewhere = Some((game.dim.id().into(), pos, 93.0, 12.0, true));
-        }
+        let elsewhere = personal.then(|| (game.dim.id().into(), pos, 93.0, 12.0, true));
+        game.lan.as_mut().unwrap().hub.guests.update(0, |guest| {
+            guest.dead = true;
+            guest.health = 0.0;
+            if let Some(elsewhere) = elsewhere {
+                guest.respawn_elsewhere = Some(elsewhere);
+            }
+        });
         // The client can render its immediate surroundings before all 5x5 arrival chunks are lit.
         for x in chunk - 1..=chunk + 1 {
             for z in chunk - 1..=chunk + 1 {
@@ -331,74 +335,78 @@ fn respawn_arrivals_hold_movement_then_resume_damage_and_pickups() {
                     .insert_remote(&mut game.world, Chunk::empty(x, z));
             }
         }
-        game.guest_respawn(&mut host, CONN);
-        game.tick_server_travel(&mut host);
+        game.guest_respawn(CONN);
+        game.tick_server_travel();
         assert!(game.on_server_trip(CONN));
-        assert!(landing(&host), "respawn must hold movement while loading");
-        let guest = &mut host.hub.guests[0];
-        let at = guest.position;
-        guest
-            .inbox
-            .push_back((S::PlayerLoaded(horizon_protocol::packets::Empty), 0));
-        guest.inbox.push_back((
-            S::AcceptTeleportation(play::AcceptTeleportation {
-                id: guest.teleport_counter,
-                x: at[0],
-                y: at[1],
-                z: at[2],
-                yaw: guest.yaw,
-                pitch: guest.pitch,
-            }),
-            0,
-        ));
-        guest.inbox.push_back((
-            S::MovePlayerPos(play::MovePlayerPos {
-                x: at[0] + 1.0,
-                y: at[1],
-                z: at[2],
-                flags: 0,
-            }),
-            0,
-        ));
-        host.hub.drain_packets(&mut game.server_ctx());
+        assert!(
+            landing(game.lan.as_ref().unwrap()),
+            "respawn must hold movement while loading"
+        );
+        let at = game.lan.as_ref().unwrap().hub.guests[0].position;
+        game.lan.as_mut().unwrap().hub.guests.update(0, |guest| {
+            guest.inbox.push_back(InboxItem::Packet(
+                S::PlayerLoaded(horizon_protocol::packets::Empty),
+                None,
+            ));
+            guest.inbox.push_back(InboxItem::Packet(
+                S::AcceptTeleportation(play::AcceptTeleportation {
+                    id: guest.teleport_counter,
+                    x: at[0],
+                    y: at[1],
+                    z: at[2],
+                    yaw: guest.yaw,
+                    pitch: guest.pitch,
+                }),
+                None,
+            ));
+            guest.inbox.push_back(InboxItem::Packet(
+                S::MovePlayerPos(play::MovePlayerPos {
+                    x: at[0] + 1.0,
+                    y: at[1],
+                    z: at[2],
+                    flags: 0,
+                }),
+                None,
+            ));
+        });
+        drain_packets(&mut game);
         assert_eq!(
-            host.hub.guests[0].position, at,
+            game.lan.as_ref().unwrap().hub.guests[0].position,
+            at,
             "cannot abandon the respawn destination"
         );
         // A second pass must preserve the respawn search, even if its eventual stand-up spot
         // differs from the original target; it must not turn into an ordinary teleport hold.
-        game.tick_server_travel(&mut host);
-        assert!(landing(&host));
+        game.tick_server_travel();
+        assert!(landing(game.lan.as_ref().unwrap()));
         light(&mut game, chunk);
-        game.tick_server_travel(&mut host);
+        game.tick_server_travel();
         assert!(!game.on_server_trip(CONN));
-        assert!(!landing(&host));
+        assert!(!landing(game.lan.as_ref().unwrap()));
         if personal {
-            assert_eq!(host.hub.guests[0].position, [FAR, 150.1, FAR]);
-            assert_eq!(
-                [host.hub.guests[0].yaw, host.hub.guests[0].pitch],
-                [93.0, 12.0]
-            );
+            let guest = &game.lan.as_ref().unwrap().hub.guests[0];
+            assert_eq!(guest.position, [FAR, 150.1, FAR]);
+            assert_eq!([guest.yaw, guest.pitch], [93.0, 12.0]);
         }
-        let at = host.hub.guests[0].position;
+        let at = game.lan.as_ref().unwrap().hub.guests[0].position;
         let hit = |game: &mut Game<'_>| game.mob_hits_player(6.0, at, "minecraft:player_attack");
-        assert_eq!(game.as_guest(&mut host, CONN, hit), Some(true));
-        let health = host.hub.guests[0].health;
+        assert_eq!(game.as_guest(CONN, hit), Some(true));
+        let health = game.lan.as_ref().unwrap().hub.guests[0].health;
         game.add_item_entity(ItemStack::new("minecraft:stick", 1), at, Some([0.0; 3]), 0);
         for _ in 0..20 {
-            game.tick_guests(&mut host);
+            game.tick_guests();
         }
         assert!(game.dropped.is_empty(), "pickups resume after arrival");
         assert!(
-            host.hub.guests[0]
+            game.lan.as_ref().unwrap().hub.guests[0]
                 .inventory
                 .iter()
                 .flatten()
                 .any(|s| &*s.item == "minecraft:stick" && s.count == 1)
         );
-        assert_eq!(game.as_guest(&mut host, CONN, hit), Some(true));
+        assert_eq!(game.as_guest(CONN, hit), Some(true));
         assert!(
-            host.hub.guests[0].health < health,
+            game.lan.as_ref().unwrap().hub.guests[0].health < health,
             "the damage cooldown must expire"
         );
     }
@@ -409,17 +417,18 @@ fn respawn_arrivals_hold_movement_then_resume_damage_and_pickups() {
 fn a_world_spawn_search_keeps_movement_held_between_candidate_chunks() {
     use horizon_client::world_spawn::PlayerSpawnFinder;
 
-    let (mut game, mut host, _rx) = server();
+    let mut resources = None;
+    let (mut game, _rx) = server(&mut resources);
     game.level.world_spawn = Some([0, 100, 0]);
     game.world_spawn_trip(CONN);
     // A deterministic search starts at (-64, -64), outside the lit 5x5. This is the
     // same search state a previous arrival pass keeps when a candidate is missing.
     game.server_trips[0].finder = Some(PlayerSpawnFinder::new([0, 100, 0], 64, |_| 0));
     for _ in 0..2 {
-        game.tick_server_travel(&mut host);
+        game.tick_server_travel();
         assert!(game.on_server_trip(CONN));
         assert!(
-            landing(&host),
+            landing(game.lan.as_ref().unwrap()),
             "waiting for another candidate must not release movement"
         );
     }
@@ -431,7 +440,7 @@ fn a_world_spawn_search_keeps_movement_held_between_candidate_chunks() {
                 .insert_remote(&mut game.world, Chunk::empty(x, z));
         }
     }
-    game.tick_server_travel(&mut host);
+    game.tick_server_travel();
     assert!(!game.on_server_trip(CONN));
-    assert!(!landing(&host));
+    assert!(!landing(game.lan.as_ref().unwrap()));
 }

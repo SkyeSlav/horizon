@@ -332,18 +332,26 @@ fn an_adventure_use_on_is_not_predicted_on_the_client() {
     let axe = ItemStack::new("minecraft:iron_axe", 1);
     *game.held_mut() = Some(axe.clone());
     assert!(
-        !game.predict_item_on_block(&axe, &hit(log), Hand::Main),
+        !predicts(&mut game, &axe, &hit(log)),
         "the axe's strip was predicted"
     );
     let matching = placeable("minecraft:iron_axe", 1, "minecraft:oak_log");
     *game.held_mut() = Some(matching.clone());
     assert!(
-        game.predict_item_on_block(&matching, &hit(log), Hand::Main),
+        predicts(&mut game, &matching, &hit(log)),
         "a matching can_place_on still predicts the strip"
     );
     game.set_mode(GameMode::Survival);
     assert!(
-        game.predict_item_on_block(&matching, &hit(log), Hand::Main),
+        predicts(&mut game, &matching, &hit(log)),
         "a builder's axe still predicts the strip"
     );
+}
+
+/// The client's `Item.useOn` prediction behind `ItemStack.useOn`'s adventure gate, which the
+/// fork's use phase applies before it selects the prediction.
+fn predicts(game: &mut Game<'_>, stack: &ItemStack, hit: &Hit) -> bool {
+    game.with_hand(Hand::Main, |g| {
+        g.may_use_on(hit.pos) && g.predict_item_on_block(stack, hit)
+    })
 }

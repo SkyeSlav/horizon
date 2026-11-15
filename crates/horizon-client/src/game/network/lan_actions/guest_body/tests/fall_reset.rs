@@ -6,6 +6,7 @@ use horizon_client::{
     chunk::Chunk,
     lan::{NetConfig, hub::HubConfig},
 };
+use horizon_client::lan::guest::InboxItem;
 use horizon_core::position::ChunkPos;
 use horizon_protocol::packets::{Empty, play, play::Serverbound as S};
 use std::sync::Arc;
@@ -93,7 +94,7 @@ fn scene(resources: &mut Option<Arc<crate::game::Resources>>) -> Game<'_> {
 /// One server tick in which the guest's client sent these positions, one per client tick.
 fn tick_with_moves(g: &mut Game<'_>, heights: &[f64]) {
     let guest = &mut g.lan.as_mut().unwrap().hub.guests[0];
-    guest.inbox.push_back((S::ClientTickEnd(Empty), 0));
+    guest.inbox.push_back(InboxItem::uncredited(S::ClientTickEnd(Empty)));
     for &y in heights {
         let to = play::MovePlayerPos {
             x: 12.5,
@@ -101,8 +102,8 @@ fn tick_with_moves(g: &mut Game<'_>, heights: &[f64]) {
             z: 12.5,
             flags: 0,
         };
-        guest.inbox.push_back((S::MovePlayerPos(to), 0));
-        guest.inbox.push_back((S::ClientTickEnd(Empty), 0));
+        guest.inbox.push_back(InboxItem::uncredited(S::MovePlayerPos(to)));
+        guest.inbox.push_back(InboxItem::uncredited(S::ClientTickEnd(Empty)));
     }
     g.tick_lan_packets();
     let guest = &g.lan.as_ref().unwrap().hub.guests[0];

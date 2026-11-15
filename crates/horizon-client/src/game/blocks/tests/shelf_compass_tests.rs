@@ -95,7 +95,7 @@ fn place_shelf(game: &mut Game<'_>, pos: [i32; 3], facing: &str, stack: &ItemSta
     game.world.set(pos[0], pos[1], pos[2], state).unwrap();
     let mut shelf = Shelf::default();
     shelf.items[1] = Some(stack.clone());
-    game.world.block_entities.put(
+    game.world.block_entities.insert(
         (pos[0], pos[1], pos[2]),
         BlockEntity::Shelf(Box::new(shelf)),
     );

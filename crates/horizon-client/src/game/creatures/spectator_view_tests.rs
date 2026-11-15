@@ -47,7 +47,10 @@ fn game() -> Game<'static> {
     .unwrap();
     game.build_registries();
     // The atlas the game bakes at startup: `mob_geometry` finds a body's texture in it.
-    game.gui.atlas = horizon_client::hud::HudAtlas::build(&root).unwrap();
+    game.gui.atlas = horizon_client::hud::HudAtlas::build(
+        &horizon_assets::resource_source::ResourceSource::directory(root.clone()),
+    )
+    .unwrap();
     game.set_allow_commands(true);
     game.world
         .chunks

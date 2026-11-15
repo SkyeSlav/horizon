@@ -74,7 +74,6 @@ fn mob(id: u32, entity: &str, species: Species, width: f64, height: f64) -> Mob 
         brain: Brain::Passive,
         anim: Anim::Humanoid { zombie_arms: false },
         sounds: ["entity.cow.hurt", "entity.cow.hurt", "entity.cow.death"],
-        step_sound: None,
         food: Default::default(),
         tempt: Default::default(),
     };
@@ -295,7 +294,7 @@ fn a_trades_title_draws_the_names_style() {
     // in the screen's grey (-12566464).
     let session = horizon_client::merchant::Session::new(Vec::new(), true);
     game.open_remote_merchant(session, Some(Text::colored("Bob", 0xFF_0000)));
-    let mut batch = HudBatch::new([854, 480]);
+    let mut batch = HudBatch::new([854, 480], game.settings.gui_scale_inputs());
     assert!(game.draw_merchant(&mut batch));
     let (_, oy) = game.inventory_origin(&batch);
     // The title's row: glyphs only, its own line (`oy + 6`, 8 px tall).

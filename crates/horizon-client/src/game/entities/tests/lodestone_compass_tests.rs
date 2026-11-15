@@ -36,6 +36,8 @@ fn framed_compass(id: u32, pos: [i32; 3], facing: u8, rotation: i8) -> ItemFrame
         fixed: false,
         invisible: false,
         check_interval: 0,
+        attachment_lifetime: Default::default(),
+        join: Default::default(),
         custom_name: None,
         random: LegacyRandom::new(0),
     }
@@ -82,7 +84,8 @@ fn client_game() -> Game<'static> {
 /// item quad's four atlas corners fall inside exactly one of the 32 compass
 /// sprites `compass.json` dispatches over.
 fn drawn_needle(game: &mut Game<'_>, frame: ItemFrame) -> String {
-    game.item_frames = vec![frame];
+    game.item_frames = Default::default();
+    game.item_frames.push(frame);
     // The camera sits at the frame, so the frame passes `shouldRender`.
     let camera = glam::DVec3::from(super::center(&game.item_frames[0]));
     let mut out = Vec::new();

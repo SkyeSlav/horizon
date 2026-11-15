@@ -1261,7 +1261,7 @@ pub(in crate::game) mod tests {
             let mut names = vec!["minecraft:empty".to_string(); 52];
             names.push("minecraft:flash".to_string());
             names
-        });
+        }, None);
 
         let at = [0.0, 64.0, 0.0];
         let options = ParticleOptions::colored(ParticleType::Flash, [1.0, 0.0, 0.0, 1.0]);

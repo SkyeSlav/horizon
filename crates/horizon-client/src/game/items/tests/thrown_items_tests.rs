@@ -78,7 +78,16 @@ fn a_death_scatter_takes_the_throwers_random_not_the_levels() {
     let mut game = standing_game();
     game.inventory[0] = Some(ItemStack::new("minecraft:stone", 2));
     let level = game.world.random.state();
-    game.drop_inventory([8.5, 70.0, 8.5], (0, 1));
+    game.drop_inventory(
+        [8.5, 70.0, 8.5],
+        &crate::game::creatures::DyingDrops {
+            entity: 0,
+            kind: "minecraft:player",
+            player: None,
+            source: None,
+            recently_hit: false,
+        },
+    );
     let thrown = game.dropped.first().expect("the stack was thrown");
     assert_eq!(thrown.velocity.y, f64::from(0.2f32), "a scatter rises 0.2");
     assert!(thrown.velocity.x.abs() <= 0.5 && thrown.velocity.z.abs() <= 0.5);

@@ -47,7 +47,8 @@ fn cart_at(game: &mut Game<'_>, id: u32, at: [f64; 3]) {
 /// 2.0125 above its feet, a spider's 0.765, a chicken's (0, 0.7, -0.1).
 #[test]
 fn a_rider_sits_at_the_vehicle_types_own_passenger_attachment() {
-    let Some(mut game) = server_game() else {
+    let mut resources = None;
+    let Some(mut game) = server_game(&mut resources) else {
         return;
     };
     let at = [1.5, 64.0, -2.5];
@@ -78,7 +79,8 @@ fn a_rider_sits_at_the_vehicle_types_own_passenger_attachment() {
 /// mob's own riding offset (a zombie hangs 0.7 below).
 #[test]
 fn a_mob_rides_a_minecart() {
-    let Some(mut game) = server_game() else {
+    let mut resources = None;
+    let Some(mut game) = server_game(&mut resources) else {
         return;
     };
     let at = [0.5, 64.0625, 0.5];
@@ -112,7 +114,8 @@ fn a_mob_rides_a_minecart() {
 /// player on its zero-height passenger point.
 #[test]
 fn a_marker_takes_no_rider() {
-    let Some(mut game) = server_game() else {
+    let mut resources = None;
+    let Some(mut game) = server_game(&mut resources) else {
         return;
     };
     for (id, kind) in [(9, "minecraft:marker"), (10, "minecraft:item_display")] {
@@ -126,6 +129,8 @@ fn a_marker_takes_no_rider() {
             interaction: None,
             knot_check: None,
             eye: None,
+            attachment_lifetime: Default::default(),
+            join: Default::default(),
         });
     }
     let failed = game

@@ -963,7 +963,6 @@ mod controller_tests {
             .unwrap();
         game.boats[0].fall_distance = 4.0;
         game.guest_move_vehicle(
-            &mut host,
             3,
             &play::MoveVehicleRequest {
                 position: [p.x, p.y, p.z],
@@ -973,9 +972,6 @@ mod controller_tests {
             },
         );
         assert_eq!(game.boats[0].fall_distance, 4.0, "still falling");
-        // Put the host back so `tick_boats` sees the boat as guest-driven and
-        // runs `boat_server_passes` instead of `tick_boat`.
-        game.lan = Some(host);
         game.tick_boats();
         assert_eq!(
             game.boats[0].fall_distance, 0.0,

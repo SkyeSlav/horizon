@@ -23,6 +23,8 @@ fn frame(id: u32, pos: [i32; 3], facing: u8) -> ItemFrame {
         fixed: false,
         invisible: false,
         check_interval: 0,
+        attachment_lifetime: Default::default(),
+        join: Default::default(),
         custom_name: None,
         random: horizon_core::random::LegacyRandom::new(0),
     }
@@ -33,6 +35,7 @@ fn tnt(id: u32) -> PrimedTnt {
     PrimedTnt {
         rotation: [135.0, 0.0],
         join: Default::default(),
+        attachment_lifetime: Default::default(),
         id,
         used_portal: false,
         position: at,
