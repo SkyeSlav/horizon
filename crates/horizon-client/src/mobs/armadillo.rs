@@ -716,6 +716,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "daily"]
     fn two_armadillos_in_love_make_a_baby() {
         // ArmadilloAi.initIdleActivity: AnimalMakeLove(ARMADILLO, 1.0), so two
         // armadillos fed spider eyes breed (#3512).
@@ -762,6 +763,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "daily"]
     fn a_baby_armadillo_follows_an_adult() {
         // BabyFollowAdult(5..16, 1.25) in the idle activity.
         let Some([mut baby, adult]) = real([[0.5, 64.0, 0.5], [8.5, 64.0, 0.5]]) else {
@@ -784,6 +786,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "daily"]
     fn a_baby_follows_only_adults_its_sensor_box_meets() {
         // NearestLivingEntitySensor.doTick: the entities whose boxes meet the baby's box inflated
         // by FOLLOW_RANGE (16). Both adults are within BabyFollowAdult's 17 blocks. The baby's box
@@ -810,6 +813,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "daily"]
     fn a_baby_stays_when_the_adult_is_within_five_blocks() {
         // BabyFollowAdult: `!closerThan(adult, 5)`.
         let Some([mut baby, adult]) = real([[0.5, 64.0, 0.5], [4.5, 64.0, 0.5]]) else {
@@ -826,6 +830,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "daily"]
     fn a_tempted_baby_comes_closer_than_an_adult() {
         // ArmadilloAi.initIdleActivity: FollowTemptation is close enough at
         // 1 block for a baby and 2 for an adult.

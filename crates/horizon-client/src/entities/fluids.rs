@@ -339,6 +339,7 @@ mod tests {
     /// while the pool itself, its edge on a solid floor and the air beside it
     /// have no current.
     #[test]
+    #[ignore = "daily"]
     fn fluid_flow_runs_away_from_a_pool_and_is_zero_in_still_water() {
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../.local/horizon-client")
@@ -388,6 +389,7 @@ mod tests {
         }
     }
     #[test]
+    #[ignore = "daily"]
     fn items_follow_flowing_water_but_still_water_has_no_horizontal_push() {
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../.local/horizon-client")
@@ -502,6 +504,7 @@ mod tests {
     /// orb in flowing water gains velocity along the flow and moves, while an orb
     /// in still source water does not gain horizontal velocity (#7442).
     #[test]
+    #[ignore = "daily"]
     fn experience_orbs_follow_flowing_water_but_still_water_has_no_horizontal_push() {
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../.local/horizon-client")
@@ -608,6 +611,7 @@ mod tests {
     /// surface, with its eye in the water, floats (`setUnderwaterMovement`)
     /// instead of falling.
     #[test]
+    #[ignore = "daily"]
     fn an_orb_whose_eye_dips_into_water_floats_with_its_feet_in_air() {
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../.local/horizon-client")
@@ -676,6 +680,7 @@ mod tests {
     /// still source water does not. Vanilla's boat tick runs this before
     /// `floatBoat` scales the velocity, which is what `game::boats` does.
     #[test]
+    #[ignore = "daily"]
     fn a_boat_box_is_pushed_by_the_current_it_sits_in() {
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../.local/horizon-client")
@@ -741,6 +746,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "daily"]
     fn armor_stands_follow_flowing_water_but_markers_and_still_water_stay_in_place() {
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../.local/horizon-client")
