@@ -161,7 +161,7 @@ impl Game<'_> {
             recipes: self.recipes(),
             brewing: &self.stations().brewing,
             banners: &self.stations().banners,
-            station_recipes: &self.stations().recipes,
+            station_recipes: self.station_recipes(),
             enchantments: &self.stations().enchantments,
             names: &self.pack.names,
             trade: None,

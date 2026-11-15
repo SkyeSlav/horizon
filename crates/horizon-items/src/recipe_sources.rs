@@ -2,7 +2,35 @@
 use crate::Result;
 use horizon_world::loot::PackOverlay;
 use serde_json::Value;
-use std::path::Path;
+use std::{collections::HashMap, path::Path};
+
+/// The overlay id of the `recipe_priorities.json` layers of the packs, lowest
+/// first, and of the list that names, one UTF-8 source per layer in the same
+/// order, what supplied each.
+pub const PRIORITY_LAYERS: &str = "recipe_priorities";
+pub const PRIORITY_SOURCES: &str = "recipe_priorities.source";
+
+/// One `recipe_priorities.json` layer: `replace` clears the priorities of the
+/// layers below, `entries` gives recipe ids their signed priority.
+#[derive(serde::Deserialize)]
+pub struct PriorityLayer {
+    #[serde(default)]
+    pub replace: bool,
+    #[serde(default)]
+    pub entries: HashMap<String, i32>,
+}
+impl PriorityLayer {
+    /// The layer `file` holds, which `source` (a pack or a path) supplied: a
+    /// JSON object whose `replace` is a boolean and whose `entries` map recipe
+    /// ids to 32-bit integers. The error names `source`.
+    pub fn decode(source: &str, file: Value) -> std::result::Result<Self, String> {
+        // A positional array would also fill the struct's fields.
+        if !file.is_object() {
+            return Err(format!("{source}: the root must be an object"));
+        }
+        serde_json::from_value(file).map_err(|e| format!("{source}: {e}"))
+    }
+}
 
 /// A recipe's whole id from its name in the tables: vanilla's are kept bare
 /// (`oak_planks`), everyone else's whole (`mymod:crusher/iron`). The book,

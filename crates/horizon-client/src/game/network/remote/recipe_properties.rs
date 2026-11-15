@@ -17,13 +17,17 @@ impl Game<'_> {
         self.native_lifecycle.begin_close();
         self.native_lifecycle_world_closed();
         self.recipe_ui.server_properties = Default::default();
+        self.recipe_ui.server_stations = None;
         self.refresh_recipe_property_context();
     }
 
-    pub(super) fn remote_recipe_properties(
+    pub(in crate::game) fn remote_recipe_properties(
         &mut self,
         packet: horizon_protocol::packets::recipes::UpdateRecipes,
     ) {
+        self.recipe_ui.server_stations = self
+            .with_packet_names(|names| names.stonecutting(&packet.stonecutter))
+            .map(|stonecutting| self.stations().recipes.with_stonecutting(stonecutting));
         self.recipe_ui.server_properties.replace(packet);
         self.refresh_recipe_property_context();
     }
