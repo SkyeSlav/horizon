@@ -292,8 +292,10 @@ impl EntityTable {
     /// after it.
     pub fn entered_section(&mut self, id: u32) {
         self.drain();
-        if let Some(row) = NonZeroU32::new(id).and_then(|id| self.rows.get_mut(&id)) {
-            row.entry = JoinSeq::next();
+        if let Some(row) = NonZeroU32::new(id).and_then(|id| self.rows.get(&id)) {
+            self.journal
+                .entered_section(row.location.owner.dimension, id);
+            self.drain();
         }
     }
 

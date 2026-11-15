@@ -194,6 +194,18 @@ impl Journal {
         self.0.observer.get_or_init(Self::default).clone()
     }
 
+    /// Record a section crossing in the same stream as admissions and removals.
+    /// The owner dimension scopes the movement; the kind does not change membership.
+    pub fn entered_section(&self, dimension: DimensionKey, id: u32) {
+        self.push(Event {
+            owner: Owner {
+                dimension,
+                kind: Kind::Other,
+            },
+            change: Change::EnteredSection(id),
+        });
+    }
+
     /// Record an operation at the storage boundary, in mutation order.
     pub fn push(&self, event: Event) {
         let mut events = self.0.events.lock().unwrap();

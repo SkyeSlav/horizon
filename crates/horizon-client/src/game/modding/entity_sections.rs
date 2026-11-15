@@ -139,14 +139,7 @@ impl EntitySections {
         };
         if old != new {
             if let Some(journal) = &self.journal {
-                use horizon_client::join_seq::residency::{Change, Event, Kind, Owner};
-                journal.push(Event {
-                    owner: Owner {
-                        dimension: scope.level,
-                        kind: Kind::Other,
-                    },
-                    change: Change::EnteredSection(id),
-                });
+                journal.entered_section(scope.level, id);
             }
             if self.journal.is_none()
                 || mod_api::__private::listened(mod_api::HookId::EntityEnteringSection)
