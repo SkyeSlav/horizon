@@ -1152,20 +1152,24 @@ mod conduit_target_tests {
 
     const CONDUIT: [i32; 3] = [8, 100, 8];
 
-    fn game_with(role: execution_role::ExecutionRole) -> Game<'static> {
+    fn game_with(
+        resources: &mut Option<Arc<crate::game::Resources>>,
+        role: execution_role::ExecutionRole,
+    ) -> Game<'_> {
         let root = std::path::PathBuf::from(
             std::env::var_os("HORIZON_TEST_RESOURCES")
                 .expect("set HORIZON_TEST_RESOURCES to prepared resources"),
         );
         let settings = Settings::default();
         let loaded = load_resources(
-            root.clone(),
+            horizon_assets::resource_source::ResourceRoot::directory(root.clone()),
+            Vec::new(),
             None,
             &root,
             &settings,
             std::time::Instant::now(),
             false,
-            true,
+            role,
             &Progress::new(),
             &mut |_, _| unreachable!(),
         )
@@ -1173,14 +1177,16 @@ mod conduit_target_tests {
         let mut options = Options::parse(std::iter::empty()).unwrap().unwrap();
         options.resources = root.clone();
         options.execution_role = role;
-        let res: &'static _ = Box::leak(Box::new(loaded.resources));
+        let res = resources.insert(loaded.resources);
         let mut game = Game::new(
             res,
             loaded.pack,
             loaded.gui.unwrap(),
             options,
             settings,
-            Audio::silent(&root),
+            Audio::silent(&horizon_assets::resource_source::ResourceSource::directory(
+                root.clone(),
+            )),
             None,
         )
         .unwrap();
@@ -1204,16 +1210,16 @@ mod conduit_target_tests {
     }
 
     /// A level of a server.
-    fn game() -> Game<'static> {
-        let mut game = game_with(execution_role::ExecutionRole::IntegratedServer);
+    fn game(resources: &mut Option<Arc<crate::game::Resources>>) -> Game<'_> {
+        let mut game = game_with(resources, execution_role::ExecutionRole::IntegratedServer);
         setup(&mut game);
         game
     }
 
     /// A window of one: a client game with no conduit state of its own, and a
     /// conduit block whose block entity arrives from the server.
-    fn client() -> Game<'static> {
-        let mut game = game_with(execution_role::ExecutionRole::Client);
+    fn client(resources: &mut Option<Arc<crate::game::Resources>>) -> Game<'_> {
+        let mut game = game_with(resources, execution_role::ExecutionRole::Client);
         let (pipe, _server) = horizon_protocol::connection::Pipe::pair();
         game.connect_local(pipe, "Window").unwrap();
         game.world
@@ -1250,7 +1256,8 @@ mod conduit_target_tests {
     #[test]
     #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
     fn a_conduit_hunts_only_enemies() {
-        let mut game = game();
+        let mut resources = None;
+        let mut game = game(&mut resources);
         for kind in ["zombie_horse", "camel_husk", "zombie_nautilus"] {
             summon(&mut game, kind);
         }
@@ -1270,7 +1277,8 @@ mod conduit_target_tests {
     #[test]
     #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
     fn a_conduits_target_reaches_the_client_as_a_particle() {
-        let mut server = game();
+        let mut server_resources = None;
+        let mut server = game(&mut server_resources);
         let drowned = summon(&mut server, "drowned");
         server.world.block_log = Some(Vec::new());
         server.conduit_attack(&mut ConduitServer::default(), CONDUIT, true);
@@ -1286,9 +1294,15 @@ mod conduit_target_tests {
         );
         // The window: no `conduit_servers` of its own, the same mob, and the
         // server's tag through `handleBlockEntityData`.
-        let mut client = client();
+        let mut client_resources = None;
+        let mut client = client(&mut client_resources);
         let watched = client
-            .spawn_mob("drowned", [4.5, 100.0, 8.5], false)
+            .spawn_mob(
+                "drowned",
+                [4.5, 100.0, 8.5],
+                false,
+                crate::game::creatures::SpawnSite::Plain,
+            )
             .expect("a mob for the window");
         client.persist.uuids.insert(watched, uuid);
         let kind = client
@@ -1297,7 +1311,12 @@ mod conduit_target_tests {
             .and_then(|r| r.builtin.get("minecraft:block_entity_type"))
             .and_then(|ids| ids.id("minecraft:conduit"))
             .expect("the conduit's block entity type");
-        client.remote_block_entity_data(CONDUIT, kind, &tag);
+        client.remote_block_entity_data(
+            CONDUIT,
+            kind,
+            mod_api::BlockEntityDataSource::UpdatePacket,
+            &tag,
+        );
         let target = client
             .conduit_target(CONDUIT)
             .expect("the window sees the hunted mob");
@@ -1319,7 +1338,12 @@ mod conduit_target_tests {
         assert_eq!(particles.len(), 1);
         assert_eq!(particles[0].0, [position.x, eye_y, position.z]);
         // The conduit stopped hunting: its empty tag drops the target.
-        client.remote_block_entity_data(CONDUIT, kind, &Tag::Compound(Default::default()));
+        client.remote_block_entity_data(
+            CONDUIT,
+            kind,
+            mod_api::BlockEntityDataSource::UpdatePacket,
+            &Tag::Compound(Default::default()),
+        );
         assert!(
             client.conduit_target(CONDUIT).is_none(),
             "the target is dropped"

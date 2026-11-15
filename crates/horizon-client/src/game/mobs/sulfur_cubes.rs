@@ -364,18 +364,6 @@ impl Game<'_> {
     }
 }
 
-/// `setUpSplitCube`'s `snapTo(.., yaw, 0)` for a split cube's child: it faces `yaw` from its
-/// first frame.
-pub(super) fn snap_split_yaw(c: &mut Mob, yaw: f32) {
-    c.yaw = yaw;
-    c.previous_yaw = yaw;
-    // A client takes the body's from it (`LivingEntity.recreateFromPacket`); a cube has no head
-    // of its own to turn.
-    c.body_yaw = yaw;
-    c.previous_body_yaw = yaw;
-    c.head_yaw = yaw;
-    c.previous_head_yaw = yaw;
-}
 #[cfg(test)]
 mod tests {
     use super::*;

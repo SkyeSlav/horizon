@@ -2914,7 +2914,7 @@ mod registered_slot_source_preservation_tests {
             r#"{"type":"minecraft:slot_range","source":"this","slots":"weapon.mainhand"}"#,
         )
         .unwrap();
-        game.reload_datapacks(true);
+        game.reload_datapacks(true, &[]);
         let before = game.block_entity_nbt([0, 100, 0]).unwrap();
         let clock = game.world.game_time;
         count(&mut game, 3);
@@ -2962,7 +2962,8 @@ mod registered_slot_source_preservation_tests {
     #[test]
     #[ignore = "needs prepared resources and isolated homes/cwd"]
     fn quoted_holders_resolve_and_a_non_int_limit_fails_to_parse() {
-        let (mut game, _) = scene("slot-source-quoted-world");
+        let mut resources = None;
+        let (mut game, _) = scene(&mut resources, "slot-source-quoted-world");
         let before = game.block_entity_nbt([0, 100, 0]).unwrap();
         let clock = game.world.game_time;
         count(&mut game, 3);
@@ -3001,7 +3002,8 @@ mod registered_slot_source_preservation_tests {
     #[test]
     #[ignore = "needs prepared resources and isolated homes/cwd"]
     fn a_byte_or_fractional_limit_selects_its_int_value() {
-        let (mut game, _) = scene("slot-source-numeric-limit-world");
+        let mut resources = None;
+        let (mut game, _) = scene(&mut resources, "slot-source-numeric-limit-world");
         let source = |limit: &str| {
             format!(
                 "{{type:\"limit_slots\",limit:{limit},slot_source:{{type:\"slot_range\",slots:\"container.*\"}}}}"
@@ -3051,7 +3053,8 @@ mod registered_slot_source_preservation_tests {
     #[test]
     #[ignore = "needs prepared resources and isolated homes/cwd"]
     fn a_command_the_player_types_binds_this_to_them() {
-        let (mut game, _) = scene("slot-source-player-this-world");
+        let mut resources = None;
+        let (mut game, _) = scene(&mut resources, "slot-source-player-this-world");
         game.player = Some(
             horizon_client::motion::PlayerMotion::new(
                 game.motion,

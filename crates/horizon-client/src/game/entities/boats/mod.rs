@@ -1119,7 +1119,10 @@ impl Game<'_> {
         if driven.contains(&id) {
             let mut b = self.boats[i].clone();
             self.boat_stuck_in_blocks(&mut b);
-            self.boats[i] = b;
+            self.boats.update(i, |boat| {
+                boat.stuck = b.stuck;
+                boat.fall_distance = b.fall_distance;
+            });
             self.refresh_boat_status(i);
         }
         if self.boats[i].out_of_control >= 60.0 {
@@ -2430,8 +2433,8 @@ horizon_client::impl_joined!(Boat);
 horizon_mod_runtime::impl_attachment_lifetime!(Boat);
 #[cfg(test)]
 mod cobweb_tests {
-    use super::super::native_machines::tests::server_game;
     use super::Boat;
+    use crate::game::game_tests::tests::server_game;
     use horizon_client::chunk::Chunk;
     use horizon_core::geometry::Vec3;
     use std::sync::Arc;
@@ -2443,7 +2446,8 @@ mod cobweb_tests {
     #[test]
     #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
     fn a_cobweb_slows_a_boat_and_resets_its_fall() {
-        let mut game = server_game();
+        let mut resources = None;
+        let mut game = server_game(&mut resources);
         let web = game
             .pack
             .assets
@@ -2507,7 +2511,8 @@ mod cobweb_tests {
     #[test]
     #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
     fn a_boat_leaving_a_cobweb_for_powder_snow_takes_the_powder_snow() {
-        let mut game = server_game();
+        let mut resources = None;
+        let mut game = server_game(&mut resources);
         let (web, snow) = {
             let registry = &game.pack.assets.registry;
             (

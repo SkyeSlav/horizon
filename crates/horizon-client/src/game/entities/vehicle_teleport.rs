@@ -9,7 +9,6 @@ use super::commands::Target;
 use super::entity::{Entity as _, with_entity, with_entity_mut};
 use horizon_core::geometry::Vec3;
 use horizon_core::nbt::Tag;
-use horizon_core::nbt::Tag;
 use horizon_protocol::packets::play::{self, Clientbound as C};
 
 fn is_horse(species: horizon_client::mobs::Species) -> bool {
@@ -98,61 +97,6 @@ fn vehicle_id(t: Target) -> Option<u32> {
     match t {
         Target::Boat(id) | Target::Cart(id) | Target::Mob(id) => Some(id),
         _ => None,
-    }
-}
-
-/// `Entity.teleportSetPosition` with a command's transition: the destination
-/// and angles the command asked for, and the transition's zero motion. A
-/// hanging entity's `BlockAttachedEntity.setPos` (through `reapplyPosition`)
-/// floors the block it hangs in, so its `block_pos` follows the destination.
-/// `performTeleport`'s `setOnGround` lands on the old entity, which
-/// `teleportCrossDimension` has already removed, so the ground flag stays the
-/// saved one.
-fn place_transferred(tag: &mut Tag, at: [f64; 3], rotation: Option<[f32; 2]>) {
-    let Tag::Compound(c) = tag else {
-        return;
-    };
-    c.insert("Pos".into(), doubles(at));
-    c.insert("Motion".into(), doubles([0.0; 3]));
-    if let Some(rotation) = rotation {
-        c.insert("Rotation".into(), floats(rotation));
-    }
-    if c.contains_key(&"block_pos".into()) {
-        c.insert(
-            "block_pos".into(),
-            Tag::IntArray(at.map(|v| v.floor() as i32).to_vec()),
-        );
-    }
-}
-
-/// A `Tag::List` of the doubles or floats vanilla's codecs write.
-fn doubles<const N: usize>(values: [f64; N]) -> Tag {
-    Tag::List(values.iter().map(|v| Tag::Double(v.to_bits())).collect())
-}
-fn floats<const N: usize>(values: [f32; N]) -> Tag {
-    Tag::List(values.iter().map(|v| Tag::Float(v.to_bits())).collect())
-}
-
-/// Load a saved entity of any kind into the level in place
-/// (`Entity.teleportCrossDimension`'s `restoreFrom` on the new entity).
-fn load_transferred(game: &mut Game<'_>, tag: Tag) {
-    let kind = horizon_client::entity_nbt::kind(&tag).unwrap_or_default();
-    let uuid = horizon_client::entity_nbt::uuid(&tag);
-    // `PrimedTnt.teleport` marks the entity it returns as having used a
-    // portal (`setUsedPortal(true)`), so the arrived TNT does not take the
-    // portal it lands in.
-    if kind == "minecraft:tnt" {
-        game.load_tnt_with_portal(tag, uuid, true);
-        return;
-    }
-    let at = horizon_client::entity_nbt::position(&tag).unwrap_or_default();
-    let key = ((at.x.floor() as i32) >> 4, (at.z.floor() as i32) >> 4);
-    if let Err(tag) = game.load_unlisted(key, &kind, uuid, tag)
-        && let Err(tag) = game.load_listed(&kind, uuid, game.level.player_uuid, tag)
-        && !kind.is_empty()
-        && horizon_client::entity_nbt::position(&tag).is_some()
-    {
-        game.load_other(tag, &kind);
     }
 }
 

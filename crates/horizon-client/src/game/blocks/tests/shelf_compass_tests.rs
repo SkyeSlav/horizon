@@ -13,7 +13,7 @@ use horizon_client::{
     containers::{BlockEntity, Shelf},
     items::ItemStack,
 };
-use horizon_world::nbt::{Compound, Tag};
+use horizon_core::nbt::{Compound, Tag};
 
 /// The lodestone every compass here tracks, in this dimension.
 const TARGET: [i32; 3] = [3, 200, 1];

@@ -942,7 +942,14 @@ impl Game<'_> {
             f64::from(y + 1),
             f64::from(pos[2]) + 0.5,
         ];
-        if let Some(id) = self.spawn_mob("minecraft:zombified_piglin", at, false) {
+        if let Some(id) = self.spawn_mob(
+            "minecraft:zombified_piglin",
+            at,
+            false,
+            super::creatures::SpawnSite::Finalizing(
+                horizon_client::mobs::spawn_rules::Reason::Structure,
+            ),
+        ) {
             // `EntityType.spawn` calls `Mob.playAmbientSound` once the mob is in
             // the level, before the cooldown below.
             let _ = self.mob_ambient(id);

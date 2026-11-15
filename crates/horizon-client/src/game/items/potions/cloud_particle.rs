@@ -4,7 +4,7 @@
 
 use horizon_client::particles::{ParticleOptions, ParticleType};
 use horizon_core::nbt::{Compound, Tag};
-use horizon_protocol::entity_data::PositionSource;
+use mod_api::client::particles::PositionSource;
 
 /// A number tag as a float.
 fn tag_f32(tag: &Tag) -> Option<f32> {

@@ -276,7 +276,6 @@ pub(super) fn potion_cloud_to_nbt(c: &Breath, uuid: [i32; 4], raw: Option<&Tag>)
     tag
 }
 
-mod cloud_particle;
 pub(in crate::game) use cloud_particle::particle_options;
 /// An entity a cloud has affected (`AreaEffectCloud.victims`).
 #[derive(Clone, Copy, PartialEq)]
@@ -505,8 +504,7 @@ impl Game<'_> {
                 center,
                 radius,
                 1.0,
-                super::wind::Source::wind_charged(player, silent),
-                cause,
+                super::wind::Source::wind_charged(player, silent).with_cause(cause),
             );
         }
     }

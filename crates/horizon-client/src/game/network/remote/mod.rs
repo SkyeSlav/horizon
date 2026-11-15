@@ -6093,7 +6093,7 @@ impl Game<'_> {
         let at = Vec3::new(p[0], p[1], p[2]);
         // ItemEntity's constructor draws bobOffs from the item's own random.
         let mut random = horizon_client::mobs::entity_random(id as u32, at);
-        let bob_offset = super::item_entities::bob_offset(at, random.next_float(), self.clock.still());
+        let bob = super::item_entities::bob_offset(at, random.next_float(), self.clock.still());
         self.dropped.push(ItemEntity {
             random,
             ..ItemEntity::new(id as u32, stack, at, velocity, bob)
@@ -9628,7 +9628,7 @@ impl Game<'_> {
         if let Some(r) = self.remote.as_mut() {
             r.menu
                 .set(Some((container, "minecraft:merchant".to_owned())));
-            r.set_menu_title(Some(text));
+            r.set_menu_title(Some(text.clone()));
         }
         let session = horizon_client::merchant::Session::new(Vec::new(), true);
         self.open_remote_merchant(session, (!title.is_empty()).then_some(text));

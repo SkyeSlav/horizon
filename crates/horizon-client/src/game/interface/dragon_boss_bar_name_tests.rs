@@ -4,7 +4,7 @@
 use super::*;
 use horizon_client::chunk::Chunk;
 use horizon_core::geometry::Vec3;
-use horizon_world::nbt::Tag;
+use horizon_core::nbt::Tag;
 
 fn end_game() -> Game<'static> {
     let root = std::path::PathBuf::from(

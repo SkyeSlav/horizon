@@ -4,7 +4,7 @@
 //! starts providing a signal powers nothing until something else updates it.
 use crate::game::{Game, Hit, game_tests::tests::server_game};
 use horizon_client::{command::args::GameMode, items::ItemStack};
-use horizon_world::nbt::{Compound, JavaString, Tag};
+use horizon_core::nbt::{Compound, JavaString, Tag};
 
 /// A stack of `item` whose `minecraft:block_state` component holds `props`.
 fn with_block_state(item: &str, props: &[(&str, &str)]) -> ItemStack {

@@ -157,7 +157,7 @@ mod tests {
         store.slot_sources.insert("t:filtered".into(),json!({"type":"filtered","slot_source":"t:range","item_filter":{"items":"minecraft:stone"}}));
         store
             .slot_source_tags
-            .insert("t:twice".into(), vec![("t:filtered".into(), true)]);
+            .insert("t:twice".into(), vec![("t:filtered".into(), true, false)]);
         let source = json!({"type":"limit_slots","limit":1,"slot_source":{"type":"group","terms":["t:filtered","t:filtered"]}});
         let value = expand(&store, &source).unwrap();
         let child = json!({"type":"filtered","slot_source":{"type":"slot_range","source":"this","slots":"weapon.mainhand"},"item_filter":{"items":"minecraft:stone"}});

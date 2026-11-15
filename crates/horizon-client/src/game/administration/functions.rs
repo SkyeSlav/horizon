@@ -3573,6 +3573,7 @@ mod required_tag_tests {
 include!("functions/typed_state_range_tests.rs");
 
 #[cfg(test)]
+#[path = "functions/pack_tag_tests.rs"]
 mod pack_tag_tests;
 
 #[cfg(test)]

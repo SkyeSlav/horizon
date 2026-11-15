@@ -205,7 +205,7 @@ impl Game<'_> {
         // teleportTo(level, camera.x, y, z): same look.
         host.hub.teleport(gi, at);
         // `setCamera` moves the tickets at once: to the camera, or back to the player.
-        host.hub.guests[gi].release_tickets();
+        host.hub.guests.update(gi, |guest| guest.release_tickets());
         host.hub.send_to(
             conn,
             &C::SetCamera(play::SetCamera {

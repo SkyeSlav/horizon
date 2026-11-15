@@ -696,25 +696,6 @@ impl Game<'_> {
         self.adv.marks.blast = Some(([at.x, at.y, at.z], cause));
         (!flying).then_some(push)
     }
-    /// `WindChargedMobEffect.onMobRemoved`: the burst a Wind Charged mob (or
-    /// player) makes as it is removed, centred at half its height with a
-    /// radius of 3 to 5 drawn from the dying entity's own random. It makes the
-    /// breeze's sound, is mute from a silent source, and its source is the
-    /// dying entity: its blocks react whatever mob griefing says, while
-    /// vehicles stay put when it is off.
-    pub(super) fn wind_charged_burst(
-        &mut self,
-        bounds: Aabb,
-        player: bool,
-        silent: bool,
-        random: Option<&mut LegacyRandom>,
-    ) -> Result<()> {
-        let feet = bounds.bottom_center();
-        let center = [feet.x, feet.y + bounds.size().y / 2.0, feet.z];
-        let r = random.unwrap_or(&mut self.world.random);
-        let radius = 3.0 + r.next_float() * 2.0;
-        self.wind_burst(center, radius, 1.0, Source::wind_charged(player, silent))
-    }
     /// The burst: knockback, the blocks that react, the gust and the sound.
     pub(super) fn wind_burst(
         &mut self,

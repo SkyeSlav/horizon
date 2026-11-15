@@ -24,7 +24,7 @@ use horizon_client::scoreboard as sb;
 use horizon_client::text::Text;
 use horizon_core::geometry::Vec3;
 use horizon_core::position::ChunkPos;
-use horizon_world::nbt::Tag;
+use horizon_core::nbt::Tag;
 use std::sync::Arc;
 
 /// A mob of `species` with the box of its vanilla type, built without the
@@ -185,7 +185,7 @@ fn named_tag(name: &str) -> ItemStack {
     let mut stack = ItemStack::new("minecraft:name_tag", 1);
     stack.data_mut().set_other(
         "minecraft:custom_name",
-        Some(horizon_world::nbt::Tag::String(name.into())),
+        Some(horizon_core::nbt::Tag::String(name.into())),
     );
     stack
 }
