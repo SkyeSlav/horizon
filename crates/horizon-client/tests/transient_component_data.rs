@@ -368,7 +368,7 @@ fn saves_drop_transient_values_and_removals_without_mutating_live_or_wire_data()
 }
 
 #[test]
-fn persistent_nbt_and_component_syntax_refuse_transients_without_rejecting_runtime_data() {
+fn command_syntax_refuses_transients_while_saved_nbt_and_runtime_data_keep_the_item() {
     use horizon_core::nbt::Tag;
     let patch = Tag::compound([(
         "minecraft:creative_slot_lock",
@@ -378,7 +378,13 @@ fn persistent_nbt_and_component_syntax_refuse_transients_without_rejecting_runti
         ("id", Tag::String("minecraft:stone".into())),
         ("components", patch.clone()),
     ]);
-    assert!(item_nbt::item_from_nbt(&saved).is_none());
+    // A save from before the filtering loads: the transient value goes, the item stays.
+    let loaded = item_nbt::item_from_nbt(&saved).unwrap();
+    assert!(
+        loaded
+            .data()
+            .is_none_or(|data| data.other("minecraft:creative_slot_lock").is_none())
+    );
     let (_, runtime) = item_data::decode_components(Some(&patch));
     assert!(
         runtime

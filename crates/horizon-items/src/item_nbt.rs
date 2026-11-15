@@ -90,9 +90,6 @@ pub fn item_to_nbt_with_items(stack: &crate::items::ItemStack, items: &crate::it
 /// command's NBT often leaves the namespace out), and an id that is no valid
 /// identifier makes no stack.
 pub fn item_from_nbt(tag: &Tag) -> Option<crate::items::ItemStack> {
-    if let Some(components) = tag.get("components") {
-        horizon_world::item_defaults::validate_component_map_tag(components).ok()?;
-    }
     let (namespace, path) = horizon_world::datafix::identifier(&text(tag.get("id"))?)?;
     let id = format!("{namespace}:{path}");
     if id == "minecraft:air" {
@@ -102,7 +99,13 @@ pub fn item_from_nbt(tag: &Tag) -> Option<crate::items::ItemStack> {
         .or_else(|| number(tag.get("Count")))
         .filter(|count| (1..=99).contains(count))
         .unwrap_or(1) as u32;
-    let (damage, extra) = crate::item_data::decode_components(tag.get("components"));
+    // A save written before transient components were filtered may hold them: like
+    // DataComponentPatch.CODEC's partial result, the stack keeps everything else.
+    let mut components = tag.get("components").cloned();
+    if let Some(components) = &mut components {
+        horizon_world::item_defaults::strip_transient_component_map_tag(components);
+    }
+    let (damage, extra) = crate::item_data::decode_components(components.as_ref());
     Some(crate::items::ItemStack {
         item: Arc::from(id.as_str()),
         count,
@@ -223,6 +226,21 @@ mod tests {
         assert_eq!(read("nexo:ruby").map(|s| s.item), Some("nexo:ruby".into()));
         assert!(read("air").is_none());
         assert!(read("Stone").is_none(), "not a valid identifier");
+    }
+
+    /// An item saved before transient components were filtered out keeps its count and
+    /// persistent components when it loads; only the transient values go.
+    #[test]
+    fn a_saved_item_with_transient_components_loses_only_those() {
+        let parse = |text| horizon_core::nbt::parse_snbt(text).unwrap().0;
+        let saved = parse(
+            r#"{id:"minecraft:stone",count:3,components:{"minecraft:repair_cost":2,"minecraft:creative_slot_lock":{},"minecraft:additional_trade_cost":4}}"#,
+        );
+        let stack = item_from_nbt(&saved).unwrap();
+        assert_eq!(
+            item_to_nbt(&stack),
+            parse(r#"{id:"minecraft:stone",count:3,components:{"minecraft:repair_cost":2}}"#)
+        );
     }
 
     #[test]
