@@ -545,7 +545,7 @@ mod tests {
     fn a_cauldron_move_the_target_takes_part_of_gives_the_whole_levels_that_fit() {
         use super::super::super::native_entity_refs::tests::with_game;
         use horizon_client::chunk::Chunk;
-        use mod_api::{BlockUpdateFlags, FLUIDS, move_resources};
+        use mod_api::{BlockUpdateFlags, FLUIDS, resource_util};
         with_game(|game| {
             game.options.dedicated = Some(Vec::new());
             game.world
@@ -569,8 +569,9 @@ mod tests {
             let host: &mut dyn ServerHost = game;
             let source = level.capability(host, &FLUIDS, from, None).unwrap();
             let target = level.capability(host, &FLUIDS, to, None).unwrap();
-            let moved = host
-                .transaction(|host, tx| move_resources(host, &source, &target, |_| true, 1000, tx));
+            let moved = host.transaction(|host, tx| {
+                resource_util::r#move(host, &source, &target, |_| true, 1000, Some(tx))
+            });
             assert_eq!(moved, Ok(667));
             assert_eq!(game.world.block(from[0], from[1], from[2]), one);
             assert_eq!(game.world.block(to[0], to[1], to[2]), full);
@@ -1008,7 +1009,7 @@ mod tests {
         };
         use mod_api::{
             BlockUpdateFlags, FLUIDS, FluidResource, Hooks, ModEntry, Mods, Registrar,
-            move_resources,
+            resource_util,
         };
 
         struct WaterTanks;
@@ -1136,13 +1137,13 @@ mod tests {
                 );
                 let target = level.capability(game, &FLUIDS, pipe_target, None).unwrap();
                 assert_eq!(
-                    game.transaction(|host, tx| move_resources(
+                    game.transaction(|host, tx| resource_util::r#move(
                         host,
                         &source,
                         &target,
                         |_| true,
                         300,
-                        tx
+                        Some(tx)
                     )),
                     Ok(300)
                 );
@@ -1240,13 +1241,13 @@ mod tests {
                 assert_eq!(target.amount(game, 1), 0);
                 assert_eq!(target.resource(game, 1), None);
                 assert_eq!(
-                    game.transaction(|host, tx| move_resources(
+                    game.transaction(|host, tx| resource_util::r#move(
                         host,
                         &source,
                         &target,
                         |_| true,
                         500,
-                        tx
+                        Some(tx)
                     )),
                     Ok(0)
                 );
@@ -1291,13 +1292,13 @@ mod tests {
                     Ok(1000)
                 );
                 assert_eq!(
-                    game.transaction(|host, tx| move_resources(
+                    game.transaction(|host, tx| resource_util::r#move(
                         host,
                         &source,
                         &target,
                         |resource| resource == &water,
                         200,
-                        tx
+                        Some(tx)
                     )),
                     Ok(200)
                 );

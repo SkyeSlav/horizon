@@ -5,7 +5,7 @@
 //! ```
 //! use mod_api::testing::FakeHost;
 //! use mod_api::prelude::ItemsHost;
-//! use mod_api::{HostTransaction, ITEMS, ItemResource, ItemStack, ServerHost, move_resources};
+//! use mod_api::{HostTransaction, ITEMS, ItemResource, ItemStack, ServerHost, resource_util};
 //!
 //! let mut host = FakeHost::new();
 //! let level = host.level.level();
@@ -20,7 +20,7 @@
 //! let from = level.capability(server, &ITEMS, [0, 64, 0], None).unwrap();
 //! let into = level.capability(server, &ITEMS, [1, 64, 0], None).unwrap();
 //! let moved = server.transaction(|host, tx| {
-//!     move_resources(host, &from, &into, |_: &ItemResource| true, 3, tx)
+//!     resource_util::r#move(host, &from, &into, |_: &ItemResource| true, 3, Some(tx))
 //! });
 //! assert_eq!(moved.ok(), Some(3));
 //! let into = host.level.block_entity_at([1, 64, 0]).unwrap().items.as_ref().unwrap();

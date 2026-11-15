@@ -669,7 +669,7 @@ pub(super) mod tests {
     #[ignore = "needs prepared resources"]
     fn a_bucket_fills_and_empties_whole_through_its_place_and_splits_off_its_stack() {
         use horizon_client::chunk::Chunk;
-        use mod_api::{BlockUpdateFlags, FLUIDS, ITEM_FLUIDS, move_resources};
+        use mod_api::{BlockUpdateFlags, FLUIDS, ITEM_FLUIDS, resource_util};
         with_game(|game| {
             open_to_lan(game);
             game.world
@@ -709,7 +709,9 @@ pub(super) mod tests {
                     true => (&block, &bucket),
                     false => (&bucket, &block),
                 };
-                host.transaction(|host, tx| move_resources(host, from, to, |_| true, 1000, tx))
+                host.transaction(|host, tx| {
+                    resource_util::r#move(host, from, to, |_| true, 1000, Some(tx))
+                })
             };
             let inventory =
                 |game: &super::Game<'_>| game.lan.as_ref().unwrap().hub.guests[0].inventory.clone();
@@ -1063,7 +1065,9 @@ pub(super) mod tests {
             let sticks =
                 ItemResource::of(&ItemStack::new("minecraft:stick", 1).try_into_api().unwrap());
             assert_eq!(
-                host.transaction(|host, tx| Ok::<_, ()>(items.insert_resource(host, tx, &sticks, 4))),
+                host.transaction(|host, tx| Ok::<_, ()>(
+                    items.insert_resource(host, tx, &sticks, 4)
+                )),
                 Ok(4)
             );
             assert_eq!(
@@ -1641,8 +1645,8 @@ pub(super) mod tests {
             // `Inventory.add`: onto the selected stack (4 more), then the same item in order
             // (54 more), then the first empty slot (the other 12); not onto the stone.
             let host: &mut dyn ServerHost = game;
-            let went =
-                host.transaction(|host, tx| Ok::<_, ()>(items.insert_resource(host, tx, &sticks, 70)));
+            let went = host
+                .transaction(|host, tx| Ok::<_, ()>(items.insert_resource(host, tx, &sticks, 70)));
             assert_eq!(went, Ok(70));
             let after = &inventories(game)[0];
             assert_eq!(after[4], Some(ItemStack::new("minecraft:stick", 64)));
@@ -1838,8 +1842,8 @@ pub(super) mod tests {
             assert!(aborted.is_err());
             assert!(game.carts[0].items.iter().all(Option::is_none));
             let host: &mut dyn ServerHost = game;
-            let went =
-                host.transaction(|host, tx| Ok::<_, ()>(items.insert_resource(host, tx, &sticks, 70)));
+            let went = host
+                .transaction(|host, tx| Ok::<_, ()>(items.insert_resource(host, tx, &sticks, 70)));
             assert_eq!(went, Ok(70));
             assert_eq!(
                 game.carts[0].items[0],
@@ -2486,7 +2490,7 @@ pub(super) mod tests {
     #[test]
     #[ignore = "needs prepared resources"]
     fn a_scratch_stack_lives_in_its_transaction_and_keeps_its_item() {
-        use mod_api::{FLUIDS, ITEM_FLUIDS, move_resources};
+        use mod_api::{FLUIDS, ITEM_FLUIDS, resource_util};
         with_game(|game| {
             let level = with_cauldron(game);
             let cauldron = game.world.block(2, 64, 0);
@@ -2511,7 +2515,7 @@ pub(super) mod tests {
                 // Filling it would make it a water bucket, another item: refused.
                 let block = level.capability(host, &FLUIDS, [2, 64, 0], None).unwrap();
                 let held = place.capability(host, &ITEM_FLUIDS).unwrap();
-                let filled = move_resources(host, &block, &held, |_| true, 1000, tx);
+                let filled = resource_util::r#move(host, &block, &held, |_| true, 1000, Some(tx));
                 assert_eq!(filled, Ok(0));
                 Ok::<_, ()>(host.scratch_take(tx, &place))
             });
@@ -2615,7 +2619,7 @@ pub(super) mod tests {
     #[test]
     #[ignore = "needs prepared resources"]
     fn one_by_one_shows_one_bucket_of_sixteen_and_fills_one() {
-        use mod_api::{FLUIDS, ITEM_FLUIDS, move_resources};
+        use mod_api::{FLUIDS, ITEM_FLUIDS, resource_util};
         with_game(|game| {
             let level = with_cauldron(game);
             let mut player = guest(1);
@@ -2629,8 +2633,9 @@ pub(super) mod tests {
             assert_eq!(one.amount(host), 1);
             let block = level.capability(host, &FLUIDS, [2, 64, 0], None).unwrap();
             let bucket = one.capability(host, &ITEM_FLUIDS).unwrap();
-            let moved = host
-                .transaction(|host, tx| move_resources(host, &block, &bucket, |_| true, 1000, tx));
+            let moved = host.transaction(|host, tx| {
+                resource_util::r#move(host, &block, &bucket, |_| true, 1000, Some(tx))
+            });
             assert_eq!(moved, Ok(1000));
             let held = game.lan.as_ref().unwrap().hub.guests[0].inventory.clone();
             assert_eq!(held[0], Some(ItemStack::new("minecraft:bucket", 15)));

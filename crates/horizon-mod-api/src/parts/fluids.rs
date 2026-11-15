@@ -267,7 +267,9 @@ pub mod tests {
             let host: &mut dyn ServerHost = self;
             let source = here().capability(host, &FLUIDS, from, from_side).unwrap();
             let target = here().capability(host, &FLUIDS, to, to_side).unwrap();
-            host.transaction(|host, tx| move_resources(host, &source, &target, |_| true, max, tx))
+            host.transaction(|host, tx| {
+                resource_util::r#move(host, &source, &target, |_| true, max, Some(tx))
+            })
         }
     }
     #[cfg(test)]
@@ -545,8 +547,8 @@ pub mod tests {
             // first move through the liar fails, and its error aborts the transaction, so
             // every tank holds what it held.
             let moved = host.transaction(|host, tx| {
-                let first = move_resources(host, &other, &tank, |_| true, 300, tx)?;
-                let second = move_resources(host, &source, &tank, |_| true, 300, tx)?;
+                let first = resource_util::r#move(host, &other, &tank, |_| true, 300, Some(tx))?;
+                let second = resource_util::r#move(host, &source, &tank, |_| true, 300, Some(tx))?;
                 Ok(first + second)
             });
             let owner = "doubler".to_owned();

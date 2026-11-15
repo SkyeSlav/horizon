@@ -953,7 +953,7 @@ fn an_aborted_bulk_transfer_conserves_every_item() {
 
 /// The comparison behind `STORAGE`'s guidance, in the engine: `cells` barrel pairs, each a
 /// source full of stacks and an empty sink, moved 8 items a pipe a tick, one move in ten
-/// aborted after it wrote. Today's pipe asks `ITEMS` on both sides and calls `move_resources`
+/// aborted after it wrote. Today's pipe asks `ITEMS` on both sides and calls `resource_util`
 /// every tick, busy or not; the `STORAGE` pipe keeps its two handlers and stops asking once a
 /// source has nothing left. Opt-in (`HORIZON_STORAGE_TIMING=1`, `HORIZON_STORAGE_CELLS` for the
 /// grid size, 1,024 by default), as wall-clock time depends on the machine; it prints the pipe
@@ -1053,8 +1053,15 @@ fn timing_storage_against_items_across_barrel_cells() {
                     moves += 1;
                     let abort = moves.is_multiple_of(10);
                     let result = (game as &mut dyn ServerHost).transaction(|host, tx| {
-                        let n = mod_api::move_resources(host, &below, &above, |_| true, 8, tx)
-                            .map_err(|_| 0u32)?;
+                        let n = mod_api::resource_util::r#move(
+                            host,
+                            &below,
+                            &above,
+                            |_| true,
+                            8,
+                            Some(tx),
+                        )
+                        .map_err(|_| 0u32)?;
                         if abort && n > 0 { Err(n) } else { Ok(n) }
                     });
                     moved += result.unwrap_or(0);

@@ -329,7 +329,14 @@ fn sided_composter_transactions_preserve_literal_chance_and_defer_all_effects() 
                 let mut unrelated_world = game.world.random.clone();
                 let aborted = run_transaction(game, |game, tx| {
                     assert_eq!(
-                        mod_api::move_resources(game, &source, &bulk, |_| true, 64, tx),
+                        mod_api::resource_util::r#move(
+                            game,
+                            &source,
+                            &bulk,
+                            |_| true,
+                            64,
+                            Some(tx)
+                        ),
                         Ok(13),
                     );
                     assert_eq!(game.composter_level(bulk_pos), Some(7));
@@ -375,7 +382,14 @@ fn sided_composter_transactions_preserve_literal_chance_and_defer_all_effects() 
                 assert_eq!(game.world.random.next_long(), unrelated_world.next_long());
                 run_transaction(game, |game, tx| {
                     assert_eq!(
-                        mod_api::move_resources(game, &source, &bulk, |_| true, 64, tx),
+                        mod_api::resource_util::r#move(
+                            game,
+                            &source,
+                            &bulk,
+                            |_| true,
+                            64,
+                            Some(tx)
+                        ),
                         Ok(13),
                     );
                     assert_eq!(game.composter_level(bulk_pos), Some(7));
@@ -413,7 +427,14 @@ fn sided_composter_transactions_preserve_literal_chance_and_defer_all_effects() 
                 quiet(game, &heard);
                 run_transaction(game, |game, tx| {
                     assert_eq!(
-                        mod_api::move_resources(game, &source, &bulk, |_| true, 64, tx),
+                        mod_api::resource_util::r#move(
+                            game,
+                            &source,
+                            &bulk,
+                            |_| true,
+                            64,
+                            Some(tx)
+                        ),
                         Ok(13),
                     );
                     Ok::<_, ()>(())
@@ -459,7 +480,14 @@ fn sided_composter_transactions_preserve_literal_chance_and_defer_all_effects() 
                 run_transaction(game, |game, tx| {
                     assert_eq!(source.insert(game, tx, 0, &seeds, 26), 26);
                     assert_eq!(
-                        mod_api::move_resources(game, &source, &bulk, |_| true, 64, tx),
+                        mod_api::resource_util::r#move(
+                            game,
+                            &source,
+                            &bulk,
+                            |_| true,
+                            64,
+                            Some(tx)
+                        ),
                         Ok(13),
                     );
                     Ok::<_, ()>(())

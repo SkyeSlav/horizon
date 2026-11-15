@@ -1184,8 +1184,10 @@ pub mod tests {
             let host: &mut dyn ServerHost = world;
             let from = here().capability(host, &ITEMS, FROM, None).unwrap();
             let to = here().capability(host, &ITEMS, INTO, None).unwrap();
-            host.transaction(|host, tx| move_resources(host, &from, &to, only_sticks, max, tx))
-                .unwrap()
+            host.transaction(|host, tx| {
+                resource_util::r#move(host, &from, &to, only_sticks, max, Some(tx))
+            })
+            .unwrap()
         };
         // Up to 7 sticks: all of the first slot's, two of the third's; the apples stay.
         assert_eq!(moved(&mut world, 7), 7);
@@ -1216,8 +1218,9 @@ pub mod tests {
                 Box::new(TakesMore),
                 Some("doubler"),
             );
-        let moved =
-            host.transaction(|host, tx| move_resources(host, &from, &liar, |_| true, 64, tx));
+        let moved = host.transaction(|host, tx| {
+            resource_util::r#move(host, &from, &liar, |_| true, 64, Some(tx))
+        });
         let owner = "doubler".to_owned();
         assert_eq!(
             moved,
