@@ -17,7 +17,7 @@ use horizon_client::{
     settings::Settings,
 };
 use horizon_core::geometry::Vec3;
-use mod_vocab::PositionSource;
+use mod_api::client::particles::PositionSource;
 use std::sync::Arc;
 
 fn game() -> Game<'static> {
