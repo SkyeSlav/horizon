@@ -1,8 +1,8 @@
 //! `execute facing` (`CommandSourceStack.facing`) wraps its yaw with
 //! `Mth.wrapDegrees`, and `execute positioned over` uses `Heightmap.NOT_AIR`,
 //! which skips cave air and void air as well as air.
-use crate::game::game_tests::tests::server_game;
 use super::*;
+use crate::game::game_tests::tests::server_game;
 
 /// A pig summoned at a known place takes the rotation `rotate` gives it.
 fn summoned_pig(game: &mut Game<'_>) -> u32 {

@@ -23,8 +23,8 @@ use horizon_client::save::uuid_text;
 use horizon_client::scoreboard as sb;
 use horizon_client::text::Text;
 use horizon_core::geometry::Vec3;
-use horizon_core::position::ChunkPos;
 use horizon_core::nbt::Tag;
+use horizon_core::position::ChunkPos;
 use std::sync::Arc;
 
 /// A mob of `species` with the box of its vanilla type, built without the
@@ -151,7 +151,9 @@ fn game() -> Game<'static> {
         loaded.gui.unwrap(),
         options,
         settings,
-        Audio::silent(&horizon_assets::resource_source::ResourceSource::directory(root.to_path_buf())),
+        Audio::silent(&horizon_assets::resource_source::ResourceSource::directory(
+            root.to_path_buf(),
+        )),
         None,
     )
     .unwrap();

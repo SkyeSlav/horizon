@@ -168,7 +168,9 @@ fn a_click_on_a_harnessed_ghast_keeps_the_players_view() {
         .iter()
         .position(|m| m.id == id)
         .expect("the ghast");
-    game.mobs[index].extra.set_body(Some("minecraft:white_harness".into()));
+    game.mobs[index]
+        .extra
+        .set_body(Some("minecraft:white_harness".into()));
     game.yaw = 90.0;
     assert!(game.interact_mount(index, "minecraft:air"));
     assert_eq!(game.riding, Some(id));

@@ -41,7 +41,9 @@ fn with_game<R>(f: impl FnOnce(&mut Game<'static>) -> R) -> Option<R> {
         loaded.gui.unwrap(),
         options,
         settings,
-        Audio::silent(&horizon_assets::resource_source::ResourceSource::directory(root.to_path_buf())),
+        Audio::silent(&horizon_assets::resource_source::ResourceSource::directory(
+            root.to_path_buf(),
+        )),
         None,
     )
     .unwrap();
@@ -202,7 +204,12 @@ fn a_silent_wind_charge_bursts_without_a_sound() {
 fn a_mobs_burst_leaves_vehicles_alone_with_mob_griefing_off() {
     let Some(()) = with_game(|game| {
         assert!(game.run_command("gamerule mob_griefing false"));
-        assert!(!game.ui.rules.bool_at(horizon_client::gamerules::vanilla::MOB_GRIEFING));
+        assert!(
+            !game
+                .ui
+                .rules
+                .bool_at(horizon_client::gamerules::vanilla::MOB_GRIEFING)
+        );
         // The rule change re-derives the difficulty from the game's
         // (`Game::sync_rules`), which no level.dat set here.
         game.world.health_rules.difficulty = Difficulty::Normal;

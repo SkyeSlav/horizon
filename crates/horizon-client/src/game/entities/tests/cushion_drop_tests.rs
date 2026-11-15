@@ -8,8 +8,8 @@ use horizon_client::items::ItemStack;
 use horizon_client::mobs::Who;
 use horizon_client::text::Text;
 use horizon_core::geometry::Vec3;
-use horizon_core::position::ChunkPos;
 use horizon_core::nbt::Tag;
+use horizon_core::position::ChunkPos;
 use std::sync::Arc;
 
 /// The cushion's position: `Vec3.atCenterOfWithY(4 199 4, 200.0)`.
@@ -44,7 +44,9 @@ fn game() -> Game<'static> {
         loaded.gui.unwrap(),
         options,
         settings,
-        Audio::silent(&horizon_assets::resource_source::ResourceSource::directory(root.to_path_buf())),
+        Audio::silent(&horizon_assets::resource_source::ResourceSource::directory(
+            root.to_path_buf(),
+        )),
         None,
     )
     .unwrap();
@@ -60,8 +62,15 @@ fn game() -> Game<'static> {
     assert!(game.run_command("fill 0 199 0 15 199 15 stone"));
     // `Cushion.dropItem` only drops under `ENTITY_DROPS`, and the blast below
     // only reaches the cushion under `MOB_GRIEFING` (both default on).
-    assert!(game.ui.rules.bool_at(horizon_client::gamerules::vanilla::ENTITY_DROPS)
-            && game.ui.rules.bool_at(horizon_client::gamerules::vanilla::MOB_GRIEFING));
+    assert!(
+        game.ui
+            .rules
+            .bool_at(horizon_client::gamerules::vanilla::ENTITY_DROPS)
+            && game
+                .ui
+                .rules
+                .bool_at(horizon_client::gamerules::vanilla::MOB_GRIEFING)
+    );
     game
 }
 

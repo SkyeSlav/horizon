@@ -4,8 +4,8 @@
 //! then: the map `/random reset *` emptied and the salt it set.
 use super::{read_random_sequences, write_random_sequences};
 use horizon_client::random_sequences::RandomSequences;
-use horizon_core::random::RandomSource;
 use horizon_core::nbt::Tag;
+use horizon_core::random::RandomSource;
 
 const SEED: i64 = 1234;
 const TEST: &str = "minecraft:test";

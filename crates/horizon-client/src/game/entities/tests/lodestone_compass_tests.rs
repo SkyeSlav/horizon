@@ -5,8 +5,8 @@
 use crate::game::game_tests::tests::server_game;
 use crate::game::{Audio, Game, Options, Progress, Settings, execution_role, load_resources};
 use horizon_client::{entities::ItemFrame, items::ItemStack};
-use horizon_core::random::LegacyRandom;
 use horizon_core::nbt::Tag;
+use horizon_core::random::LegacyRandom;
 
 /// The lodestone at `pos` (the `target` of a `LodestoneTracker`).
 fn tracker(pos: [i32; 3]) -> Tag {
@@ -74,7 +74,9 @@ fn client_game() -> Game<'static> {
         loaded.gui.unwrap(),
         options,
         settings,
-        Audio::silent(&horizon_assets::resource_source::ResourceSource::directory(root.to_path_buf())),
+        Audio::silent(&horizon_assets::resource_source::ResourceSource::directory(
+            root.to_path_buf(),
+        )),
         None,
     )
     .unwrap()

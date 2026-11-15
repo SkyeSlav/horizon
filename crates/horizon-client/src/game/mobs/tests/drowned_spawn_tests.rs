@@ -93,7 +93,8 @@ fn only_an_empty_offhand_drowned_draws_for_the_shell() {
     let base = |game: &Game<'_>, kind: &str| {
         let m = game.mobs.iter().find(|m| &*m.kind.id == kind).unwrap();
         assert_eq!(
-            m.extra.off_hand_id(), None,
+            m.extra.off_hand_id(),
+            None,
             "{kind}: not finalized by summon with NBT"
         );
         m.clone()
@@ -101,8 +102,7 @@ fn only_an_empty_offhand_drowned_draws_for_the_shell() {
     // The fork's finalize funnel draws from the level's random (`world.random`).
     let finalize = |game: &mut Game<'_>, mut m: horizon_client::mobs::Mob, seed: i64| {
         m.random.set_seed(seed);
-        game.world.random =
-            horizon_core::random::LevelRandom::for_level(LegacyRandom::new(seed));
+        game.world.random = horizon_core::random::LevelRandom::for_level(LegacyRandom::new(seed));
         game.finalize_plain(
             &mut m,
             &difficulty,
@@ -159,7 +159,8 @@ fn only_an_empty_offhand_drowned_draws_for_the_shell() {
         let shell = empty.extra.off_hand_id() == Some("minecraft:nautilus_shell");
         assert_eq!(shell, draw < 0.03, "seed {seed}: draw {draw}");
         assert_eq!(
-            empty.extra.main_hand_id(), occupied.extra.main_hand_id(),
+            empty.extra.main_hand_id(),
+            occupied.extra.main_hand_id(),
             "seed {seed}"
         );
         if shell {

@@ -1,12 +1,12 @@
 //! `handlePlayerPositionChange`: a move that goes up ends the guest's fall.
 use super::guest;
 use crate::game::Game;
+use horizon_client::lan::guest::InboxItem;
 use horizon_client::{
     advancements::Tree,
     chunk::Chunk,
     lan::{NetConfig, hub::HubConfig},
 };
-use horizon_client::lan::guest::InboxItem;
 use horizon_core::position::ChunkPos;
 use horizon_protocol::packets::{Empty, play, play::Serverbound as S};
 use std::sync::Arc;
