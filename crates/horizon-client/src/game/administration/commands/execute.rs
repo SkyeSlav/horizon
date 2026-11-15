@@ -8,7 +8,8 @@ use horizon_client::{
     text::Text,
 };
 use horizon_core::geometry::trig;
-use horizon_world::{dimension_type::DimensionFacts, nbt::Tag};
+use horizon_core::nbt::Tag;
+use horizon_world::dimension_type::DimensionFacts;
 
 /// `CommandSourceStack` fields Horizon models: the executing entity (None for
 /// the server), position, rotation, anchor, whether feedback is suppressed
