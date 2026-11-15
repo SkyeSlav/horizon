@@ -81,7 +81,7 @@ impl RandomSequences {
     }
     /// `SavedDataStorage.collectDirtyTagsToSave`: the data to write when it is dirty,
     /// which `setDirty(false)` then clears.
-    pub fn take_dirty_nbt(&mut self) -> Option<horizon_world::nbt::Tag> {
+    pub fn take_dirty_nbt(&mut self) -> Option<horizon_core::nbt::Tag> {
         self.settle();
         std::mem::take(&mut self.dirty).then(|| self.to_nbt())
     }
