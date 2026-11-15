@@ -90,6 +90,13 @@ pub fn item_to_nbt_with_items(stack: &crate::items::ItemStack, items: &crate::it
 /// command's NBT often leaves the namespace out), and an id that is no valid
 /// identifier makes no stack.
 pub fn item_from_nbt(tag: &Tag) -> Option<crate::items::ItemStack> {
+    item_from_nbt_at(tag, &"item")
+}
+
+/// `item_from_nbt` for a loader that knows where the item sits (a field name, a list
+/// index): a transient component in a saved item is dropped and reported with `at`, never
+/// refused, and the stack keeps its item, count and persistent components.
+pub fn item_from_nbt_at(tag: &Tag, at: &dyn std::fmt::Display) -> Option<crate::items::ItemStack> {
     let (namespace, path) = horizon_world::datafix::identifier(&text(tag.get("id"))?)?;
     let id = format!("{namespace}:{path}");
     if id == "minecraft:air" {
@@ -103,7 +110,11 @@ pub fn item_from_nbt(tag: &Tag) -> Option<crate::items::ItemStack> {
     // DataComponentPatch.CODEC's partial result, the stack keeps everything else.
     let mut components = tag.get("components").cloned();
     if let Some(components) = &mut components {
-        horizon_world::item_defaults::strip_transient_component_map_tag(components);
+        for key in drop_transient_components(components) {
+            log::warn!(
+                "Horizon: {at}: {id} has transient component {key}, which is never saved; dropped"
+            );
+        }
     }
     let (damage, extra) = crate::item_data::decode_components(components.as_ref());
     Some(crate::items::ItemStack {
@@ -112,6 +123,16 @@ pub fn item_from_nbt(tag: &Tag) -> Option<crate::items::ItemStack> {
         damage,
         extra,
     })
+}
+
+/// The keys of a saved `components` compound that were transient (as written, `!` removals
+/// included); they are gone from it. Allocates only when there is one.
+fn drop_transient_components(components: &mut Tag) -> Vec<String> {
+    let mut dropped = Vec::new();
+    horizon_world::item_defaults::strip_transient_component_map_tag(components, &mut |key| {
+        dropped.push(key.to_owned())
+    });
+    dropped
 }
 pub fn encode_items(slots: &[Option<crate::items::ItemStack>]) -> Tag {
     Tag::List(
@@ -129,10 +150,11 @@ pub fn encode_items(slots: &[Option<crate::items::ItemStack>]) -> Tag {
 pub fn decode_items(tag: Option<&Tag>, size: usize) -> Vec<Option<crate::items::ItemStack>> {
     let mut slots = vec![None; size];
     if let Some(Tag::List(items)) = tag {
-        for it in items {
+        for (index, it) in items.iter().enumerate() {
             let slot = number(it.get("Slot")).unwrap_or(0) as u8 as usize;
             if let Some(cell) = slots.get_mut(slot) {
-                *cell = item_from_nbt(it);
+                *cell =
+                    item_from_nbt_at(it, &format_args!("item list index {index} (slot {slot})"));
             }
         }
     }
@@ -241,6 +263,23 @@ mod tests {
             item_to_nbt(&stack),
             parse(r#"{id:"minecraft:stone",count:3,components:{"minecraft:repair_cost":2}}"#)
         );
+    }
+
+    #[test]
+    fn dropped_transient_components_are_named_as_written() {
+        let parse = |text| horizon_core::nbt::parse_snbt(text).unwrap().0;
+        let mut saved = parse(
+            r#"{"minecraft:repair_cost":2,"minecraft:creative_slot_lock":{},"!additional_trade_cost":{}}"#,
+        );
+        let mut dropped = drop_transient_components(&mut saved);
+        dropped.sort();
+        assert_eq!(
+            dropped,
+            ["!additional_trade_cost", "minecraft:creative_slot_lock"]
+        );
+        assert_eq!(saved, parse(r#"{"minecraft:repair_cost":2}"#));
+        let mut clean = parse(r#"{"minecraft:repair_cost":2}"#);
+        assert_eq!(drop_transient_components(&mut clean).capacity(), 0);
     }
 
     #[test]

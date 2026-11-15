@@ -436,9 +436,11 @@ fn transient_name(name: &str) -> bool {
     )
 }
 
-/// Persistent saves silently omit transient SET and REMOVE entries, not their
-/// containing text, stack or native payload. Never use this on the network path.
-pub fn strip_transient_component_map_tag(value: &mut Tag) {
+/// Persistent saves omit transient SET and REMOVE entries, not their containing
+/// text, stack or native payload. `removed` is called with each dropped key of
+/// this map as written, so a loader can report it; entries of typed nested values
+/// are dropped without a call. Never use this on the network path.
+pub fn strip_transient_component_map_tag(value: &mut Tag, removed: &mut dyn FnMut(&str)) {
     if let Tag::Compound(map) = value {
         let mut scratch = [0u8; 128];
         map.retain(|key, payload| {
@@ -446,6 +448,7 @@ pub fn strip_transient_component_map_tag(value: &mut Tag) {
                 return true;
             };
             if transient_name(name) {
+                removed(name);
                 return false;
             }
             strip_transient_component_tag(name, payload);
@@ -456,7 +459,7 @@ pub fn strip_transient_component_map_tag(value: &mut Tag) {
 
 fn strip_stack_tag(value: &mut Tag) {
     if let Some(components) = value.get_mut("components") {
-        strip_transient_component_map_tag(components);
+        strip_transient_component_map_tag(components, &mut |_| {});
     }
 }
 

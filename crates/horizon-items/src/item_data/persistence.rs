@@ -2,9 +2,9 @@
 use super::*;
 pub(super) fn encode_stack_components(stack: &ItemStack, include_damage: bool) -> Option<Tag> {
     let mut components = components_tag_inner(stack.damage, stack.data(), include_damage)?;
-    // DataComponentPatch.CODEC filters transient SET/REMOVE entries, including
+    // DataComponentPatch.CODEC filters transient SET/REMOVE entries, silently on a save, including
     // typed nested stack patches carried by persistent text and item codecs.
-    horizon_world::item_defaults::strip_transient_component_map_tag(&mut components);
+    horizon_world::item_defaults::strip_transient_component_map_tag(&mut components, &mut |_| {});
     if matches!(&components, Tag::Compound(entries) if entries.is_empty()) {
         return None;
     }

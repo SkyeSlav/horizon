@@ -2,7 +2,7 @@
 //! and its `equipment` compound (`EntityEquipment.CODEC`). A mob keeps all
 //! eight slots here; the host player and LAN guests keep body and saddle,
 //! and all of them save through it.
-use crate::item_nbt::{item_from_nbt, item_to_nbt};
+use crate::item_nbt::{item_from_nbt_at, item_to_nbt};
 use crate::items::ItemStack;
 use horizon_core::nbt::{Compound, Tag};
 
@@ -57,7 +57,9 @@ impl Equipment {
     pub fn read(tag: &Tag) -> Self {
         let mut out = Self::default();
         for (cell, name) in out.0.iter_mut().zip(SLOT_NAMES) {
-            *cell = tag.get(name).and_then(item_from_nbt);
+            *cell = tag
+                .get(name)
+                .and_then(|item| item_from_nbt_at(item, &format_args!("equipment {name}")));
         }
         out
     }
