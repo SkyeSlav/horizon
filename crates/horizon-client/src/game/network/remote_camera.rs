@@ -5,7 +5,7 @@
 //! (`LocalPlayer.isControlledCamera`); the server keeps its player on the
 //! camera and lets go when the player sneaks.
 #[cfg(test)]
-#[path = "remote_camera_tests.rs"]
+#[path = "tests/remote_camera_tests.rs"]
 mod camera_tests;
 
 use super::Game;
@@ -87,14 +87,6 @@ pub(super) fn stand_camera_entity(a: &ArmorStand) -> CameraEntity {
     }
 }
 
-<<<<<<< ours
-/// `GameRenderer.checkEntityPostEffect`: the chain a spectated creeper, spider or
-/// enderman puts on the screen, or one a mod registered for its own entity type
-/// (`Hooks::register_entity_spectator_shaders`).
-||||||| base
-/// `GameRenderer.checkEntityPostEffect`: the chain a spectated creeper, spider
-/// or enderman puts on the screen.
-=======
 /// `Camera.alignWithEntity`'s view of a boat, which is not living (no
 /// `getScale`, no camera distance): its interpolated position and `Entity`'s
 /// view rotation, with `EntityType.BOAT`'s `eyeHeight(0.5625F)`.
@@ -196,9 +188,9 @@ impl CameraEntities<'_> {
     }
 }
 
-/// `GameRenderer.checkEntityPostEffect`: the chain a spectated creeper, spider
-/// or enderman puts on the screen.
->>>>>>> theirs
+/// `GameRenderer.checkEntityPostEffect`: the chain a spectated creeper, spider or
+/// enderman puts on the screen, or one a mod registered for its own entity type
+/// (`Hooks::register_entity_spectator_shaders`).
 pub(super) fn entity_post_effect(kind: &str) -> Option<&'static str> {
     horizon_client_render::spectator_shaders::chain(kind)
 }
@@ -242,22 +234,8 @@ impl Game<'_> {
         self.mobs.iter().find(|m| m.id == id)
     }
     /// The view of the entity a server attached the camera to, while the
-<<<<<<< ours
-    /// level still holds it: a mob or an armor stand.
-    pub(super) fn spectated_camera_snapshot(&self) -> Option<CameraEntity> {
-        if let Some(m) = self.camera_mob() {
-            return Some(mob_camera_entity(m));
-        }
-||||||| base
-    /// level still holds it: a mob or an armor stand.
-    pub(super) fn camera_entity(&self) -> Option<CameraEntity> {
-        if let Some(m) = self.camera_mob() {
-            return Some(mob_camera_entity(m));
-        }
-=======
     /// level still holds it.
-    pub(super) fn camera_entity(&self) -> Option<CameraEntity> {
->>>>>>> theirs
+    pub(super) fn spectated_camera_snapshot(&self) -> Option<CameraEntity> {
         let id = self.remote_camera_id()?;
         self.camera_entities().view(id)
     }

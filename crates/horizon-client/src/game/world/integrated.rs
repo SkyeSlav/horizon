@@ -562,6 +562,7 @@ impl Game<'_> {
         let (tasks, server_tasks) = channel();
         let server_flags = flags.clone();
         let run_server = move |_: &()| {
+            let _finished = Finished(server_flags.clone());
             // MinecraftServer.spin's Thread.setPriority(8).
             horizon_threads::favour_current();
             let result = serve(
@@ -585,59 +586,14 @@ impl Game<'_> {
         #[cfg(test)]
         let run_server = mod_api::testing::inherit_mods(run_server);
         let thread = std::thread::Builder::new()
-<<<<<<< ours
             .name(horizon_client::crash::INTEGRATED_SERVER_THREAD.into())
             .stack_size(server_thread_stack())
             .spawn(move || run_server(&()))?;
-||||||| base
-            .name("Server thread".into())
-            .spawn(move || {
-                // MinecraftServer.spin's Thread.setPriority(8).
-                horizon_threads::favour_current();
-                let result = serve(
-                    &res,
-                    pack,
-                    options,
-                    settings,
-                    launch,
-                    server_flags.clone(),
-                    server_tasks,
-                    &ready_tx,
-                );
-                if let Err(e) = result {
-                    log::error!("Horizon: integrated server: {e}");
-                    *server_flags.failure.lock().unwrap() = Some(e.to_string());
-                    let _ = ready_tx.send(Err(e.to_string()));
-                }
-            })?;
-=======
-            .name("Server thread".into())
-            .spawn(move || {
-                let _finished = Finished(server_flags.clone());
-                // MinecraftServer.spin's Thread.setPriority(8).
-                horizon_threads::favour_current();
-                let result = serve(
-                    &res,
-                    pack,
-                    options,
-                    settings,
-                    launch,
-                    server_flags.clone(),
-                    server_tasks,
-                    &ready_tx,
-                );
-                if let Err(e) = result {
-                    log::error!("Horizon: integrated server: {e}");
-                    *server_flags.failure.lock().unwrap() = Some(e.to_string());
-                    let _ = ready_tx.send(Err(e.to_string()));
-                }
-            })?;
         let emergency_flags = flags.clone();
         let server_id = thread.thread().id();
         let emergency_save = horizon_client::crash::on_emergency_save(move || {
             emergency_flags.emergency_save(server_id, Duration::from_secs(30));
         });
->>>>>>> theirs
         let handle = Integrated {
             emergency_save: Some(emergency_save),
             flags,
@@ -1591,6 +1547,7 @@ pub(super) mod tests {
         horizon_client::crash::install(home.clone(), "client");
         let (tasks, receiver) = channel::<Task>();
         let mut server = Integrated {
+            emergency_save: None,
             flags: Arc::new(Flags::default()),
             thread: None,
             tasks,
@@ -1690,6 +1647,7 @@ pub(super) mod tests {
                 WorldRequest::new("test", None, None, true, None, registry.clone()).unwrap();
             let (tasks, _receiver) = channel();
             game.integrated = Some(Integrated {
+                emergency_save: None,
                 flags: Arc::new(Flags::default()),
                 thread: None,
                 tasks,
@@ -1718,6 +1676,7 @@ pub(super) mod tests {
             let _pipe = super::super::native_client_session::tests::logged_client(game);
             let (tasks, _waiting_server) = channel();
             game.integrated = Some(Integrated {
+                emergency_save: None,
                 flags: Arc::new(Flags::default()),
                 thread: None,
                 tasks,

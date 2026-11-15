@@ -70,3 +70,115 @@ fn summoned_drowned_hold_shells_as_guaranteed_drops() {
     assert_eq!(saved, live, "the saved offhand");
     assert_eq!(guaranteed, live, "every shell is a guaranteed drop");
 }
+
+/// The other side of the shell opportunity, through the same
+/// `spawning::finalize` route on mobs that `summon` with NBT left
+/// unfinalized, from fixed seeds of the level's random it draws from. The
+/// expected values were read from this route without the shell branch.
+#[test]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
+fn only_an_empty_offhand_drowned_draws_for_the_shell() {
+    use horizon_client::mobs::drops::{DEFAULT_DROP_CHANCE, SLOTS, drop_chance};
+    use horizon_core::random::{LegacyRandom, RandomSource};
+    let mut game_resources = None;
+    let mut game = game(&mut game_resources);
+    for command in [
+        "summon drowned 0.5 100 0.5 {NoAI:1b}",
+        "summon zombie 2.5 100 0.5 {NoAI:1b}",
+        "summon husk 4.5 100 0.5 {NoAI:1b}",
+    ] {
+        assert!(game.run_command(command), "{command}");
+    }
+    let facts = game.biome_facts(0, 100, 0);
+    let difficulty = game.local_difficulty([0.5, 100.0, 0.5]);
+    let base = |kind: &str| {
+        let m = game.mobs.iter().find(|m| &*m.kind.id == kind).unwrap();
+        assert_eq!(
+            m.extra.off_hand, None,
+            "{kind}: not finalized by summon with NBT"
+        );
+        m.clone()
+    };
+    let finalize = |mut m: horizon_client::mobs::Mob, seed: i64| {
+        m.random.set_seed(seed);
+        let mut level = LegacyRandom::new(seed);
+        horizon_client::mobs::spawning::finalize(&mut m, &facts, &difficulty, &mut level);
+        (m, level)
+    };
+    // Other species draw nothing more: the end state of their random is the
+    // one the route had before.
+    let before = [
+        (1, 200055422738958u64),
+        (2, 259836486421929),
+        (3, 239909465194272),
+    ];
+    for kind in ["minecraft:zombie", "minecraft:husk"] {
+        for (seed, state) in before {
+            let (m, level) = finalize(base(kind), seed);
+            assert_eq!(level.state(), state, "{kind} seed {seed}");
+            assert_eq!(m.extra.off_hand, None);
+        }
+    }
+    // An occupied offhand: no shell draw, the item and the chances stay.
+    let occupied = [
+        (1, 200055422738958u64),
+        (2, 241258967538006),
+        (3, 63989017391689),
+    ];
+    for (seed, state) in occupied {
+        let mut m = base("minecraft:drowned");
+        m.extra.off_hand = Some("minecraft:dandelion".into());
+        let (m, level) = finalize(m, seed);
+        assert_eq!(level.state(), state, "occupied seed {seed}");
+        assert_eq!(m.extra.off_hand.as_deref(), Some("minecraft:dandelion"));
+        assert_eq!(m.extra.drop_chances, None);
+    }
+    // An empty offhand: exactly one more draw, after every other one, and
+    // the shell when it is under 0.03.
+    let mut shells = 0;
+    for seed in 0..400 {
+        let mut occupied = base("minecraft:drowned");
+        occupied.extra.off_hand = Some("minecraft:dandelion".into());
+        let (occupied, mut after) = finalize(occupied, seed);
+        let (empty, level) = finalize(base("minecraft:drowned"), seed);
+        let draw = after.next_float();
+        assert_eq!(level.state(), after.state(), "seed {seed}: one draw");
+        let shell = empty.extra.off_hand.as_deref() == Some("minecraft:nautilus_shell");
+        assert_eq!(shell, draw < 0.03, "seed {seed}: draw {draw}");
+        assert_eq!(
+            empty.extra.main_hand, occupied.extra.main_hand,
+            "seed {seed}"
+        );
+        if shell {
+            shells += 1;
+            // The setter makes the default array (it was absent): the
+            // offhand is 2.0. Every other slot reads what it read before, but
+            // the saddle: without an array this route reads 2.0 (saddles
+            // that `Equippable` puts on), with one 0.085, which is vanilla's
+            // `DropChances.byEquipment` for a slot with no entry. The drowned
+            // wears no saddle.
+            let chances = empty.extra.drop_chances.as_deref().copied();
+            let mut expected = [DEFAULT_DROP_CHANCE; 8];
+            expected[1] = 2.0;
+            assert_eq!(chances, Some(expected), "seed {seed}");
+            for slot in SLOTS
+                .iter()
+                .filter(|s| !matches!(**s, "offhand" | "saddle"))
+            {
+                assert_eq!(
+                    drop_chance(&empty, slot),
+                    drop_chance(&occupied, slot),
+                    "{slot}"
+                );
+            }
+            assert_eq!(drop_chance(&occupied, "saddle"), 2.0);
+            assert_eq!(drop_chance(&empty, "saddle"), DEFAULT_DROP_CHANCE);
+            assert!(empty.saddle_item().is_none());
+        } else {
+            assert_eq!(empty.extra.off_hand, None);
+            assert_eq!(empty.extra.drop_chances, None);
+        }
+    }
+    eprintln!("shells from seeds 0..400: {shells}");
+    assert!((1..=30).contains(&shells), "{shells}");
+}

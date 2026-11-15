@@ -2,7 +2,7 @@
 //! sneaking while the ray starts inside a scaffolding block places on the
 //! opposite face, which the client's own raycast (`VoxelShape.clip`) supplies
 //! and `BlockHitResult.isInside` carries.
-use crate::game::{Game, Hit, native_machines::tests::server_game};
+use crate::game::{Game, Hit, game_tests::tests::server_game};
 use horizon_client::{command::args::GameMode, items::ItemStack, motion::PlayerMotion};
 use horizon_core::geometry::Vec3;
 use winit::keyboard::KeyCode;
@@ -22,7 +22,8 @@ fn name(game: &Game<'_>, pos: [i32; 3]) -> String {
 #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn a_click_from_inside_a_scaffolding_block_places_on_the_opposite_face() {
     const COLUMN: [i32; 3] = [2, 5, 0];
-    let mut game = server_game();
+    let mut resources = None;
+    let mut game = server_game(&mut resources);
     game.options.dedicated = None;
     game.set_mode(GameMode::Creative);
     let scaffolding = game

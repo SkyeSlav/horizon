@@ -15,8 +15,8 @@ const NAME: &str = "GuestBodyTest";
 const CRITERIA: [&str; 3] = ["any", "short", "five"];
 
 /// A server with one survival guest in the air at 12.5 110 12.5, over a stone floor at y 99.
-fn scene() -> Game<'static> {
-    let mut g = crate::game::native_machines::tests::server_game();
+fn scene(resources: &mut Option<Arc<crate::game::Resources>>) -> Game<'_> {
+    let mut g = crate::game::game_tests::tests::server_game(resources);
     g.build_registries();
     g.set_allow_commands(true);
     let scratch = std::env::current_dir().unwrap().join("guest-fall-reset");
@@ -129,7 +129,8 @@ fn fall(g: &Game<'_>) -> (f64, Option<[f64; 3]>, [bool; 3]) {
 #[test]
 #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn a_guest_move_that_goes_up_ends_its_fall() {
-    let mut g = scene();
+    let mut resources = None;
+    let mut g = scene(&mut resources);
     // One block down: a fall of 1, tracked from where the tick left the guest.
     tick_with_moves(&mut g, &[109.0]);
     assert_eq!(fall(&g), (1.0, Some([12.5, 109.0, 12.5]), [false; 3]));

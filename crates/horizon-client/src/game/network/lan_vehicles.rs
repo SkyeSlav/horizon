@@ -578,33 +578,15 @@ impl Game<'_> {
         let corner = |max: bool| {
             [Axis::X, Axis::Y, Axis::Z].map(|a| if max { around.max(a) } else { around.min(a) })
         };
-<<<<<<< ours
         let no_blocks = no_blocks_in(
             &self.world,
             corner(false),
             corner(true),
             &self.lan.as_ref().unwrap().hub.encoder,
-||||||| base
-        let no_blocks = no_blocks_in(&self.world, corner(false), corner(true), &host.hub.encoder);
-        let allow_flight = host.hub.config.allow_flight;
-        let g = &mut host.hub.guests[gi];
-        g.vehicle_good = Some([target.x, target.y, target.z]);
-        let rested = std::mem::replace(
-            &mut g.vehicle_rests,
-            wanted.y < 0.0 && resolved.y != wanted.y,
-=======
-        let no_blocks = no_blocks_in(&self.world, corner(false), corner(true), &host.hub.encoder);
-        let allow_flight = host.hub.config.allow_flight;
-        let g = &mut host.hub.guests[gi];
-        // `ServerChunkCache.move` after `absSnapTo` of the accepted move.
-        g.release_tickets();
-        g.vehicle_good = Some([target.x, target.y, target.z]);
-        let rested = std::mem::replace(
-            &mut g.vehicle_rests,
-            wanted.y < 0.0 && resolved.y != wanted.y,
->>>>>>> theirs
         );
         self.lan.as_mut().unwrap().hub.guests.update(gi, |g| {
+            // `ServerChunkCache.move` after `absSnapTo` of the accepted move.
+            g.release_tickets();
             g.vehicle_good = Some([target.x, target.y, target.z]);
             let rested = std::mem::replace(
                 &mut g.vehicle_rests,

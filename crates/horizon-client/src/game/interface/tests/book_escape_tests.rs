@@ -7,15 +7,16 @@
 //! (`BookSignScreen.java:79-87`) signs on Enter whenever the title box is not
 //! empty — `!getValue().isEmpty()`, not blank — and trims the title on send
 //! (`:70`).
-use super::super::native_machines::tests::server_game;
 use super::{BookScreen, Game};
+use crate::game::game_tests::tests::server_game;
 use horizon_client::items::ItemStack;
 use winit::keyboard::KeyCode;
 
 /// A game whose selected hotbar slot holds a book and quill, its editor open,
 /// `text` typed on the page.
 fn editing(text: &str) -> Game<'static> {
-    let mut game = server_game();
+    let mut resources = None;
+    let mut game = server_game(&mut resources);
     *game.held_mut() = Some(ItemStack::new("minecraft:writable_book", 1));
     let stack = game.held().expect("a book in hand").clone();
     assert!(game.remote_use_book(&stack), "the editor opened");
