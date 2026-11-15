@@ -1221,7 +1221,7 @@ mod tests {
     use horizon_core::geometry::Vec3;
 
     #[test]
-    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
+    #[ignore = "daily"]
     fn durability_handle_and_held_path_share_rng_and_damage() {
         use horizon_client::motion::PlayerMotion;
         use horizon_core::random::RandomSource;
@@ -1321,7 +1321,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
+    #[ignore = "daily"]
     fn armor_hit_matches_old_draws_and_break_order() {
         use horizon_client::motion::PlayerMotion;
         use horizon_core::random::RandomSource;
@@ -1425,7 +1425,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
+    #[ignore = "daily"]
     fn immutable_host_attribute_read_refreshes_live_cache() {
         use horizon_client::motion::PlayerMotion;
         use horizon_core::geometry::Vec3;
@@ -1484,7 +1484,7 @@ mod tests {
     /// attribute ids, and one attribute's modifiers through the handle's own
     /// add, replace and remove writes.
     #[test]
-    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
+    #[ignore = "daily"]
     fn a_handle_lists_its_attributes_and_reads_its_modifiers() {
         use horizon_client::entities::ArmorStand;
         use horizon_client::mobs::Mob;
@@ -1606,7 +1606,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
+    #[ignore = "daily"]
     fn living_reads_answer_the_vanilla_defaults_and_a_gone_entity_reads_none() {
         use horizon_client::entities::ArmorStand;
         use horizon_client::mobs::Mob;
@@ -1663,7 +1663,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
+    #[ignore = "daily"]
     fn kill_credit_prefers_the_player_reference_and_never_falls_back_when_unresolved() {
         use horizon_client::mobs::{Damage, Mob};
         use horizon_core::geometry::Vec3;
@@ -1722,7 +1722,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
+    #[ignore = "daily"]
     fn a_mobs_last_attacker_names_a_mob_the_host_and_none_when_displaced() {
         use horizon_client::mobs::Mob;
         use horizon_client::motion::PlayerMotion;
@@ -1760,7 +1760,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
+    #[ignore = "daily"]
     fn set_health_can_store_zero() {
         use horizon_client::mobs::Mob;
         use horizon_core::geometry::Vec3;
@@ -1781,7 +1781,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
+    #[ignore = "daily"]
     fn set_health_journal_restores_nested_player_and_mob_writes() {
         use horizon_client::motion::PlayerMotion;
         use horizon_core::geometry::Vec3;
@@ -1847,7 +1847,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
+    #[ignore = "daily"]
     fn set_health_journal_restores_zero_health_guest_outside_its_turn() {
         super::super::native_guest_turn_tests::with_guests(|game| {
             let guest = game.player(12).unwrap();
@@ -1869,7 +1869,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
+    #[ignore = "daily"]
     fn heal_uses_the_vanilla_signed_sum() {
         use horizon_client::mobs::Mob;
         use horizon_core::geometry::Vec3;
@@ -1891,7 +1891,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
+    #[ignore = "daily"]
     fn absorbed_player_hit_still_remembers_the_living_attacker() {
         use horizon_client::mobs::Mob;
         use horizon_client::motion::PlayerMotion;
@@ -1965,7 +1965,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
+    #[ignore = "daily"]
     fn raw_health_write_can_change_a_dead_entity_but_heal_cannot() {
         use horizon_client::mobs::Mob;
         use horizon_client::motion::PlayerMotion;
@@ -2001,7 +2001,7 @@ mod tests {
     /// `setItemInHand` does: a player's selected slot or off hand, a mob's
     /// main or off hand; a stale handle writes nothing.
     #[test]
-    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
+    #[ignore = "daily"]
     fn set_hand_item_writes_the_hands_slot() {
         use horizon_client::mobs::Mob;
         use horizon_client::motion::PlayerMotion;
@@ -2065,7 +2065,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
+    #[ignore = "daily"]
     fn mob_equipment_writes_emit_vanilla_equip_events() {
         use horizon_client::mobs::Mob;
         use horizon_core::geometry::Vec3;
@@ -2123,7 +2123,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
+    #[ignore = "daily"]
     fn stand_and_dragon_equipment_writes_run_on_equip_item() {
         use horizon_core::geometry::Vec3;
         super::super::native_entity_refs::tests::with_game(|game| {
@@ -2176,7 +2176,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
+    #[ignore = "daily"]
     fn mob_equipment_writes_keep_full_stacks() {
         use horizon_client::mobs::Mob;
         use horizon_core::geometry::Vec3;
@@ -2318,7 +2318,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
+    #[ignore = "daily"]
     fn the_host_players_body_and_saddle_are_slots_and_saved_in_equipment() {
         super::super::native_entity_refs::tests::with_game(|game| {
             let owner = Owner::Entity(Target::Player);
@@ -2371,7 +2371,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
+    #[ignore = "daily"]
     fn armor_stand_first_tick_equipment_change_fires_after_base_tick() {
         use mod_api::{self, Hooks, LivingEquipmentChangeEvent, ModEntry, ServerHost};
         struct Reequip;
@@ -2481,106 +2481,73 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
+    #[ignore = "daily"]
     fn a_wolf_throws_and_reads_tamed_and_owner() {
-        use super::super::{
-            Audio, Options, Progress, Settings, execution_role::ExecutionRole, load_resources,
-        };
         use horizon_client::{chunk::Chunk, entities::ArmorStand};
         use horizon_core::geometry::Vec3;
-        use mod_api::Authority;
 
-        let root = std::path::PathBuf::from(std::env::var_os("HORIZON_TEST_RESOURCES").unwrap());
-        let settings = Settings::default();
-        let loaded = load_resources(
-            horizon_assets::resource_source::ResourceRoot::directory(root.clone()),
-            Vec::new(),
-            None,
-            &root,
-            &settings,
-            std::time::Instant::now(),
-            false,
-            ExecutionRole::IntegratedServer,
-            &Progress::new(),
-            &mut |_, _| unreachable!(),
-        )
-        .unwrap();
-        let mut options = Options::parse(std::iter::empty()).unwrap().unwrap();
-        options.resources = root.clone();
-        options.execution_role = ExecutionRole::IntegratedServer;
-        let mut game = Game::new(
-            &loaded.resources,
-            loaded.pack,
-            loaded.gui.unwrap(),
-            options,
-            settings,
-            Audio::silent(&horizon_assets::resource_source::ResourceSource::directory(
-                root.to_path_buf(),
-            )),
-            None,
-        )
-        .unwrap();
-        let chunk = std::sync::Arc::new(Chunk::empty(0, 0));
-        game.world.chunks.insert((0, 0), chunk);
-        game.native_lifecycle
-            .begin_open(Authority::IntegratedServer);
-        let id = game
-            .spawn_mob(
-                "minecraft:wolf",
-                [2.5, 64.0, 2.5],
-                true,
-                super::super::creatures::SpawnSite::Finalizing(
-                    horizon_client::mobs::spawn_rules::Reason::Command,
-                ),
-            )
-            .unwrap();
-        let wolf = game.living(game.entity(id).unwrap()).unwrap();
-        assert_eq!(game.living_is_tamed(wolf), Some(false));
-        assert_eq!(game.living_owner(wolf), None);
-        let m = game.mobs.iter_mut().find(|m| m.id == id).unwrap();
-        (m.extra.tame, m.extra.owner) = (true, Some([1, 2, 3, 4]));
-        assert_eq!(game.living_is_tamed(wolf), Some(true));
-        assert_eq!(
-            game.living_owner(wolf),
-            Some(0x1_0000_0002_0000_0003_0000_0004)
-        );
+        super::super::native_entity_refs::tests::with_game(|game| {
+            game.world
+                .chunks
+                .insert((0, 0), std::sync::Arc::new(Chunk::empty(0, 0)));
+            let id = game
+                .spawn_mob(
+                    "minecraft:wolf",
+                    [2.5, 64.0, 2.5],
+                    true,
+                    super::super::creatures::SpawnSite::Finalizing(
+                        horizon_client::mobs::spawn_rules::Reason::Command,
+                    ),
+                )
+                .unwrap();
+            let wolf = game.living(game.entity(id).unwrap()).unwrap();
+            assert_eq!(game.living_is_tamed(wolf), Some(false));
+            assert_eq!(game.living_owner(wolf), None);
+            let m = game.mobs.iter_mut().find(|m| m.id == id).unwrap();
+            (m.extra.tame, m.extra.owner) = (true, Some([1, 2, 3, 4]));
+            assert_eq!(game.living_is_tamed(wolf), Some(true));
+            assert_eq!(
+                game.living_owner(wolf),
+                Some(0x1_0000_0002_0000_0003_0000_0004)
+            );
 
-        let bone = ItemStack::new("minecraft:bone", 1);
-        assert!(
-            game.living_drop(wolf, ItemStack::new("minecraft:air", 1), false, true)
-                .is_none()
-        );
-        let item = game.living_drop(wolf, bone.clone(), false, true).unwrap();
-        assert_eq!(
-            game.entity_kind(item).map(|kind| kind.id(&game)).as_deref(),
-            Some("minecraft:item")
-        );
-        let wolf_uuid = game.uuid_for(id);
-        let thrown = game.dropped.last().unwrap();
-        let eye = game.mobs.iter().find(|m| m.id == id).unwrap().eye_y();
-        assert_eq!(thrown.position.y, eye - f64::from(0.3f32));
-        assert_eq!((thrown.pickup_delay, thrown.thrower), (40, Some(wolf_uuid)));
-        // The drop swung: one tick on, that swing goes on.
-        let m = game.mobs.iter_mut().find(|m| m.id == id).unwrap();
-        assert!(m.ai.swinging);
-        m.ai.swing_time = 1;
-        assert!(!game.living_swing(wolf, Hand::Main, true));
-        let scattered = game.living_drop(wolf, bone, true, false).unwrap();
-        assert_ne!(scattered, item);
-        assert_eq!(game.dropped.last().unwrap().velocity.y, f64::from(0.2f32));
-        assert_eq!(game.dropped.last().unwrap().thrower, None);
+            let bone = ItemStack::new("minecraft:bone", 1);
+            assert!(
+                game.living_drop(wolf, ItemStack::new("minecraft:air", 1), false, true)
+                    .is_none()
+            );
+            let item = game.living_drop(wolf, bone.clone(), false, true).unwrap();
+            assert_eq!(
+                game.entity_kind(item).map(|kind| kind.id(game)).as_deref(),
+                Some("minecraft:item")
+            );
+            let wolf_uuid = game.uuid_for(id);
+            let thrown = game.dropped.last().unwrap();
+            let eye = game.mobs.iter().find(|m| m.id == id).unwrap().eye_y();
+            assert_eq!(thrown.position.y, eye - f64::from(0.3f32));
+            assert_eq!((thrown.pickup_delay, thrown.thrower), (40, Some(wolf_uuid)));
+            // The drop swung: one tick on, that swing goes on.
+            let m = game.mobs.iter_mut().find(|m| m.id == id).unwrap();
+            assert!(m.ai.swinging);
+            m.ai.swing_time = 1;
+            assert!(!game.living_swing(wolf, Hand::Main, true));
+            let scattered = game.living_drop(wolf, bone, true, false).unwrap();
+            assert_ne!(scattered, item);
+            assert_eq!(game.dropped.last().unwrap().velocity.y, f64::from(0.2f32));
+            assert_eq!(game.dropped.last().unwrap().thrower, None);
 
-        game.armor_stands
-            .push(ArmorStand::new(90, Vec3::new(0.5, 64.0, 0.5), 0.0));
-        let stand = game.living(game.entity(90).unwrap()).unwrap();
-        assert_eq!(game.living_is_tamed(stand), None);
-        let apple = ItemStack::new("minecraft:apple", 1);
-        assert!(game.living_drop(stand, apple, false, false).is_none());
+            game.armor_stands
+                .push(ArmorStand::new(90, Vec3::new(0.5, 64.0, 0.5), 0.0));
+            let stand = game.living(game.entity(90).unwrap()).unwrap();
+            assert_eq!(game.living_is_tamed(stand), None);
+            let apple = ItemStack::new("minecraft:apple", 1);
+            assert!(game.living_drop(stand, apple, false, false).is_none());
+        });
     }
 
     #[test]
-    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
-    fn player_mod_drop_matches_drop_key_motion() {
+    #[ignore = "daily"]
+    fn player_mod_drop_and_drop_key_have_equivalent_motion() {
         super::super::native_entity_refs::tests::with_game(|game| {
             game.player = Some(
                 horizon_client::motion::PlayerMotion::new(
@@ -2598,12 +2565,20 @@ mod tests {
             *game.world.random = horizon_core::random::LegacyRandom::new(12345);
             let item = ItemStack::new("minecraft:apple", 1);
             game.inventory[game.selected] = Some(item.clone());
-            game.drop_held(true);
+            let player_random = game.player.as_ref().unwrap().random.clone();
+            let (_, seeds) = horizon_client::random_source::record_seeds(|| game.drop_held(true));
             let key_velocity = game.dropped.last().unwrap().velocity;
             *game.world.random = horizon_core::random::LegacyRandom::new(12345);
             crate::game::native_entity_refs::tests::bind_local_player(game, 42, 123);
             let player = game.living(game.entity(42).unwrap()).unwrap();
-            let id = game.living_drop(player, item, false, true).unwrap().id();
+            game.player.as_mut().unwrap().random = player_random;
+            let id = horizon_client::random_source::replay_seeds(seeds.clone(), || {
+                game.living_drop(player, item, false, true).unwrap().id()
+            });
+            assert!(
+                seeds.complete(),
+                "both drop routes allocate the same random streams"
+            );
             let mod_velocity = game
                 .dropped
                 .iter()
@@ -2615,7 +2590,86 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
+    #[ignore = "daily"]
+    fn player_drop_spread_uses_the_players_random_even_when_cancelled() {
+        use horizon_core::{
+            geometry::trig::{cos, sin},
+            random::RandomSource,
+        };
+        use mod_api::{Flow, Hooks, ItemTossEvent, ModEntry, ServerHost};
+        struct Veto;
+        #[mod_api::__subscriptions]
+        impl Hooks for Veto {
+            fn item_toss(&self, _: &mut dyn ServerHost, _: &mut ItemTossEvent) -> Flow {
+                Flow::Cancel
+            }
+        }
+        for (randomly, cancelled) in [(false, false), (true, false), (false, true)] {
+            let mods: mod_api::Mods = if cancelled {
+                vec![ModEntry::new("veto", Box::new(Veto))].into()
+            } else {
+                Vec::<ModEntry>::new().into()
+            };
+            mod_platform::testing::with_mods(mods, || {
+                super::super::native_entity_refs::tests::with_game(|game| {
+                    game.player = Some(
+                        horizon_client::motion::PlayerMotion::new(game.motion, Vec3::ZERO).unwrap(),
+                    );
+                    super::super::native_entity_refs::tests::bind_local_player(game, 42, 123);
+                    game.yaw = 0.0;
+                    game.pitch = 0.0;
+                    game.player.as_mut().unwrap().random.set_seed(12345);
+                    let mut expected = game.player.as_ref().unwrap().random.clone();
+                    // Independent vanilla oracle at yaw=pitch=0. The item's
+                    // constructor owns a separate stream, not these floats.
+                    let velocity = if randomly {
+                        let strength = expected.next_float() * 0.5;
+                        let direction = f64::from(expected.next_float() * std::f32::consts::TAU);
+                        [
+                            f64::from(-sin(direction) * strength),
+                            f64::from(0.2f32),
+                            f64::from(cos(direction) * strength),
+                        ]
+                    } else {
+                        let direction = f64::from(expected.next_float() * std::f32::consts::TAU);
+                        let strength = f64::from(expected.next_float() * 0.02);
+                        let jitter = (expected.next_float() - expected.next_float()) * 0.1;
+                        [
+                            horizon_core::jmath::cos(direction) * strength,
+                            f64::from(0.1 + jitter),
+                            f64::from(0.3f32) + horizon_core::jmath::sin(direction) * strength,
+                        ]
+                    };
+                    let level = game.world.random.state();
+                    let before = game.dropped.len();
+                    let id = game.native_player_drop(
+                        ItemStack::new("minecraft:apple", 1),
+                        randomly,
+                        true,
+                    );
+                    assert_eq!(
+                        game.player.as_ref().unwrap().random.state(),
+                        expected.state(),
+                        "randomly={randomly} cancelled={cancelled}"
+                    );
+                    assert_eq!(game.world.random.state(), level, "no level random draws");
+                    if cancelled {
+                        assert!(id.is_none());
+                        assert_eq!(game.dropped.len(), before);
+                    } else {
+                        let drop = game.dropped.iter().find(|d| Some(d.id) == id).unwrap();
+                        assert_eq!(
+                            [drop.velocity.x, drop.velocity.y, drop.velocity.z],
+                            velocity
+                        );
+                    }
+                });
+            });
+        }
+    }
+
+    #[test]
+    #[ignore = "daily"]
     fn armor_stand_drop_does_not_swing() {
         super::super::native_entity_refs::tests::with_game(|game| {
             game.armor_stands
@@ -2644,7 +2698,7 @@ mod tests {
     }
     /// The living reads of #943 answer the engine's own decisions.
     #[test]
-    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
+    #[ignore = "daily"]
     fn the_engines_own_portal_melee_freeze_and_air_answers() {
         use horizon_client::mobs::Mob;
         use horizon_client::motion::PlayerMotion;
@@ -2784,7 +2838,7 @@ mod tests {
     /// A sleeper's bed orientation is the bed block's own facing (#943):
     /// the block at the sleeping position, where it is one of `#minecraft:beds`.
     #[test]
-    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
+    #[ignore = "daily"]
     fn a_sleepers_bed_orientation() {
         use horizon_client::mobs::Mob;
         use horizon_core::geometry::Vec3;
@@ -2870,7 +2924,7 @@ mod tests {
     /// #943, review: a guest answers the same one portal rule over their
     /// body and vehicle (`can_use_portal_of`), not a hand-rolled copy.
     #[test]
-    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
+    #[ignore = "daily"]
     fn a_guest_answers_the_one_portal_rule() {
         use mod_api::Host;
         super::super::native_guest_turn_tests::with_guests(|game| {

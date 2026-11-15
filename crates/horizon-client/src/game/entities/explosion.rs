@@ -1101,6 +1101,16 @@ impl Game<'_> {
             let Some((entity, handle)) = next else {
                 continue;
             };
+            // A callback may discard a later original without sweeping its
+            // storage yet. Removed entities no longer receive blast callbacks.
+            // A discarded mob stays in its storage flagged removed, and its
+            // selector target is gone, so the flag is read on its own.
+            if with_entity!(self, handle, e => e.is_removed())
+                || with_entity!(self, handle, e => e.selector_target())
+                    .is_some_and(|target| self.target_removed(&target))
+            {
+                continue;
+            }
             // An entity the blast's list does not name is neither hurt nor
             // pushed; without a listener the storages are the walk.
             let hit = if with_entity!(self, handle, e => self.combat.visits(e.id())) {
@@ -2267,7 +2277,7 @@ mod tests {
     /// Edits/cancel affect only the originating block, after loot modifiers, on
     /// both real caller paths; cancel also suppresses a mob break's silverfish.
     #[test]
-    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES and an isolated process for native mods"]
+    #[ignore = "daily"]
     fn explosion_and_mob_breaks_apply_block_drops() {
         use crate::game::native_entity_refs::tests::with_game;
         use horizon_client::mobs::MobEvent;
@@ -2483,7 +2493,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
+    #[ignore = "daily"]
     fn rays_reusing_their_last_block_explode_what_each_step_did() {
         let mut resources = None;
         let mut game = crate::game::game_tests::tests::server_game(&mut resources);
@@ -2908,7 +2918,7 @@ mod shulker_lock_drop_tests {
     use horizon_core::nbt::Tag;
 
     #[test]
-    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES and scratch homes/cwd"]
+    #[ignore = "daily"]
     fn destruction_captures_the_external_shulker_lock_before_removal() {
         let mut resources = None;
         let mut game = server_game(&mut resources);
@@ -3064,7 +3074,7 @@ mod explicit_source_tests {
     use horizon_client::{mobs::Mob, motion::PlayerMotion};
 
     #[test]
-    #[ignore = "requires prepared resources"]
+    #[ignore = "daily"]
     fn explicit_sources_keep_names_without_inventing_kill_credit() {
         crate::game::native_entity_refs::tests::with_game(|game| {
             game.world.chunks.insert(

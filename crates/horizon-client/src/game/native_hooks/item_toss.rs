@@ -88,13 +88,20 @@ mod item_toss_tests {
     /// the listener changes stays, and a cancel leaves no item entity. The
     /// random scatter of a death's drops is not a toss and is never asked.
     #[test]
-    #[ignore = "needs prepared resources"]
+    #[ignore = "daily"]
     fn item_toss_hears_the_item_entity_and_a_cancel_leaves_none() {
         let heard = Arc::new(Mutex::new(0));
         let mods = vec![ModEntry::new("toss_probe", Box::new(Tosser(heard.clone())))];
         with_mods(mods.into(), || {
             crate::game::native_entity_refs::tests::with_game(|game| {
                 game.options.dedicated = Some(Vec::new());
+                game.player = Some(
+                    horizon_client::motion::PlayerMotion::new(
+                        game.motion,
+                        horizon_core::geometry::Vec3::ZERO,
+                    )
+                    .unwrap(),
+                );
                 let eye = [0.5, 65.0, 0.5];
                 let before = game.dropped.len();
                 let stone = ItemStack::new("minecraft:stone", 1);
@@ -169,13 +176,13 @@ mod item_toss_tests {
     /// but not the toss it is still deciding: a cancel then leaves the toss
     /// unannounced (no join, no leave), and the listener's item joins.
     #[test]
-    #[ignore = "needs prepared resources"]
+    #[ignore = "daily"]
     fn a_listener_spawn_does_not_announce_the_toss_it_then_cancels() {
         check_listener_spawn(false);
     }
 
     #[test]
-    #[ignore = "needs prepared resources"]
+    #[ignore = "daily"]
     fn a_deferred_join_veto_announces_no_item_spawn() {
         check_listener_spawn(true);
     }
@@ -192,6 +199,13 @@ mod item_toss_tests {
         with_mods(mods.into(), || {
             crate::game::native_entity_refs::tests::with_game(|game| {
                 game.options.dedicated = Some(Vec::new());
+                game.player = Some(
+                    horizon_client::motion::PlayerMotion::new(
+                        game.motion,
+                        horizon_core::geometry::Vec3::ZERO,
+                    )
+                    .unwrap(),
+                );
                 let dirt = ItemStack::new("minecraft:dirt", 1);
                 assert!(
                     game.throw_from_eyes(dirt, [0.5, 65.0, 0.5], false, true)

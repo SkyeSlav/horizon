@@ -59,7 +59,7 @@ impl Hooks for Pickups {
 /// Runs the production lifted pass, not a substitute pickup loop. Binding is
 /// strictly test-only; no Game residency producer is activated here.
 #[test]
-#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES and an isolated mod registry"]
+#[ignore = "daily"]
 fn indexed_pickup_keeps_bound_survivors_and_processes_shifted_tail() {
     let heard = Arc::new(Mutex::new(Vec::new()));
     let notifications = Arc::new(Mutex::new(Vec::new()));
@@ -172,8 +172,8 @@ fn indexed_pickup_keeps_bound_survivors_and_processes_shifted_tail() {
                 );
                 assert_eq!(
                     game.world.random.next_int(),
-                    -716867186,
-                    "two pickup pitches consume four draws"
+                    1553932502,
+                    "client pickup pitches do not consume the server level random"
                 );
                 assert_eq!(
                     game.dropped
