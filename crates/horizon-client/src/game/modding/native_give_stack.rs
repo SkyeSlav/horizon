@@ -34,7 +34,9 @@ impl Game<'_> {
     /// `ItemStack.CODEC` reading the compound `snbt` stands for (`TagParser`): only that
     /// compound and whitespace. At most 2 MiB and 512 levels: vanilla's SNBT parser has
     /// neither limit (deep text ends in a stack overflow); they are this API's bound so
-    /// mod-supplied text cannot overflow the parser.
+    /// mod-supplied text cannot overflow the parser. Unlike a save, the text is read
+    /// strictly: a transient component (set or removed) refuses the stack, where a saved
+    /// item would drop it.
     pub(super) fn item_from_snbt(&self, snbt: &str) -> Option<ItemStack> {
         if snbt.len() > MAX_SNBT_BYTES {
             return None;
@@ -51,6 +53,7 @@ impl Game<'_> {
         {
             return None;
         }
+        horizon_world::item_defaults::validate_stack_tag(&tag).ok()?;
         let stack = horizon_items::item_nbt::item_from_nbt(&tag)?;
         self.items().get(&stack.item).is_some().then_some(stack)
     }

@@ -42,7 +42,7 @@ fn an_snbt_item_goes_through_the_api_unchanged() {
 
 /// This API refuses with None: text that is not one compound, text with anything but
 /// whitespace after the compound, text over 2 MiB, nesting past 512 levels, air and an item
-/// the world lacks, and a count outside 1 to 99.
+/// the world lacks, a count outside 1 to 99 and a transient component (set or removed).
 #[test]
 #[ignore = "daily"]
 fn item_from_snbt_refuses_what_is_not_one_item_compound() {
@@ -80,6 +80,19 @@ fn item_from_snbt_refuses_what_is_not_one_item_compound() {
         assert_eq!(count(r#"{id:"minecraft:air",count:1}"#), None);
         assert_eq!(count(r#"{id:"nomod:thing",count:1}"#), None);
         assert_eq!(count(r#"{count:1}"#), None);
+        for components in [
+            r#""minecraft:creative_slot_lock":{}"#,
+            r#""!minecraft:creative_slot_lock":{}"#,
+            r#""minecraft:additional_trade_cost":4"#,
+            r#""minecraft:repair_cost":2,"!additional_trade_cost":{}"#,
+        ] {
+            let snbt = format!(r#"{{id:"minecraft:stone",count:3,components:{{{components}}}}}"#);
+            assert_eq!(count(&snbt), None, "{snbt}");
+        }
+        assert_eq!(
+            count(r#"{id:"minecraft:stone",count:3,components:{"minecraft:repair_cost":2}}"#),
+            Some(3)
+        );
         let item = r#"{id:"minecraft:stone"}"#;
         let padded = |len: usize| format!("{item}{}", " ".repeat(len - item.len()));
         assert_eq!(count(&padded(2 * 1024 * 1024)), Some(1), "2 MiB is read");
