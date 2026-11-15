@@ -1,6 +1,6 @@
 # Capability answer limits
 
-Use `?` to propagate errors from `move_resources` and `move_energy` out of your
+Use `?` to propagate errors from `resource_util::move` and `move_energy` out of your
 `host.transaction` closure. If a handler returns more than requested or offered,
 the helper rolls back the offending subtransaction and returns `Overanswered`.
 Propagating that error aborts the enclosing transaction, including its earlier moves.
