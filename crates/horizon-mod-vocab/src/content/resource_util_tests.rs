@@ -545,7 +545,7 @@ impl ResourceHandler<Chemical> for Batches {
         2
     }
     fn resource(&self, _: &mut dyn ServerHost, index: usize) -> Option<Chemical> {
-        Some([HYDROGEN, Chemical("test:helium")][index])
+        Some(self.resource_at(index))
     }
     fn amount(&self, _: &mut dyn ServerHost, index: usize) -> u32 {
         self.0.borrow()[index]
