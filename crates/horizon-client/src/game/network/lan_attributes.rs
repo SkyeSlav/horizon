@@ -303,7 +303,7 @@ impl Game<'_> {
     /// further to blocks and 2 to entities. Its client reads the reach from
     /// these synced modifiers. (The crouching player's waypoint range is
     /// server-side only: lan_waypoints.rs hides it.)
-    pub(super) fn update_player_attributes(&mut self) {
+    pub(in crate::game) fn update_player_attributes(&mut self) {
         let creative = self.mode_id() == 1;
         let Some(p) = self.player.as_mut() else {
             return;

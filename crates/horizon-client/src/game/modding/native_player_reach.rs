@@ -81,6 +81,17 @@ mod tests {
                 assert_eq!(lo[0], 3.0 + face, "pig {id}'s near face");
                 pig
             };
+            // The fixture leaves the guest without a body, and its attributes live on it
+            // (`Player.entityInteractionRange`): give one, as a joined player's record keeps.
+            let body =
+                horizon_client::motion::PlayerMotion::new(game.motion, Vec3::new(3.0, 64.0, 5.0))
+                    .unwrap();
+            game.lan
+                .as_mut()
+                .unwrap()
+                .hub
+                .update_guest(12, |guest| guest.motion = Some(Box::new(body)))
+                .unwrap();
             let player = game.player(12).unwrap();
             let reach = |game: &crate::game::Game<'_>, pig, rule| {
                 game.player_within_entity_reach(player, pig, rule)
@@ -109,8 +120,15 @@ mod tests {
                 );
             }
             // Creative's +2 modifier gives range 5.0 to a real guest, including when
-            // read outside that guest's turn. These distances are literal box faces.
+            // read outside that guest's turn. The server adds it in the player's tick
+            // (`ServerPlayer.doTick`'s `updatePlayerAttributes`), not in `setGameMode`, so
+            // each mode change is followed by that tick step. These distances are literal
+            // box faces.
+            let tick_attributes = |game: &mut crate::game::Game<'_>| {
+                assert!(game.native_as_player_handle(player, |g| g.update_player_attributes()));
+            };
             assert!(game.player_set_game_mode(player, GameMode::Creative));
+            tick_attributes(game);
             let living = LivingRef::new(player.entity());
             assert_eq!(
                 game.living_attribute_value(living, "minecraft:entity_interaction_range"),
@@ -130,6 +148,7 @@ mod tests {
             assert_eq!(reach(game, eight, EntityReach::Attack), Some(true));
             assert_eq!(reach(game, beyond_eight, EntityReach::Attack), Some(false));
             assert!(game.player_set_game_mode(player, GameMode::Survival));
+            tick_attributes(game);
 
             // A held component replaces the attribute: min 5, max 6, default margin
             // 0.3. Float subtraction/addition before widening gives inclusive server
