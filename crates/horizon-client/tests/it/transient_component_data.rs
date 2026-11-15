@@ -1,5 +1,4 @@
 //! Isolated real data loaders: malformed persistent files never abort a reload.
-extern crate horizon_client_lib as horizon_client;
 use horizon_client::{advancements::Tree, crafting::Recipes};
 use horizon_items::{
     item_data, item_nbt,

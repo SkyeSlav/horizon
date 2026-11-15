@@ -5,3 +5,4 @@ mod datapack_biome_sync;
 mod mod_api_hooks;
 mod mod_biome_sync;
 mod skull_models;
+mod transient_component_data;
