@@ -2,7 +2,7 @@
 //! recipe-priorities format). Order the shared sources before any table is built.
 use super::{ResolvedSources, registration_key};
 use crate::Result;
-use horizon_items::recipe_sources::PriorityLayer;
+use horizon_items::recipe_sources::{PRIORITY_LAYERS, PRIORITY_SOURCES, PriorityLayer};
 use horizon_world::{
     conditions::LoadConditions, loot::PackOverlay, native_load_context::LoadContext,
 };
@@ -68,17 +68,16 @@ impl Priorities {
                 Err(e) => log::warn!("{} not loaded: {e}", path.display()),
             }
         }
-        for (_, layers) in overlay
-            .files
-            .iter()
-            .filter(|(key, _)| key == "recipe_priorities")
-        {
-            for bytes in layers {
-                if let Err(e) =
-                    priorities.layer("a data pack's recipe_priorities.json", bytes, &conditions)
-                {
-                    log::warn!("recipe priorities layer refused, {e}");
-                }
+        let named = |id: &str| {
+            overlay
+                .files
+                .iter()
+                .find(|(key, _)| key == id)
+                .map_or(&[][..], |(_, layers)| layers.as_slice())
+        };
+        for (bytes, source) in named(PRIORITY_LAYERS).iter().zip(named(PRIORITY_SOURCES)) {
+            if let Err(e) = priorities.layer(&String::from_utf8_lossy(source), bytes, &conditions) {
+                log::warn!("recipe priorities layer refused, {e}");
             }
         }
         Ok(priorities)

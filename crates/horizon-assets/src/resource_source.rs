@@ -65,7 +65,7 @@ enum Storage {
     },
     Index {
         files: BTreeMap<String, Resource>,
-        layers: Vec<ResourceSource>,
+        layers: Vec<(String, ResourceSource)>,
     },
 }
 
@@ -324,17 +324,25 @@ impl ResourceSource {
     pub fn indexed(files: BTreeMap<String, Resource>) -> Self {
         Self::indexed_with_layers(files, Vec::new())
     }
-    /// Keep an index's original layers for singleton stacks. Ordinary resource
-    /// reads and listings still use only the index's resolved winning files.
+    /// Keep an index's original layers, each with the name of what supplied it,
+    /// for singleton stacks. Ordinary resource reads and listings still use
+    /// only the index's resolved winning files.
     pub fn indexed_with_layers(
         files: BTreeMap<String, Resource>,
-        layers: Vec<ResourceSource>,
+        layers: Vec<(String, ResourceSource)>,
     ) -> Self {
         Self(Arc::new(Storage::Index { files, layers }))
     }
     /// Singleton resources across namespaces, lowest layer first, including
     /// lower copies at the same path. Namespace order breaks ties within a layer.
-    pub fn singleton_resources(&self, top: &str, name: &str) -> Vec<Resource> {
+    /// Each comes with the name of its layer; a source without layers is one
+    /// layer, called `label`.
+    pub fn singleton_resources(
+        &self,
+        top: &str,
+        name: &str,
+        label: &str,
+    ) -> Vec<(String, Resource)> {
         if !stays_inside(top) || !stays_inside(name) || name.contains('/') {
             return Vec::new();
         }
@@ -343,7 +351,7 @@ impl ResourceSource {
         {
             return layers
                 .iter()
-                .flat_map(|layer| layer.singleton_resources(top, name))
+                .flat_map(|(label, layer)| layer.singleton_resources(top, name, label))
                 .collect();
         }
         self.namespaces(top)
@@ -351,7 +359,7 @@ impl ResourceSource {
             .filter_map(|namespace| {
                 let path = format!("{top}/{namespace}/{name}");
                 self.contains(&path)
-                    .then(|| Resource::file(self.clone(), path))
+                    .then(|| (label.to_owned(), Resource::file(self.clone(), path)))
             })
             .collect()
     }
@@ -1008,7 +1016,10 @@ mod tests {
                 files.insert(name.clone(), Resource::file(layer.clone(), name));
             }
         }
-        let index = ResourceSource::indexed_with_layers(files, vec![lower, higher]);
+        let index = ResourceSource::indexed_with_layers(
+            files,
+            vec![("lower".into(), lower), ("higher".into(), higher)],
+        );
         assert_eq!(index.read("data/shared/config.json").unwrap(), b"higher");
         assert_eq!(
             index.list("data/"),
@@ -1020,25 +1031,25 @@ mod tests {
         );
         assert_eq!(
             index
-                .singleton_resources("data", "config.json")
+                .singleton_resources("data", "config.json", "index")
                 .into_iter()
-                .map(|resource| resource.read().unwrap())
+                .map(|(layer, resource)| (layer, resource.read().unwrap()))
                 .collect::<Vec<_>>(),
             [
-                b"lower".to_vec(),
-                b"zbase".to_vec(),
-                b"alpha".to_vec(),
-                b"higher".to_vec()
+                ("lower".to_owned(), b"lower".to_vec()),
+                ("lower".to_owned(), b"zbase".to_vec()),
+                ("higher".to_owned(), b"alpha".to_vec()),
+                ("higher".to_owned(), b"higher".to_vec()),
             ],
         );
         assert!(
             index
-                .singleton_resources("../data", "config.json")
+                .singleton_resources("../data", "config.json", "index")
                 .is_empty()
         );
         assert!(
             index
-                .singleton_resources("data", "../config.json")
+                .singleton_resources("data", "../config.json", "index")
                 .is_empty()
         );
     }

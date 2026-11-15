@@ -31,7 +31,7 @@ pub fn resolved_resources(
     for group in &loaded {
         let declarations = format!("data/{}/horizon/", group.source.id);
         for layer in &group.layers {
-            data_layers.push(layer.data.source().clone());
+            data_layers.push((layer.data.id.clone(), layer.data.source().clone()));
             for name in layer.data.list("data/") {
                 if !name.starts_with(&declarations) {
                     changes.insert(
@@ -93,7 +93,7 @@ pub fn resolved_resources(
     }
     let assets = crate::packs::resources(assets_base, &layers)?;
     data.extend(changes.clone());
-    let all_layers = std::iter::once(base_source)
+    let all_layers = std::iter::once(("the game's data".to_owned(), base_source))
         .chain(data_layers.iter().cloned())
         .collect();
     Ok(ResourceRoot::new(prepared, cache, assets).with_data(

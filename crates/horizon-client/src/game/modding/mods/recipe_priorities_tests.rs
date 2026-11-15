@@ -168,6 +168,26 @@ fn check_layers(kind: &str, identical_path: bool, replace_allowed: bool) {
         [underlay, lower, higher],
     );
     assert_eq!(
+        files
+            .iter()
+            .find(|(id, _)| id == "recipe_priorities.source")
+            .unwrap()
+            .1,
+        [
+            b"zbase/zfirst".to_vec(),
+            if identical_path || kind == "jar" {
+                b"zbase/asecond".to_vec()
+            } else {
+                b"zbase".to_vec()
+            },
+            if kind == "jar" {
+                b"alpha/higher".to_vec()
+            } else {
+                b"alpha".to_vec()
+            },
+        ],
+    );
+    assert_eq!(
         overlay.root.data_changes().read(ordinary_path).unwrap(),
         higher_ordinary,
     );

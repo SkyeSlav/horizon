@@ -4,7 +4,7 @@
 use crate::resource_source::ResourceSource;
 mod slot_sources;
 use crate::zip::Zip;
-use horizon_items::recipe_sources::PriorityLayer;
+use horizon_items::recipe_sources::{PRIORITY_LAYERS, PRIORITY_SOURCES};
 use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
@@ -864,27 +864,24 @@ impl DataStore {
             // Singleton files share one stack across namespaces, preserving pack
             // order even when a higher pack uses a different namespace.
             if pack.id != "vanilla" {
-                for resource in pack
-                    .source()
-                    .singleton_resources("data", "recipe_priorities.json")
+                for (source, resource) in
+                    pack.source()
+                        .singleton_resources("data", "recipe_priorities.json", &pack.id)
                 {
-                    let source = format!("recipe_priorities.json of pack {}", pack.id);
-                    let layer = resource
-                        .read()
-                        .map_err(|e| format!("{source}: {e}"))
-                        .and_then(|bytes| {
-                            let file = serde_json::from_slice(&bytes)
-                                .map_err(|e| format!("{source}: {e}"))?;
-                            PriorityLayer::decode(&source, file)?;
-                            Ok(bytes)
-                        });
-                    match layer {
-                        Ok(bytes) => s
-                            .files
-                            .entry("recipe_priorities".into())
-                            .or_default()
-                            .push(bytes),
-                        Err(e) => log::error!("Horizon: layer refused, {e}"),
+                    match resource.read() {
+                        Ok(bytes) => {
+                            s.files
+                                .entry(PRIORITY_LAYERS.into())
+                                .or_default()
+                                .push(bytes);
+                            s.files
+                                .entry(PRIORITY_SOURCES.into())
+                                .or_default()
+                                .push(source.into_bytes());
+                        }
+                        Err(e) => log::error!(
+                            "Horizon: recipe_priorities.json of {source} is not read, so its layer is left out: {e}"
+                        ),
                     }
                 }
             }
@@ -1363,29 +1360,9 @@ mod tests {
                 br#"{"replace":true}"#.to_vec(),
             ]
         );
-        let _ = fs::remove_dir_all(&root);
-    }
-
-    #[test]
-    fn a_malformed_recipe_priority_layer_is_left_out_of_the_stack() {
-        let root =
-            std::env::temp_dir().join(format!("horizon-bad-priority-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&root);
-        for (pack, bytes) in [("a", r#"{"entries":{"test:b":5}}"#), ("b", r#"[1]"#)] {
-            let dir = root.join(format!("datapacks/{pack}"));
-            fs::create_dir_all(dir.join("data/test")).unwrap();
-            fs::write(
-                dir.join("pack.mcmeta"),
-                r#"{"pack":{"description":"","pack_format":15}}"#,
-            )
-            .unwrap();
-            fs::write(dir.join("data/test/recipe_priorities.json"), bytes).unwrap();
-        }
-        let packs = discover(&root);
-        let store = DataStore::load(&packs.iter().collect::<Vec<_>>());
         assert_eq!(
-            store.files["recipe_priorities"],
-            [br#"{"entries":{"test:b":5}}"#.to_vec()]
+            store.files["recipe_priorities.source"],
+            [b"file/a".to_vec(), b"file/b".to_vec()]
         );
         let _ = fs::remove_dir_all(&root);
     }

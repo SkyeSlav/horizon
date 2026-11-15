@@ -58,14 +58,12 @@ fn matching_shapeless_default_priority_and_replace_empty() {
         "recipe_priorities".into(),
         vec![br#"{"entries":{"test:b":5}}"#.to_vec()],
     ));
+    files.push(("recipe_priorities.source".into(), vec![b"pack".to_vec()]));
     let recipes = load(&files);
     let (id, output) = recipes.find(context, &grid, 2).unwrap();
     assert_eq!((id, output.item.as_ref()), ("test:b", "minecraft:diamond"));
-    files
-        .last_mut()
-        .unwrap()
-        .1
-        .push(br#"{"replace":true}"#.to_vec());
+    files[2].1.push(br#"{"replace":true}"#.to_vec());
+    files[3].1.push(b"pack".to_vec());
     let recipes = load(&files);
     let (id, output) = recipes.find(context, &grid, 2).unwrap();
     assert_eq!((id, output.item.as_ref()), ("test:a", "minecraft:stick"));
@@ -79,7 +77,7 @@ fn layers_conditions_unknown_ids_and_integer_boundaries() {
         br#"{"entries":{"test:a":3,"test:absent":17,"test:min":-2147483648}}"#,
     )
     .unwrap();
-    let files = vec![("recipe_priorities".into(), vec![
+    let files = vec![("recipe_priorities.source".into(), vec![b"pack".to_vec(); 4]), ("recipe_priorities".into(), vec![
         br#"{"entries":{"test:a":5,"test:b":-2}}"#.to_vec(),
         br#"{"replace":true,"neoforge:conditions":[{"type":"neoforge:not","value":{"type":"neoforge:true"}}]}"#.to_vec(),
         br#"{"entries":{"test:b":2147483647}}"#.to_vec(),
@@ -127,10 +125,13 @@ fn every_projection_uses_the_same_priority_order() {
             sources.push((id, recipe));
         }
     }
-    let files = vec![(
-        "recipe_priorities".into(),
-        vec![serde_json::to_vec(&json!({"entries":entries})).unwrap()],
-    )];
+    let files = vec![
+        (
+            "recipe_priorities".into(),
+            vec![serde_json::to_vec(&json!({"entries":entries})).unwrap()],
+        ),
+        ("recipe_priorities.source".into(), vec![b"pack".to_vec()]),
+    ];
     let overlay = PackOverlay::new(&files);
     let resolved = ResolvedSources::resolve_prioritized(
         &root.0,
@@ -209,14 +210,9 @@ fn a_malformed_layer_is_refused_whole_naming_its_source() {
         .layer("pack a", br#"{"entries":{"test:a":3}}"#, &conditions)
         .unwrap();
     for (bytes, error) in [
-        (
-            &br#"[{"test:a":9}]"#[..],
-            "pack b: invalid type: sequence, expected struct PriorityLayer",
-        ),
-        (
-            br#"7"#,
-            "pack b: invalid type: integer `7`, expected struct PriorityLayer",
-        ),
+        // A positional array that would fill `replace` and `entries`.
+        (&br#"[true,{}]"#[..], "pack b: the root must be an object"),
+        (br#"7"#, "pack b: the root must be an object"),
         (
             br#"{"replace":true,"entries":{"test:a":2147483648}}"#,
             "pack b: invalid value: integer `2147483648`, expected i32",
