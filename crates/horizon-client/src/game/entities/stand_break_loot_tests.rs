@@ -135,7 +135,7 @@ fn burn(game: &mut Game<'_>, small: bool) {
 const STICK: &str = "execute if entity @e[type=item,x=2.5,y=100,z=8.5,distance=..3,nbt={Item:{id:\"minecraft:stick\"}}]";
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn a_burnt_out_stand_drops_its_loot_table() {
     let mut resources = None;
     let mut game = game(&mut resources);
@@ -145,7 +145,7 @@ fn a_burnt_out_stand_drops_its_loot_table() {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn a_small_burnt_out_stand_drops_no_loot() {
     // ArmorStand.isBaby is isSmall: LivingEntity.shouldDropLoot is false.
     let mut resources = None;
@@ -166,7 +166,7 @@ fn sticks(game: &mut Game<'_>) -> String {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn control_mob_drops_off_rolls_nothing() {
     let mut resources = None;
     let mut game = game(&mut resources);
@@ -177,7 +177,7 @@ fn control_mob_drops_off_rolls_nothing() {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn control_one_break_rolls_the_table_once() {
     let mut resources = None;
     let mut game = game(&mut resources);

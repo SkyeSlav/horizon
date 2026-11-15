@@ -37,7 +37,7 @@ fn fresh_player(game: &mut super::Game<'_>, mode: GameMode) {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn hit_attempts_reach_the_listener_once_including_refusals() {
     let heard = Arc::new(Mutex::new(Vec::new()));
     let override_answer = Arc::new(Mutex::new(None));

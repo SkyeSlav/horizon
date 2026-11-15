@@ -1099,7 +1099,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs prepared resources"]
     fn teleport_closes_raw_peek_without_adding_covered() {
         assert!(super::super::world::with_built_test_world(
             &[],

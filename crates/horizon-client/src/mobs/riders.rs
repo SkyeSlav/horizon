@@ -718,7 +718,7 @@ mod tests {
     use super::*;
 
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
     fn actual_tick_restores_navigation_after_goal_unwind() {
         use super::super::goals::{Cx, Goal};
         use std::sync::{
@@ -813,7 +813,7 @@ mod tests {
 
     // Lower-layer loan test, not a native GoalContext integration test.
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
     fn retained_controller_disables_goals_without_becoming_a_target() {
         let mut vehicle = of(71, Species::Spider);
         let mut rider = of(72, Species::Skeleton);

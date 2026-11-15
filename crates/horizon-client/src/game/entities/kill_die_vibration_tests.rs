@@ -65,7 +65,7 @@ pub(super) fn deaths(
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn a_killed_mob_posts_its_death_before_the_command_returns() {
     game(|game| {
         let pig = game

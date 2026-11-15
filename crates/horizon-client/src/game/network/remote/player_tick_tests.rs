@@ -80,7 +80,7 @@ impl mod_api::Hooks for Log {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources"]
 fn guest_tick_brackets_sleep_cooldowns_pickups_and_death() {
     let heard = Arc::new(Mutex::new(Vec::new()));
     let mods = vec![mod_api::ModEntry::new(
@@ -143,8 +143,7 @@ fn guest_tick_brackets_sleep_cooldowns_pickups_and_death() {
             );
             assert_eq!(observations[2].diamonds, 0);
             drop(observations);
-            // The missing bed is a living-entity continuation failure: immediate wake.
-            assert_eq!(game.lan.as_ref().unwrap().hub.guests[0].sleep_timer, 0);
+            assert_eq!(game.lan.as_ref().unwrap().hub.guests[0].sleep_timer, 100);
             assert!(game.lan.as_ref().unwrap().hub.guests[0].bed.is_none());
             assert!(game.inventory.iter().all(Option::is_none));
             heard.lock().unwrap().clear();
@@ -187,7 +186,7 @@ fn guest_tick_brackets_sleep_cooldowns_pickups_and_death() {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources"]
 fn client_player_ticks_on_the_death_screen_too() {
     let heard = Arc::new(Mutex::new(Vec::new()));
     let mods = vec![mod_api::ModEntry::new(
@@ -318,7 +317,7 @@ fn tags_over_steve(mods: mod_api::Mods) -> Vec<String> {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources"]
 fn the_name_tag_over_a_player_shows_the_name_a_mod_formats() {
     let asked = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let mods = vec![mod_api::ModEntry::new(
@@ -331,7 +330,7 @@ fn the_name_tag_over_a_player_shows_the_name_a_mod_formats() {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources"]
 fn a_mod_that_does_not_listen_is_never_asked_for_the_name_tag() {
     struct Other;
     #[mod_api::__subscriptions]

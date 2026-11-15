@@ -6,7 +6,7 @@ use horizon_core::geometry::Vec3;
 use std::sync::Arc;
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn a_carried_block_is_not_placed_into_an_entity() {
     let root = std::path::PathBuf::from(std::env::var_os("HORIZON_TEST_RESOURCES").unwrap());
     let settings = Settings::default();

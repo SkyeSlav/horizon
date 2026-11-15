@@ -1062,7 +1062,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "requires prepared entity resources in .local/horizon-client"]
     fn tongue_acquisition_honors_brain_hooks_and_edible_redirects() {
         use crate::mobs::{MobHooks, PlayerView, TargetChange};
         use std::cell::Cell;

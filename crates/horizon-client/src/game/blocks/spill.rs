@@ -799,7 +799,6 @@ impl GameLevel<'_> {
             && mod_api::__private::listened(mod_api::HookId::BlockDrops)
             && let Ok(mut snapshots) = items.try_into_api()
         {
-            let (block_entity, breaker_entity) = self.drop_event_refs(pos, breaker);
             let mut next_experience = experience;
             let mut next_canceled = canceled;
             self.native_block_drops(crate::game::native_hooks::BlockDropsCall {
@@ -807,8 +806,6 @@ impl GameLevel<'_> {
                 pos,
                 state,
                 breaker,
-                breaker_entity,
-                block_entity,
                 tool,
                 drops: &mut snapshots,
                 experience: &mut next_experience,
@@ -1239,7 +1236,7 @@ mod tests {
     /// cancels gets no entities and no experience but the draws still happened; a mod that
     /// edits the amount changes only the amount.
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES and an isolated process for native mods"]
     fn block_drops_draws_before_the_event_and_cancel_empties_the_break() {
         use horizon_core::random::LegacyRandom;
         use std::sync::Arc;
@@ -1295,7 +1292,7 @@ mod tests {
     /// place, its stacks scattered after the block entity's own; skipped under flag 256, and
     /// drawing nothing when it gives nothing back.
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
     fn a_block_entity_part_gives_back_what_it_held_when_removed() {
         use horizon_client::chunk::Chunk;
         use horizon_client::containers::{ModBlockEntity, ModBlockEntityFields};
@@ -1372,7 +1369,7 @@ mod tests {
     /// the call, so its removal doesn't reach its part: the part isn't asked, its attachments
     /// go with the block entity, and only its container slots come back out.
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
     fn a_block_entity_removing_itself_in_its_tick_is_not_asked() {
         use horizon_client::chunk::Chunk;
         use horizon_client::containers::{ModBlockEntity, ModBlockEntityFields, ModContainer};
@@ -1525,7 +1522,7 @@ mod crafter_drop_name_tests {
     use super::*;
 
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES and scratch homes/cwd"]
     fn actual_crafter_destruction_keeps_source_name_off_the_dropped_item() {
         crate::game::native_entity_refs::tests::with_game(|game| {
             game.build_registries();

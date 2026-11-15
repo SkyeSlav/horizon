@@ -23,7 +23,7 @@ impl mod_api::Hooks for Redirect {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn redirect_to_another_guest_switches_view_and_tags_subsequent_events() {
     let redirect = Arc::new(Mutex::new(None));
     let mods = vec![mod_api::ModEntry::new(

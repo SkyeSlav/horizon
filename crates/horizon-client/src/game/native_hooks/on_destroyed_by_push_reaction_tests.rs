@@ -87,7 +87,7 @@ fn state(registry: &BlockRegistry, name: &str, props: &[(&str, &str)]) -> BlockS
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn a_block_part_hears_a_piston_destroy_it_before_the_move_overwrites_its_cells() {
     let torch = Torch::default();
     let cancel = Arc::new(AtomicBool::new(false));

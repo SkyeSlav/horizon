@@ -53,7 +53,7 @@ macro_rules! check_list {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn resident_new_family_lifetimes_bind_move_and_retire() {
     with_game(|game| {
         game.summon_with_nbt("minecraft:marker", [0.5, 70.0, 0.5], "{}")

@@ -151,7 +151,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
     fn entity_energy_and_fluids_move_and_roll_back() {
         use super::super::super::native_entity_refs::tests::with_game;
         use horizon_client::chunk::Chunk;
@@ -167,8 +167,6 @@ mod tests {
         use mod_platform::__private::part_tests::{ROBOT_FLUID, game_thread};
         with_game(|game| {
             let _mods = game_thread();
-            // Installing the capability fixture replaces the registry snapshot.
-            crate::game::mods::register_iterated_registries(&game.options.resources).unwrap();
             game.options.dedicated = Some(Vec::new());
             game.world
                 .chunks
@@ -296,7 +294,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
     fn a_buffers_energy_moves_by_its_sides_and_limits_and_an_abort_puts_it_back() {
         use super::super::super::native_entity_refs::tests::with_game;
         use horizon_client::chunk::Chunk;

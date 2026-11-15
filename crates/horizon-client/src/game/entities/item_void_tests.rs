@@ -11,7 +11,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn items_fall_to_each_dimensions_own_void_floor() {
     let mut resources = None;
     let mut game = server_game(&mut resources);

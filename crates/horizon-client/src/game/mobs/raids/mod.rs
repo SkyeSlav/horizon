@@ -1732,7 +1732,7 @@ mod entity_ticking_tests {
     use std::{collections::HashSet, sync::Arc};
 
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
     fn a_wave_spawns_only_where_entities_tick() {
         with_game(|game| {
             game.world

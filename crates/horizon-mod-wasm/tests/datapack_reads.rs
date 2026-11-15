@@ -15,43 +15,13 @@ impl Host for World {
 }
 impl Backend for World {}
 mod_api::impl_backend_areas!(World, except(levels));
-mod_api::impl_host_areas!(World, except(levels, keys));
+mod_api::impl_host_areas!(World, except(levels));
 impl mod_api::prelude::LevelsHost for World {
     fn is_loaded(&self, id: &str) -> bool {
         if id == "datapack_fixture_completed" {
             self.2.set(true);
         }
         id == "datapack_fixture" || id == "datapack_fixture_completed"
-    }
-}
-impl mod_api::prelude::KeysHost for World {
-    fn registry_entry(&self, registry: &str, id: &str) -> Option<RegistryEntry> {
-        // The game's built-in block registry, which the datapack set does not hold.
-        (self.0.contains_entry(registry, id)
-            || (registry, id) == ("minecraft:block", "minecraft:stone"))
-            .then(|| {
-                RegistryEntry::new(
-                    Identifier::parse(registry).unwrap(),
-                    Identifier::parse(id).unwrap(),
-                )
-            })
-    }
-    fn registry_entries(&self, registry: &str) -> Option<Vec<Identifier>> {
-        self.0
-            .entries(registry)
-            .ok()?
-            .into_iter()
-            .map(|id| Identifier::parse(id).ok())
-            .collect()
-    }
-    fn registry_entry_key_slot(&self, entry: &RegistryEntry) -> Option<u32> {
-        (entry.registry.to_string() == "minecraft:block"
-            && entry.id.to_string() == "minecraft:stone")
-            .then_some(5)
-    }
-    fn registry_entry_in_tag(&self, entry: &RegistryEntry, tag: &str) -> Option<bool> {
-        self.0
-            .tag_contains(&entry.registry.to_string(), &entry.id.to_string(), tag)
     }
 }
 impl mod_api::prelude::LevelsBackend for World {
@@ -93,7 +63,7 @@ impl mod_api::prelude::LevelsBackend for World {
 impl ServerHost for World {}
 mod_api::impl_server_host_areas!(World);
 #[test]
-#[ignore = "daily"]
+#[ignore = "requires HORIZON_WASM_FIXTURE and HORIZON_WASM_STD built from this tree"]
 fn real_wasm_datapack_reads_preserve_values_and_ordering() {
     crate::test_stack::on_guest_stack(|| {
         struct Logger;
@@ -140,7 +110,7 @@ fn real_wasm_datapack_reads_preserve_values_and_ordering() {
             )],
             sync: DatapackRegistrySync::ServerOnly,
         };
-        let mut candidate = DatapackCandidate::build(
+        let candidate = DatapackCandidate::build(
             &[declaration],
             &[
                 (
@@ -154,12 +124,6 @@ fn real_wasm_datapack_reads_preserve_values_and_ordering() {
             ],
         )
         .unwrap();
-        candidate
-            .bind_tags(
-                "wasm_fixture:spell",
-                [("wasm_fixture:hot".into(), vec!["wasm_fixture:fire".into()])].into(),
-            )
-            .unwrap();
         let mut world = World(
             DatapackRegistrySet::first(candidate, 8),
             std::cell::Cell::new([0; 3]),

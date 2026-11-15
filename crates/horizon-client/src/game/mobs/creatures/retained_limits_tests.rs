@@ -54,7 +54,7 @@ fn prepare(game: &mut Game<'_>) {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources and isolated homes"]
 fn same_mob_guest_attack_survives_movement_panic() {
     crate::entry::install_client_hooks();
     let probe = Arc::new(MovementPanic {
@@ -96,9 +96,6 @@ fn same_mob_guest_attack_survives_movement_panic() {
                 mob.ai.speed = 0.2;
                 mob.ai.target = Some(horizon_client::mobs::Who::Player);
                 game.mobs.push(mob);
-                // Who::Player names the selected player; retain its guest binding
-                // instead of targeting the faraway host for this attack.
-                game.lan.as_mut().unwrap().mob_players.insert(71, 12);
                 let host_before = game.player.as_ref().unwrap().health.health();
                 let guest_before = game.lan.as_ref().unwrap().hub.guests[0].health;
                 let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -147,7 +144,7 @@ fn same_mob_guest_attack_survives_movement_panic() {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources and isolated homes"]
 fn repeated_producer_panic_has_bounded_batches() {
     crate::entry::install_client_hooks();
     let probe = Arc::new(MovementPanic {
@@ -322,7 +319,7 @@ impl mod_api::Hooks for InterruptedConsumer {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources and isolated homes"]
 fn interrupted_refusal_stays_latched_until_empty() {
     crate::entry::install_client_hooks();
     let producer = Arc::new(MovementPanic {
@@ -432,7 +429,7 @@ fn interrupted_refusal_stays_latched_until_empty() {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources and an isolated HORIZON_HOME"]
 fn push_only_failed_passes_are_refused_and_delivered_without_loss() {
     crate::entry::install_client_hooks();
     let probe = Arc::new(MovementPanic {
@@ -550,7 +547,7 @@ impl mod_api::Hooks for RepeatedConsumerHooks {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources and an isolated HORIZON_HOME"]
 fn successful_mixed_producers_are_bounded_behind_a_repeatedly_failing_consumer() {
     crate::entry::install_client_hooks();
     let probe = Arc::new(RepeatedConsumer {

@@ -197,7 +197,7 @@ fn shulker_stack() -> ItemStack {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES; runs in an isolated process"]
 fn block_items_notify_after_setup_and_before_consumption() {
     if run_fresh_cases(
         "game::native_hooks::on_block_placed_by_tests::block_items_notify_after_setup_and_before_consumption",

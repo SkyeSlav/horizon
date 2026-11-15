@@ -85,25 +85,20 @@ impl DrawContext for GameDrawContext<'_, '_> {
     fn fluid(&mut self, fluid: &str, at: [f32; 2], size: f32) {
         self.game.native_fluid(&mut *self.surface, fluid, at, size)
     }
-    fn draw_scene(
-        &mut self,
-        rect: [f32; 4],
-        scene: &mod_api::Scene,
-        view: SceneView,
-    ) -> Result<(), mod_api::SceneError> {
-        let blocks = crate::game::api_values::aggregates::scene_blocks(&scene.blocks)?;
+    fn draw_scene(&mut self, rect: [f32; 4], blocks: &[mod_api::SceneBlock], view: SceneView) {
+        let Ok(blocks) =
+            crate::game::api_values::aggregates::SourceScene(blocks).try_into_engine(&())
+        else {
+            return;
+        };
         self.game
-            .native_draw_scene(&mut *self.surface, rect, &blocks, scene, view)
+            .native_draw_scene(&mut *self.surface, rect, &blocks, view)
     }
     fn push_clip(&mut self, rect: [f32; 4]) -> Result<(), GuiClipRefusal> {
         self.clips.push(self.surface, rect)
     }
     fn pop_clip(&mut self) -> Result<(), GuiClipRefusal> {
         self.clips.pop(self.surface)
-    }
-    fn entity(&mut self, entity: &GuiEntity, view: GuiEntityView) -> Result<(), GuiEntityError> {
-        self.game
-            .native_draw_entity(&mut *self.surface, entity, view)
     }
     fn draw_menu_background(&mut self, rect: [f32; 4], in_world: bool) {
         self.game

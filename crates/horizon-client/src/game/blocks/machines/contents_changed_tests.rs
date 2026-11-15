@@ -133,12 +133,7 @@ impl BlockPart for Observed {
 impl Hooks for Observed {
     fn register(&self, r: &mut dyn Registrar, _: &RegistrationContext) {
         // An unbacked vehicle coordinate would select air if it were dispatched as a block.
-        for block in [
-            "minecraft:air",
-            "minecraft:chest",
-            "minecraft:crafter",
-            "minecraft:chiseled_bookshelf",
-        ] {
+        for block in ["minecraft:air", "minecraft:chest", "minecraft:crafter"] {
             let block_key = r.block_key(block);
             r.block_part(block_key, self.clone());
         }
@@ -196,10 +191,10 @@ fn place(game: &mut Game<'_>, level: LevelRef, pos: [i32; 3], block: &str) {
 }
 
 #[test]
-#[ignore = "daily"]
-fn explicit_notices_observe_tentative_writes_and_survive_abort() {
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
+fn a_contents_notice_reads_the_root_commit_and_not_aborted_writes() {
     with_changes(
-        "game::machines::contents_changed_tests::explicit_notices_observe_tentative_writes_and_survive_abort",
+        "game::machines::contents_changed_tests::a_contents_notice_reads_the_root_commit_and_not_aborted_writes",
         NoticeAction::Observe,
         |game, level, changes| {
             let pos = [0, 64, 0];
@@ -214,61 +209,67 @@ fn explicit_notices_observe_tentative_writes_and_survive_abort() {
                 .unwrap(),
             );
             changes.0.lock().unwrap().clear();
-            assert_eq!(
-                game.transaction(|host, tx| {
-                    assert_eq!(items.insert(host, tx, 0, &sticks, 2), 2);
-                    assert!(
-                        host.transaction(|host, inner| {
-                            assert_eq!(items.insert(host, inner, 0, &sticks, 7), 7);
-                            Err::<(), ()>(())
-                        })
-                        .is_err()
-                    );
-                    assert_eq!(items.amount(host, 0), 2);
+            let committed = game.transaction(|host, tx| {
+                assert_eq!(items.insert(host, tx, 0, &sticks, 2), 2);
+                assert!(
                     host.transaction(|host, inner| {
-                        assert_eq!(items.insert(host, inner, 0, &sticks, 3), 3);
-                        Ok::<_, ()>(())
-                    })?;
-                    assert!(changes.0.lock().unwrap().is_empty());
-                    Ok::<_, ()>(())
-                }),
-                Ok(())
-            );
-            let notice = |amount| Notice {
+                        assert_eq!(items.insert(host, inner, 0, &sticks, 7), 7);
+                        Err::<(), ()>(())
+                    })
+                    .is_err()
+                );
+                assert_eq!(items.amount(host, 0), 2);
+                assert_eq!(
+                    host.transaction(|host, inner| {
+                        Ok::<_, ()>(items.insert(host, inner, 0, &sticks, 3))
+                    }),
+                    Ok(3)
+                );
+                assert!(entity.set_changed(host).unwrap());
+                assert!(changes.0.lock().unwrap().is_empty());
+                Ok::<_, ()>(())
+            });
+            assert_eq!(committed, Ok(()));
+            let expected = Notice {
                 level,
                 pos,
-                amount,
+                amount: 5,
                 version: None,
             };
-            assert_eq!(*changes.0.lock().unwrap(), [notice(5)]);
-            changes.0.lock().unwrap().clear();
-            game.world.block_log = Some(Vec::new());
+            assert_eq!(
+                changes.0.lock().unwrap().as_slice(),
+                std::slice::from_ref(&expected)
+            );
             assert!(
                 game.transaction(|host, tx| {
                     assert_eq!(items.insert(host, tx, 0, &sticks, 4), 4);
-                    for _ in 0..2 {
-                        assert!(entity.set_changed(host).unwrap());
-                    }
-                    assert_eq!(*changes.0.lock().unwrap(), [notice(9), notice(9)]);
-                    assert!(level.send_block_updated(host, pos));
+                    assert!(entity.set_changed(host).unwrap());
                     Err::<(), ()>(())
                 })
                 .is_err()
             );
             assert_eq!(items.amount(game, 0), 5);
-            assert_eq!(*changes.0.lock().unwrap(), [notice(9), notice(9)]);
-            assert!(game.world.block_log.as_ref().unwrap().contains(&(0, 64, 0)));
-            assert!(entity.set_changed(game).unwrap());
             assert_eq!(
-                *changes.0.lock().unwrap(),
-                [notice(9), notice(9), notice(5)]
+                changes.0.lock().unwrap().as_slice(),
+                std::slice::from_ref(&expected)
             );
+            assert!(entity.set_changed(game).unwrap());
+            assert_eq!(*changes.0.lock().unwrap(), [expected.clone(), expected]);
+            // A storage with no attached observer is not broadcast to this Part.
+            place(game, level, [2, 64, 0], "minecraft:furnace");
+            assert!(
+                game.block_entity(level, [2, 64, 0])
+                    .unwrap()
+                    .set_changed(game)
+                    .unwrap()
+            );
+            assert_eq!(changes.0.lock().unwrap().len(), 2);
         },
     );
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn a_self_write_does_not_reenter_but_another_backing_block_notifies() {
     with_changes(
         "game::machines::contents_changed_tests::a_self_write_does_not_reenter_but_another_backing_block_notifies",
@@ -358,7 +359,7 @@ fn a_self_write_does_not_reenter_but_another_backing_block_notifies() {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn a_panicking_part_does_not_leave_its_contents_notice_guarded() {
     with_changes(
         "game::machines::contents_changed_tests::a_panicking_part_does_not_leave_its_contents_notice_guarded",
@@ -383,7 +384,7 @@ fn a_panicking_part_does_not_leave_its_contents_notice_guarded() {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn a_double_container_notifies_each_backing_block_once() {
     with_changes(
         "game::machines::contents_changed_tests::a_double_container_notifies_each_backing_block_once",
@@ -454,10 +455,10 @@ fn a_double_container_notifies_each_backing_block_once() {
 }
 
 #[test]
-#[ignore = "daily"]
-fn a_native_types_payload_notifications_observe_each_write_before_commit() {
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
+fn a_native_types_inherited_block_part_reads_the_committed_payload() {
     with_changes(
-        "game::machines::contents_changed_tests::a_native_types_payload_notifications_observe_each_write_before_commit",
+        "game::machines::contents_changed_tests::a_native_types_inherited_block_part_reads_the_committed_payload",
         NoticeAction::Observe,
         |game, level, changes| {
             let pos = [0, 64, 0];
@@ -476,26 +477,26 @@ fn a_native_types_payload_notifications_observe_each_write_before_commit() {
                                 .unwrap()
                         );
                     }
-                    assert_eq!(changes.0.lock().unwrap().len(), 2);
+                    assert!(changes.0.lock().unwrap().is_empty());
                     Ok::<_, ()>(())
                 }),
                 Ok(())
             );
             assert_eq!(
                 *changes.0.lock().unwrap(),
-                [11, 12].map(|version| Notice {
+                [Notice {
                     level,
                     pos,
                     amount: 0,
-                    version: Some(version),
-                })
+                    version: Some(12),
+                }]
             );
         },
     );
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn a_crafter_notices_its_source_but_not_a_vehicles_placeholder() {
     with_changes(
         "game::machines::contents_changed_tests::a_crafter_notices_its_source_but_not_a_vehicles_placeholder",
@@ -555,7 +556,7 @@ fn a_crafter_notices_its_source_but_not_a_vehicles_placeholder() {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn notices_come_in_first_write_order_once_each_whatever_the_journal_keeps() {
     with_changes(
         "game::machines::contents_changed_tests::notices_come_in_first_write_order_once_each_whatever_the_journal_keeps",
@@ -602,7 +603,7 @@ fn notices_come_in_first_write_order_once_each_whatever_the_journal_keeps() {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn a_mod_reads_the_open_transaction_its_depth_and_the_root_commits_phase() {
     with_changes(
         "game::machines::contents_changed_tests::a_mod_reads_the_open_transaction_its_depth_and_the_root_commits_phase",
@@ -653,10 +654,7 @@ fn a_mod_reads_the_open_transaction_its_depth_and_the_root_commits_phase() {
             assert_eq!(committed, Ok(()));
             assert_eq!(
                 *LIFECYCLES.lock().unwrap(),
-                [
-                    TransactionLifecycle::Open,
-                    TransactionLifecycle::RootClosing
-                ]
+                [TransactionLifecycle::RootClosing]
             );
             assert_eq!(host.transaction_lifecycle(), TransactionLifecycle::None);
         },
@@ -666,7 +664,7 @@ fn a_mod_reads_the_open_transaction_its_depth_and_the_root_commits_phase() {
 /// A notice that opens and closes a transaction of its own leaves the root's closing phase as it
 /// was, and the phase ends with the root.
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn a_notice_that_opens_a_transaction_keeps_the_root_closing_phase() {
     with_changes(
         "game::machines::contents_changed_tests::a_notice_that_opens_a_transaction_keeps_the_root_closing_phase",
@@ -674,18 +672,11 @@ fn a_notice_that_opens_a_transaction_keeps_the_root_closing_phase() {
         |game, level, _| {
             let pos = [0, 64, 0];
             place(game, level, pos, "minecraft:chest");
-            let items = level.capability(game, &ITEMS, pos, None).unwrap();
-            let sticks = ItemResource::of(
-                &mod_api::ItemStack::new(
-                    mod_api::__private::item_key("minecraft:stick").unwrap(),
-                    1,
-                )
-                .unwrap(),
-            );
+            let entity = game.block_entity(level, pos).unwrap();
             LIFECYCLES.lock().unwrap().clear();
             let host: &mut dyn ServerHost = game;
-            let committed = host.transaction(|host, tx| {
-                assert_eq!(items.insert(host, tx, 0, &sticks, 1), 1);
+            let committed = host.transaction(|host, _| {
+                assert!(entity.set_changed(host).unwrap());
                 Ok::<_, ()>(())
             });
             assert_eq!(committed, Ok(()));
@@ -701,7 +692,7 @@ fn a_notice_that_opens_a_transaction_keeps_the_root_closing_phase() {
 /// A notice that panics while the root commits leaves no closing phase behind: after the caught
 /// panic nothing is open, and the next transaction reads Open.
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn a_panicking_root_commit_notice_leaves_the_phase_none() {
     with_changes(
         "game::machines::contents_changed_tests::a_panicking_root_commit_notice_leaves_the_phase_none",
@@ -709,18 +700,11 @@ fn a_panicking_root_commit_notice_leaves_the_phase_none() {
         |game, level, _| {
             let pos = [0, 64, 0];
             place(game, level, pos, "minecraft:chest");
-            let items = level.capability(game, &ITEMS, pos, None).unwrap();
-            let sticks = ItemResource::of(
-                &mod_api::ItemStack::new(
-                    mod_api::__private::item_key("minecraft:stick").unwrap(),
-                    1,
-                )
-                .unwrap(),
-            );
+            let entity = game.block_entity(level, pos).unwrap();
             let host: &mut dyn ServerHost = game;
             let caught = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                host.transaction(|host, tx| {
-                    assert_eq!(items.insert(host, tx, 0, &sticks, 1), 1);
+                host.transaction(|host, _| {
+                    entity.set_changed(host).unwrap();
                     Ok::<_, ()>(())
                 })
             }));
@@ -731,166 +715,6 @@ fn a_panicking_root_commit_notice_leaves_the_phase_none() {
                 Ok::<_, ()>(())
             });
             assert_eq!(next, Ok(()));
-        },
-    );
-}
-
-#[test]
-#[ignore = "daily"]
-fn bookshelf_abort_restores_items_flags_and_last_slot_but_keeps_issued_effects() {
-    with_changes(
-        "game::machines::contents_changed_tests::bookshelf_abort_restores_items_flags_and_last_slot_but_keeps_issued_effects",
-        NoticeAction::Observe,
-        |game, level, changes| {
-            use horizon_core::{position::ChunkPos, ticks::TickTypeId};
-            game.block_ticks
-                .add_empty_chunk(ChunkPos::new(0, 0))
-                .unwrap();
-            let book = ItemResource::of(
-                &mod_api::ItemStack::new(
-                    mod_api::__private::item_key("minecraft:book").unwrap(),
-                    1,
-                )
-                .unwrap(),
-            );
-            for (index, operation) in ["insert", "extract", "merge", "replace"]
-                .into_iter()
-                .enumerate()
-            {
-                let pos = [index as i32 * 2, 64, 0];
-                let key = (pos[0], pos[1], pos[2]);
-                place(game, level, pos, "minecraft:chiseled_bookshelf");
-                let extracting = operation == "extract";
-                let Some(BlockEntity::ChiseledBookshelf(shelf)) =
-                    game.world.block_entities.get_mut(&key)
-                else {
-                    panic!("missing bookshelf");
-                };
-                shelf.last_slot = 4;
-                shelf.items[2] = extracting.then(|| ItemStack::new("minecraft:book", 1));
-                let initial = game.world.block(pos[0], pos[1], pos[2]);
-                let initial = game
-                    .with_props(
-                        initial,
-                        &[("slot_2_occupied", if extracting { "true" } else { "false" })],
-                    )
-                    .unwrap();
-                game.world.set(pos[0], pos[1], pos[2], initial).unwrap();
-                let comparator = BlockPos::new(pos[0] + 1, pos[1], pos[2]);
-                place(
-                    game,
-                    level,
-                    [comparator.x, comparator.y - 1, comparator.z],
-                    "minecraft:stone",
-                );
-                place(
-                    game,
-                    level,
-                    [comparator.x, comparator.y, comparator.z],
-                    "minecraft:comparator",
-                );
-                let state = game.world.block(comparator.x, comparator.y, comparator.z);
-                let state = game.with_props(state, &[("facing", "west")]).unwrap();
-                game.world
-                    .set(comparator.x, comparator.y, comparator.z, state)
-                    .unwrap();
-                game.with_level(|b, level, ticks| b.scheduled_block_tick(level, ticks, comparator));
-                assert_eq!(game.block_ticks.comparator_outputs[&comparator], 5);
-                let kind = TickTypeId(u32::from(game.res.behaviours().block(state).0));
-                assert!(!game.block_ticks.blocks.has_scheduled(comparator, kind));
-                let entity = game.block_entity(level, pos).unwrap();
-                let items = level.capability(game, &ITEMS, pos, None).unwrap();
-                let expected = Notice {
-                    level,
-                    pos,
-                    amount: u32::from(!extracting),
-                    version: None,
-                };
-                changes.0.lock().unwrap().clear();
-                game.world.modified.clear();
-                game.world.block_log = Some(Vec::new());
-                let aborted: Result<(), ()> = game.transaction(|host, tx| {
-                    match operation {
-                        "insert" => {
-                            assert_eq!(items.insert(host, tx, 2, &book, 1), 1);
-                            assert!(entity.set_changed(host).unwrap());
-                        }
-                        "extract" => {
-                            assert_eq!(items.extract(host, tx, 2, &book, 1), 1);
-                            assert!(entity.set_changed(host).unwrap());
-                        }
-                        _ => {
-                            let mut stack = horizon_client::save::item_to_nbt(&ItemStack::new(
-                                "minecraft:book",
-                                1,
-                            ));
-                            let Tag::Compound(fields) = &mut stack else {
-                                panic!("item is not a compound")
-                            };
-                            fields.insert("Slot".into(), Tag::Byte(2));
-                            let data = Compound::from([("Items".into(), Tag::List(vec![stack]))]);
-                            if operation == "merge" {
-                                assert!(entity.merge_data(host, data).unwrap());
-                            } else {
-                                assert!(entity.replace_data(host, data).unwrap());
-                            }
-                        }
-                    }
-                    let Some(BlockEntity::ChiseledBookshelf(shelf)) =
-                        host.world.block_entities.get(&key)
-                    else {
-                        panic!("missing tentative bookshelf");
-                    };
-                    assert_eq!(shelf.last_slot, 2, "{operation}");
-                    assert_eq!(shelf.items[2].is_some(), !extracting, "{operation}");
-                    let info = host
-                        .pack
-                        .assets
-                        .registry
-                        .state(host.world.block(pos[0], pos[1], pos[2]))
-                        .unwrap();
-                    assert_eq!(
-                        info.properties["slot_2_occupied"],
-                        if extracting { "false" } else { "true" }
-                    );
-                    assert_eq!(
-                        changes.0.lock().unwrap().as_slice(),
-                        std::slice::from_ref(&expected)
-                    );
-                    assert!(level.send_block_updated(host, pos));
-                    Err(())
-                });
-                assert!(aborted.is_err());
-                let Some(BlockEntity::ChiseledBookshelf(shelf)) =
-                    game.world.block_entities.get(&key)
-                else {
-                    panic!("missing restored bookshelf");
-                };
-                assert_eq!(shelf.last_slot, 4, "{operation}");
-                assert_eq!(shelf.items[2].is_some(), extracting, "{operation}");
-                assert_eq!(
-                    game.world.block(pos[0], pos[1], pos[2]),
-                    initial,
-                    "{operation}"
-                );
-                assert_eq!(
-                    *changes.0.lock().unwrap(),
-                    [expected],
-                    "no synthetic restore notice"
-                );
-                assert!(
-                    game.world.modified.contains(&(0, 0)),
-                    "issued dirty mark survives"
-                );
-                assert!(
-                    game.world.block_log.as_ref().unwrap().contains(&key),
-                    "issued data-send survives"
-                );
-                assert!(
-                    game.block_ticks.blocks.has_scheduled(comparator, kind),
-                    "issued comparator work survives"
-                );
-            }
         },
     );
 }

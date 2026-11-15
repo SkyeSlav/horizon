@@ -136,7 +136,7 @@ mod tests {
     use mod_api::WorldEpoch;
 
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs prepared resources"]
     fn item_handles_preserve_stacks_and_distinguish_target_from_thrower() {
         with_game(|game| {
             game.options.dedicated = Some(Vec::new());

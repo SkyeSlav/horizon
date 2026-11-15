@@ -413,7 +413,7 @@ mod off_level_tests {
     use horizon_core::geometry::Vec3;
 
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
     fn power_does_not_prime_a_frozen_sulfur_cube() {
         crate::game::native_entity_refs::tests::with_game(|game| {
             game.world.chunks.insert(

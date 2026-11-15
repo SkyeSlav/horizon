@@ -76,7 +76,7 @@ fn dropped(game: &Game<'_>, item: &str) -> usize {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn an_arrow_knocks_the_item_out_then_breaks_the_frame() {
     let mut game = game();
     // On the wall's west face (Facing 4: west).
@@ -95,7 +95,7 @@ fn an_arrow_knocks_the_item_out_then_breaks_the_frame() {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn a_fixed_frame_refuses_the_arrow() {
     let mut game = game();
     assert!(game.run_command(

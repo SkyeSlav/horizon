@@ -8,7 +8,7 @@ use crate::game::game_tests::tests::server_game;
 use horizon_core::position::ChunkPos;
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn cave_air_and_void_air_are_air_to_the_command_filters() {
     let mut resources = None;
     let mut game = server_game(&mut resources);

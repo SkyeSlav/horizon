@@ -297,11 +297,8 @@ impl Game<'_> {
         // the registries they list.
         // Resolve membership against the very generation that will be published.
         // In particular, generation exhaustion refuses preparation before any state changes.
-        let mut datapack_candidate = self.datapack_candidate(stack, &conditions)?;
-        if let Some(candidate) = &mut datapack_candidate {
-            native_registry_entries::bind_datapack_tags(root, &overlay, candidate)?;
-        }
-        let datapack_registries = datapack_candidate
+        let datapack_registries = self
+            .datapack_candidate(stack, &conditions)?
             .map(
                 |candidate| match self.mods.datapack_registries.as_ref().filter(|_| reload) {
                     Some(old) => old

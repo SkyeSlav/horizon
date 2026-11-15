@@ -732,7 +732,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
     fn generic_seat_mount_payloads_cancellation_and_capacity() {
         use horizon_client::entities::ArmorStand;
         use std::sync::atomic::{AtomicBool, Ordering};
@@ -790,16 +790,6 @@ mod tests {
                         mounting,
                     };
                     events.lock().unwrap().clear();
-                    if vehicle_kind == "minecraft:marker" {
-                        // Marker.couldAcceptPassenger refuses even a forced mount,
-                        // before the cancellable mount notification.
-                        assert!(!game.entity_start_riding(rider, vehicle, false));
-                        assert!(!game.entity_start_riding(rider, vehicle, true));
-                        assert_eq!(rider.vehicle(game), None);
-                        assert_eq!(vehicle.passengers(game), Some(vec![]));
-                        assert!(events.lock().unwrap().is_empty());
-                        continue;
-                    }
 
                     // A canceled handle write reports the type but changes neither side.
                     cancel.store(true, Ordering::SeqCst);
@@ -859,7 +849,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
     fn canceled_dismount_keeps_old_mount_and_mount_hook_fires_once() {
         let events = Arc::new(Mutex::new(Vec::new()));
         let mods: mod_api::Mods = vec![mod_api::ModEntry::new(
@@ -883,7 +873,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
     fn full_vehicle_checks_distinguish_forced_mobs_from_storage_limits() {
         use super::super::boats::Boat;
         let events = Arc::new(Mutex::new(Vec::new()));
@@ -940,7 +930,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
     fn camel_admits_multiple_mob_passengers_but_not_a_fourth() {
         super::super::native_entity_refs::tests::with_game(|game| {
             for (id, name) in [
@@ -1014,7 +1004,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
     fn boat_and_cart_interactions_use_shared_mount_path() {
         use super::super::{
             InteractTarget,
@@ -1045,7 +1035,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
     fn handles_reject_held_out_and_stale_entities() {
         super::super::native_entity_refs::tests::with_game(|game| {
             for id in [50, 51] {
@@ -1099,7 +1089,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
     fn a_nested_tree_lists_passengers_depth_first_and_shares_its_root() {
         super::super::native_entity_refs::tests::with_game(|game| {
             let camel = add_mob(game, 80, "minecraft:camel", Vec3::ZERO);
@@ -1221,7 +1211,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
     fn passengers_keep_the_order_they_boarded_in_not_the_mob_list() {
         use horizon_core::nbt::Tag;
         super::super::native_entity_refs::tests::with_game(|game| {
@@ -1277,7 +1267,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
     fn a_player_boards_ahead_of_a_mob_and_behind_a_player_as_add_passenger_says() {
         use horizon_client::motion::PlayerMotion;
         super::super::native_entity_refs::tests::with_game(|game| {
@@ -1322,7 +1312,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
     fn the_first_passenger_controls_only_what_it_can_steer() {
         use super::super::boats::Boat;
         use horizon_client::items::ItemStack;
@@ -1429,7 +1419,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
     fn entity_drops_gates_a_dying_mobs_lead_in_the_tick_not_in_detach() {
         use horizon_client::{
             gamerules::Value,
@@ -1564,16 +1554,16 @@ mod tests {
             hub.update_guest(1, |g| g.motion = Some(Box::new(motion)))
                 .unwrap();
 
-            // Animal searches neighbouring block centres, then the other side past a wall.
+            // Beside a cow, 0.45 + 0.4 across its facing, and to the other side past a wall.
             let cow = add_mob(game, 120, "minecraft:cow", at);
-            assert_near(get_off(game, player, cow), [-0.5, 64.0, 0.5]);
+            assert_near(get_off(game, player, cow), [-0.35, 64.0, 0.5]);
             let registry = game.pack.assets.registry;
             let stone = registry.default_state("minecraft:stone").unwrap();
             let air = registry.default_state("minecraft:air").unwrap();
             for y in [64, 65] {
                 game.world.set(-1, y, 0, stone).unwrap();
             }
-            assert_near(get_off(game, player, cow), [1.5, 64.0, 0.5]);
+            assert_near(get_off(game, player, cow), [1.35, 64.0, 0.5]);
             for y in [64, 65] {
                 game.world.set(-1, y, 0, air).unwrap();
             }
@@ -1594,7 +1584,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
     fn a_player_gets_off_along_their_own_yaw_on_their_turn_or_not() {
         use super::super::boats::Boat;
         use horizon_client::motion::PlayerMotion;
@@ -1634,7 +1624,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
     fn dismount_location_answers_without_a_ride_or_a_live_handle() {
         super::super::native_entity_refs::tests::with_game(|game| {
             let at = Vec3::new(0.5, 64.0, 0.5);
@@ -1674,7 +1664,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
     fn leash_writes_change_the_holder_and_tell_the_mods() {
         use super::super::boats::Boat;
         use horizon_client::{mobs::leash::Pending, motion::PlayerMotion};
@@ -1788,7 +1778,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
     fn mount_rejects_cycles_and_respects_cooldown_unless_forced() {
         super::super::native_entity_refs::tests::with_game(|game| {
             for id in [30, 31, 32] {

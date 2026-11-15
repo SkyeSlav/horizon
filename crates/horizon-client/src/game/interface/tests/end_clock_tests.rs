@@ -54,7 +54,7 @@ fn run(game: &mut Game<'_>, line: &str) -> String {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn time_moves_the_clock_the_end_runs_on() {
     let mut game = game();
     let world = std::env::temp_dir().join(format!("horizon-end-clock-{}", std::process::id()));

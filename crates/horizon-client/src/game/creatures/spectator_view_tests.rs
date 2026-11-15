@@ -72,7 +72,7 @@ fn game() -> Game<'static> {
 /// draws the body it cannot show as visible as `entityTranslucentCull` at
 /// `ARGB.multiply(654311423, getModelTint)`: alpha 38, in the blending pass.
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn a_spectator_sees_the_invisible_body() {
     let mut game = game();
     let types = MobTypes::load(&root()).unwrap();

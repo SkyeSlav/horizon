@@ -357,7 +357,7 @@ mod tests {
     use super::*;
 
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs prepared resources"]
     fn conversions_preserve_body_equipment() {
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../.local/horizon-client")

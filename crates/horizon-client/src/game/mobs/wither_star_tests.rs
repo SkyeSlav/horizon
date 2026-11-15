@@ -130,7 +130,7 @@ fn a_stars_negative_age_survives_item_nbt() {
 
 /// Stack-only loot edits must not inherit a custom item entity's initial age.
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn loot_stack_edits_leave_custom_drop_age_attached() {
     use crate::game::api_values::TryIntoApi;
     use std::sync::Mutex;

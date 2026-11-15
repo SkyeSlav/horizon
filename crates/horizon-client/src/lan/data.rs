@@ -631,23 +631,6 @@ impl SyncData {
         } else {
             None
         };
-        let damage = horizon_client_core::registries::RegistryIds {
-            ids: dynamic
-                .registries
-                .get("minecraft:damage_type")
-                .into_iter()
-                .flatten()
-                .map(|(name, _)| name.clone())
-                .collect(),
-            tags: tags
-                .registries
-                .iter()
-                .find(|registry| registry.registry == "minecraft:damage_type")
-                .into_iter()
-                .flat_map(|registry| &registry.tags)
-                .map(|tag| tag.name.clone())
-                .collect(),
-        };
         let mut sync = Self {
             effect_particle_ids: Default::default(),
             content_identity,
@@ -664,9 +647,7 @@ impl SyncData {
                 Some(kept) => kept.advancements.clone(),
                 None => {
                     let (recipes, groups) = startup::time("sync.network_recipes", || {
-                        super::recipes::network_recipes(
-                            resources, overlay, defaults, sources, damage,
-                        )
+                        super::recipes::network_recipes(resources, overlay, defaults, sources)
                     })
                     .map_err(|error| error.to_string())?;
                     startup::time("sync.advancements", || {
@@ -1205,7 +1186,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "requires prepared vanilla resources"]
     fn datapack_damage_registry_reload_keeps_wire_ids_and_reloads_tags_before_future_join() {
         use horizon_world::loot::PackOverlay;
         let root = Path::new(env!("CARGO_MANIFEST_DIR"))

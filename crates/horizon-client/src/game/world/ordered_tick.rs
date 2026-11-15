@@ -354,7 +354,7 @@ mod tests {
     use std::sync::Arc;
 
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
     fn dispatch_ticks_both_owners_of_each_located_kind() {
         super::super::native_entity_refs::tests::with_game(|game| {
             game.build_registries();

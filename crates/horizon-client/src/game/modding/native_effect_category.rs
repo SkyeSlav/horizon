@@ -24,7 +24,7 @@ mod tests {
     use mod_api::EffectCategory;
 
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
     fn registered_effect_categories_use_type_definitions() {
         with_game(|game| {
             for (id, expected) in [

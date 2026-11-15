@@ -329,7 +329,7 @@ mod geometry_tests {
     use super::*;
 
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
     fn falling_model_cache_matches_direct_vertices() {
         // Geometry belongs to the client resource graph; server packs have no models.
         crate::game::native_entity_refs::tests::with_client_game(|game| {

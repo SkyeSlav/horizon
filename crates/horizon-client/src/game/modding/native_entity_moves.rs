@@ -285,7 +285,7 @@ impl Game<'_> {
 #[cfg(test)]
 mod tests {
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
     fn moves_and_pushes_a_live_mob() {
         use super::super::native_entity_refs::tests::with_game;
         use horizon_client::mobs::Mob;

@@ -188,7 +188,7 @@ fn matrix(mods: mod_api::Mods) {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn native_movement_input_keys_axes_and_sprint() {
     matrix(vec![mod_api::ModEntry::new("movement", Box::new(Native))].into());
 }
@@ -224,7 +224,7 @@ fn wasm_movement_input_keys_axes_and_sprint() {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn movement_input_without_listeners_keeps_vanilla_latch_double_tap_and_controller() {
     mod_platform::testing::with_mods(Vec::new().into(), || {
         with_client_game(|game| {
@@ -265,7 +265,7 @@ fn movement_input_without_listeners_keeps_vanilla_latch_double_tap_and_controlle
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn movement_input_disabled_listener_keeps_vanilla_keys() {
     mod_platform::testing::with_mods(
         vec![mod_api::ModEntry::new("movement", Box::new(Native))].into(),

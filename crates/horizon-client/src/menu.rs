@@ -3104,7 +3104,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "requires prepared resources"]
     fn staged_slot_refusal_restores_contents_and_on_take_side_effects() {
         let mut ran = false;
         with_menu(Kind::Brewing, |env, menu| {

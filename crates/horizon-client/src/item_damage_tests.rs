@@ -2,7 +2,7 @@
 use super::*;
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "requires prepared resources"]
 fn effective_damage_resistance_queries_allocate_nothing() {
     let root = std::path::PathBuf::from(std::env::var_os("HORIZON_TEST_RESOURCES").unwrap());
     let defaults = horizon_world::item_defaults::read(&root).unwrap();

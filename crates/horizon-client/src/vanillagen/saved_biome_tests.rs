@@ -1,7 +1,7 @@
 use super::*;
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "requires prepared resources"]
 fn restored_proto_keeps_saved_biomes_when_saved_again_and_finished() {
     let root = std::path::PathBuf::from(
         std::env::var_os("HORIZON_TEST_RESOURCES").expect("prepared resources"),

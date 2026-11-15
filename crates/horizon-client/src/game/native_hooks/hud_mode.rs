@@ -33,7 +33,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
     fn hud_mode_game_bridge_respects_client_and_guest_guards() {
         let mods: mod_api::Mods = vec![ModEntry::new("three-state", Box::new(ThreeState))].into();
         with_mods(mods, || {

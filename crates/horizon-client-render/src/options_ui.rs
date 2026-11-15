@@ -6286,7 +6286,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "requires prepared language data in HORIZON_TEST_RESOURCES"]
     fn the_new_video_options_read_as_vanilla_words_them() {
         use crate::graphics::GraphicsApi;
         let root = std::path::PathBuf::from(
@@ -6367,7 +6367,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "requires prepared language data in HORIZON_TEST_RESOURCES"]
     fn classic_hover_draws_the_selected_options_wrapped_tooltip() {
         let root = std::path::PathBuf::from(
             std::env::var_os("HORIZON_TEST_RESOURCES").expect("HORIZON_TEST_RESOURCES"),

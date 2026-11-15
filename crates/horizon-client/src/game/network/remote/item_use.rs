@@ -92,7 +92,7 @@ mod tests {
     use horizon_client::items::ItemStack;
 
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
     fn remote_item_use_tnt_predicts_success_without_consumption_or_sound() {
         let root = std::env::var_os("HORIZON_TEST_RESOURCES")
             .map(std::path::PathBuf::from)

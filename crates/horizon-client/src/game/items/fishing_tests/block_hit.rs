@@ -83,7 +83,7 @@ fn property(game: &Game<'_>, at: [i32; 3], key: &str) -> Option<String> {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn a_bobber_powers_a_target_block_and_counts_the_hit() {
     let mut resources = None;
     let mut game = game(&mut resources);
@@ -103,7 +103,7 @@ fn a_bobber_powers_a_target_block_and_counts_the_hit() {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn a_bobber_rings_a_floor_bell_on_its_side() {
     let mut resources = None;
     let mut game = game(&mut resources);

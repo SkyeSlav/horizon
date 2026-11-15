@@ -1068,7 +1068,7 @@ mod cooldown_memory_tests {
     }
 
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs actual prepared mob data; must execute, not skip"]
     fn actual_mob_ticks_retain_noai_lifetime_and_apply_active_memory_boundaries() {
         let root = std::path::PathBuf::from(
             std::env::var_os("HORIZON_TEST_RESOURCES").expect("actual prepared resources"),

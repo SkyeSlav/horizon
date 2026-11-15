@@ -1800,9 +1800,6 @@ pub(in crate::game) mod tests {
             None,
         )
         .unwrap();
-        game.reset_entity_residency();
-        game.native_lifecycle
-            .begin_open(mod_api::Authority::IntegratedServer);
         // Match the server fixture this replaces: commands can force this
         // resident column without starting terrain generation.
         game.world.chunks.insert(
@@ -1956,7 +1953,7 @@ mod completed_test_coordinate_feedback_tests {
     use std::sync::Arc;
 
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES and scratch homes/cwd"]
     fn actual_completed_test_retains_player_source_for_coordinate_feedback() {
         let mut resources = None;
         let mut game = tests::server_game(&mut resources);
@@ -2125,7 +2122,7 @@ mod registered_game_test_tests {
         }
     }
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs prepared resources"]
     fn registered_game_tests_report_pass_failure_and_unknown_in_real_level() {
         crate::game::native_entity_refs::tests::with_game(|game| {
             game.options.dedicated = Some(Vec::new());

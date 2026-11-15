@@ -565,7 +565,6 @@ impl Game<'_> {
         // Kept mod block entities name the old atlas's sprites, and their view distances the old
         // registry's states.
         self.kept_block_entities.get_mut().clear();
-        self.live_scenes.get_mut().clear();
         self.mod_view_distances.take();
         // The atlas's sprites moved: the particle engine re-reads every rect
         // and the packs' sprite sets, or every particle draws a stale region.
@@ -927,7 +926,7 @@ mod tests {
     use std::{sync::mpsc, time::Duration};
 
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
     fn fluid_models_reload_recollects_before_baking() {
         // Concurrent resource loads replace the process-wide fluid looks and models.
         if super::super::native_entity_refs::tests::run_fresh_cases(
@@ -1035,7 +1034,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "full content root: needs prepared vanilla data"]
     fn resource_pack_overrides_mod_and_vanilla() {
         use std::fs;
         let vanilla =

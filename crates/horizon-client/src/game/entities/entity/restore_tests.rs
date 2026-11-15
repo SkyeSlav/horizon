@@ -56,7 +56,7 @@ static VALUE: AttachmentType<i32> = AttachmentType {
 };
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn restoring_keeps_both_owners_bound_and_old_batches_immutable() {
     with_game(|game| {
         let index = Arc::new(Mutex::new(AttachmentIndex::default()));

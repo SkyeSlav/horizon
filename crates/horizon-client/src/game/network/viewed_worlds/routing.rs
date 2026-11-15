@@ -16,10 +16,7 @@ use horizon_protocol::{
         CHANNEL, Level, MAX_COLUMNS, MAX_ENTITIES, Message, REVISION, SOUNDS, ViewedLevelsError,
     },
 };
-use horizon_world::{
-    dimension_type::{CardinalLight, DimensionFacts},
-    registry::BlockStateId,
-};
+use horizon_world::{dimension_type::DimensionFacts, registry::BlockStateId};
 
 /// Why a `horizon:levels` play payload closes the connection.
 #[derive(Clone, Debug, PartialEq)]
@@ -300,14 +297,13 @@ impl Game<'_> {
         world.shape = format.shape;
         world.fast_lava = facts.fast_lava;
         world.infiniburn = Some(self.resolve_level_infiniburn(&facts));
-        let mut world = ViewedWorld::new(
+        let world = ViewedWorld::new(
             spawn.dimension.clone(),
             format.chunk_format,
             default_clock,
             world,
             columns,
         );
-        world.nether_shading = facts.cardinal_light == CardinalLight::Nether;
         if let Some(r) = self.remote.as_mut() {
             r.viewed.insert(slot, epoch, world);
         }

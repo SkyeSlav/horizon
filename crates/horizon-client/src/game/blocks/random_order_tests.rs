@@ -31,7 +31,7 @@ fn game_loading<'a>(
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn chunks_random_tick_in_the_same_order_however_they_loaded() {
     let mut loaded: Vec<(i32, i32)> = (-8..=8)
         .flat_map(|x| (-8..=8).map(move |z| (x, z)))

@@ -1,5 +1,5 @@
 //! Whole-aggregate block-state boundaries. No partial snapshot or draw is admitted.
-use super::{TryIntoApi, block_state};
+use super::{TryIntoApi, TryIntoEngine, block_state};
 use crate::game::{native_scene::SceneBlock, native_structures::TemplateSnapshot};
 use mod_api::{BlockStateError, StructureTemplateBlock, StructureTemplateSnapshot};
 
@@ -23,28 +23,25 @@ impl TryIntoApi for TemplateSnapshot<'_> {
     }
 }
 
-/// Prepare borrowed scene blocks, with a refusal naming the invalid block.
-/// Conversion allocates one engine vector per scene draw, but never clones entity
-/// identifiers or saved fields, and never resolves names.
-pub(in crate::game) fn scene_blocks(
-    blocks: &[mod_api::SceneBlock],
-) -> Result<Vec<SceneBlock<'_>>, mod_api::SceneError> {
-    if blocks.len() > mod_api::SCENE_MAX_BLOCKS {
-        return Err(mod_api::SceneError::TooManyBlocks);
-    }
-    let index = block_state::current().map_err(|_| mod_api::SceneError::Unavailable)?;
-    (0u32..)
-        .zip(blocks)
-        .map(|(at, block)| {
-            Ok(SceneBlock {
-                pos: block.pos,
-                state: index
-                    .to_engine(block.state)
-                    .map_err(|_| mod_api::SceneError::BadBlock { index: at })?,
-                entity: block.entity.as_ref(),
+/// Borrowed API input: conversion allocates one engine vector per scene draw, but
+/// never clones entity identifiers or saved fields, and never resolves names.
+pub(in crate::game) struct SourceScene<'a>(pub &'a [mod_api::SceneBlock]);
+impl<'a> TryIntoEngine<()> for SourceScene<'a> {
+    type Engine = Vec<SceneBlock<'a>>;
+    type Error = BlockStateError;
+    fn try_into_engine(&self, _: &()) -> Result<Self::Engine, Self::Error> {
+        let index = block_state::current()?;
+        self.0
+            .iter()
+            .map(|block| {
+                Ok(SceneBlock {
+                    pos: block.pos,
+                    state: index.to_engine(block.state)?,
+                    entity: block.entity.as_ref(),
+                })
             })
-        })
-        .collect()
+            .collect()
+    }
 }
 
 #[cfg(test)]
@@ -115,7 +112,7 @@ mod tests {
             mod_api::SceneBlock::new([2, 0, 0], north, None),
         ];
         let original = scene.clone();
-        let prepared = scene_blocks(&scene).unwrap();
+        let prepared = SourceScene(&scene).try_into_engine(&()).unwrap();
         assert_eq!(
             prepared.iter().map(|b| b.state).collect::<Vec<_>>(),
             [BlockStateId(2), BlockStateId(1), BlockStateId(2)]
@@ -128,8 +125,8 @@ mod tests {
         assert_eq!(scene, original);
         scene[1].state = BlockState::from(BlockStateRecord::new(east.block(), u16::MAX));
         assert!(matches!(
-            scene_blocks(&scene),
-            Err(mod_api::SceneError::BadBlock { index: 1 })
+            SourceScene(&scene).try_into_engine(&()),
+            Err(BlockStateError::UnknownState)
         ));
         assert_eq!(scene[1].state.ordinal(), u16::MAX);
 
@@ -142,13 +139,13 @@ mod tests {
         block_state::bind(&only_air).unwrap();
         scene[1].state = east;
         assert!(matches!(
-            scene_blocks(&scene),
-            Err(mod_api::SceneError::BadBlock { index: 0 })
+            SourceScene(&scene).try_into_engine(&()),
+            Err(BlockStateError::UnknownBlock)
         ));
         block_state::clear();
         assert!(matches!(
-            scene_blocks(&scene),
-            Err(mod_api::SceneError::Unavailable)
+            SourceScene(&scene).try_into_engine(&()),
+            Err(BlockStateError::Unavailable)
         ));
         assert_eq!(source.try_into_api(), Err(BlockStateError::Unavailable));
         assert_eq!(scene, original);

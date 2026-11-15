@@ -749,7 +749,7 @@ mod instance_run {
     }
 
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs software Vulkan"]
     fn an_instanced_run_matches_per_copy_pixels_with_hdr() {
         let per_copy = render(true, true).expect("per-copy software Vulkan draw");
         let instanced = render(false, true).expect("instanced software Vulkan draw");
@@ -1028,7 +1028,7 @@ fn probe_frame(hud: &HudBatch) -> super::Frame<'_> {
 #[cfg(test)]
 mod scrgb {
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs software Vulkan"]
     fn an_instanced_lit_texel_matches_cpu_scrgb() {
         let _gpu = crate::gfx::test_gpu::lock();
         let dark =

@@ -294,7 +294,7 @@ mod tests {
     /// The game's own blocks from real prepared resources: a cube, a grass block's tinted top and overlaid sides, a
     /// log on its side (its texture turned), leaves (cut out, foliage), water, a slab and a flower.
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "requires prepared models/textures in HORIZON_TEST_RESOURCES"]
     fn real_blocks_name_their_sprites() -> crate::Result<()> {
         use crate::{
             assets::Assets, biome::Biomes, blocks::BlockFacts, light::LightTables,

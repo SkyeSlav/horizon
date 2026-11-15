@@ -19,7 +19,7 @@ impl Hooks for SyncedRegistryMod {
     }
 }
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources and isolated homes"]
 fn native_datapack_host_reads_enforce_level_session_and_generation() {
     let scratch = tempfile::tempdir().unwrap();
     mod_platform::testing::with_mods(

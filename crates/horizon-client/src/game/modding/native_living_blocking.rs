@@ -45,7 +45,7 @@ mod tests {
     /// either hand, for the player as the damage path sees it and for a mob; a bow in use, an
     /// unraised shield and a lowered one don't.
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
     fn a_raised_shield_blocks_after_its_delay_for_a_player_and_a_mob() {
         use horizon_items::equipment::OFFHAND;
         with_game(|game| {

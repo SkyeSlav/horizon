@@ -1,6 +1,6 @@
 use super::*;
 #[test]
-#[ignore = "daily"]
+#[ignore = "requires prepared resources and isolated homes"]
 fn actual_game_stage_refuses_nested_frame_and_mutated_actor() {
     use horizon_client::{
         containers::{BlockEntity, ModBlockEntity, ModMenuType},

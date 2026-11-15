@@ -40,7 +40,7 @@ impl Hooks for EmberMod {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn a_block_part_hears_it_burned_and_writes_the_level() {
     use horizon_client::chunk::Chunk;
     use std::sync::Arc;

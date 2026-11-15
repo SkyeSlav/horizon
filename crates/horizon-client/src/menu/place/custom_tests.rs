@@ -76,7 +76,7 @@ fn stack(id: &str, count: u32) -> Option<ItemStack> {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "requires prepared resources"]
 fn noncontiguous_roles_place_one_increment_and_max_without_granting_a_result() {
     with_env(|env| {
         let mut menu = Menu::new(kind());
@@ -100,7 +100,7 @@ fn noncontiguous_roles_place_one_increment_and_max_without_granting_a_result() {
     });
 }
 #[test]
-#[ignore = "daily"]
+#[ignore = "requires prepared resources"]
 fn ingredient_shortage_returns_old_inputs_but_never_fills_fuel_or_output() {
     with_env(|env| {
         let mut menu = Menu::new(kind());
@@ -120,7 +120,7 @@ fn ingredient_shortage_returns_old_inputs_but_never_fills_fuel_or_output() {
     });
 }
 #[test]
-#[ignore = "daily"]
+#[ignore = "requires prepared resources"]
 fn full_inventory_refuses_unchanged_in_survival_and_defers_creative_drops() {
     with_env(|env| {
         let mut menu = Menu::new(kind());
@@ -144,7 +144,7 @@ fn full_inventory_refuses_unchanged_in_survival_and_defers_creative_drops() {
     });
 }
 #[test]
-#[ignore = "daily"]
+#[ignore = "requires prepared resources"]
 fn per_slot_caps_limit_max_and_policy_refusal_is_not_a_missing_ingredient_ghost() {
     with_env(|env| {
         let mut menu = Menu::new(kind());
@@ -167,7 +167,7 @@ fn per_slot_caps_limit_max_and_policy_refusal_is_not_a_missing_ingredient_ghost(
     });
 }
 #[test]
-#[ignore = "daily"]
+#[ignore = "requires prepared resources"]
 fn component_distinct_stacks_never_pool_into_one_destination() {
     with_env(|env| {
         let mut menu = Menu::new(kind());
@@ -196,7 +196,7 @@ fn component_distinct_stacks_never_pool_into_one_destination() {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "requires prepared resources"]
 fn an_interrupted_context_refuses_without_applying_even_a_missing_ingredient_clear() {
     with_env(|env| {
         let mut menu = Menu::new(kind());
@@ -215,7 +215,7 @@ fn an_interrupted_context_refuses_without_applying_even_a_missing_ingredient_cle
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "requires prepared resources"]
 fn a_persistent_six_cell_grid_preserves_cooked_output_and_fuel() {
     with_env(|env| {
         let layout = crate::recipe_book::menu_layout::compile(
@@ -269,7 +269,7 @@ fn a_persistent_six_cell_grid_preserves_cooked_output_and_fuel() {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "requires prepared resources"]
 fn existing_damaged_input_is_usable_but_inventory_damaged_tools_are_not_autofilled() {
     with_env(|env| {
         let mut damaged = ItemStack::new("minecraft:iron_pickaxe", 1);

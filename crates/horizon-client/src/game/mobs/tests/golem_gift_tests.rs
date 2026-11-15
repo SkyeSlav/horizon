@@ -67,7 +67,7 @@ fn ints(uuid: &str) -> String {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn a_gifted_poppy_is_a_guaranteed_drop() {
     let mut resources = None;
     let mut game = game(&mut resources);
@@ -97,7 +97,7 @@ fn a_gifted_poppy_is_a_guaranteed_drop() {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn the_gift_keeps_the_other_slots_chances() {
     let mut resources = None;
     let mut game = game(&mut resources);
@@ -129,7 +129,7 @@ fn the_gift_keeps_the_other_slots_chances() {
 /// The antenna is only filled by a gift here (a loaded or commanded antenna
 /// item is not modelled yet), so a first gift of another item occupies it.
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn an_antenna_that_holds_an_item_keeps_it_and_its_chance() {
     let mut resources = None;
     let mut game = game(&mut resources);
@@ -172,7 +172,7 @@ fn effective(game: &Game<'_>, uuid: &str) -> Vec<f32> {
 /// array keeps it: every slot but the antenna reads the chance it read
 /// before the gift.
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn every_other_slot_keeps_its_effective_chance() {
     let mut resources = None;
     let mut game = game(&mut resources);

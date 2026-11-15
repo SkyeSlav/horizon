@@ -6,7 +6,7 @@ use std::sync::{
 };
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources and isolated native mods"]
 fn bundle_completes_on_tick_200() {
     struct Listener(Arc<AtomicUsize>);
     #[mod_api::__subscriptions]

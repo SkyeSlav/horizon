@@ -101,7 +101,7 @@ fn target(id: i32) -> Option<InteractTarget> {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "private prepared resources; process-wide mods, run this test alone"]
 fn actual_item_interact_mob_fallback_priority_and_filters() {
     crate::game::in_own_process(
         "game::item_interact_mob_tests::actual_item_interact_mob_fallback_priority_and_filters",

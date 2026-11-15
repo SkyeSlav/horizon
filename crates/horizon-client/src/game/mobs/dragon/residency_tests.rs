@@ -3,7 +3,7 @@ use super::*;
 use crate::game::native_entity_refs::tests::{with_client_game, with_game};
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn singleton_dragon_spawn_install_refusal_and_kill() {
     with_game(|game| {
         game.dragon.discard();
@@ -34,7 +34,7 @@ fn singleton_dragon_spawn_install_refusal_and_kill() {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn singleton_dragon_load_keeps_state_and_reserves_nine_ids() {
     with_game(|game| {
         game.dragon.discard();
@@ -74,7 +74,7 @@ fn singleton_dragon_load_keeps_state_and_reserves_nine_ids() {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn singleton_fight_dragon_install_reserves_nine_ids() {
     with_game(|game| {
         game.dragon.discard();
@@ -92,7 +92,7 @@ fn singleton_fight_dragon_install_reserves_nine_ids() {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn singleton_client_dragon_install_explicitly_replaces_network_owner() {
     with_client_game(|game| {
         game.dragon.discard();
@@ -112,7 +112,7 @@ fn singleton_client_dragon_install_explicitly_replaces_network_owner() {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn singleton_late_dragon_id_reserves_all_eight_parts_once() {
     with_game(|game| {
         game.dragon.discard();
@@ -127,7 +127,7 @@ fn singleton_late_dragon_id_reserves_all_eight_parts_once() {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn singleton_lifecycle_commands_unload_and_parked_owners() {
     crate::game::entity::taken_pass_tests::LifecycleFixture {
         seed: |game, entries| {
@@ -147,7 +147,7 @@ fn singleton_lifecycle_commands_unload_and_parked_owners() {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn singleton_death_fight_scan_and_resets_discard_owners() {
     with_game(|game| {
         game.spawn_remote_dragon(601, [1.0, 80.0, 1.0], 0.0);
@@ -178,7 +178,7 @@ fn singleton_death_fight_scan_and_resets_discard_owners() {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn singleton_join_rejection_discards_the_installed_dragon() {
     struct Veto;
     #[mod_api::__subscriptions]
@@ -213,7 +213,7 @@ fn singleton_join_rejection_discards_the_installed_dragon() {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn singleton_live_owner_is_not_reported_as_departed() {
     use std::sync::{
         Arc,

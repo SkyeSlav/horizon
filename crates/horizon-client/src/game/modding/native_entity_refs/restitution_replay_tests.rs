@@ -6,7 +6,7 @@ use std::sync::{
 };
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "requires prepared resources"]
 fn replayed_landing_reads_restitution_again_and_moves_identically() {
     struct Glass(Arc<AtomicUsize>);
     #[mod_api::horizon_part]

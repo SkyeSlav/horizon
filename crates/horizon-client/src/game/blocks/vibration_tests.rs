@@ -9,7 +9,7 @@ use horizon_client::{
 use horizon_core::geometry::Vec3;
 use std::sync::Arc;
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn entering_hive_posts_block_change_from_bee() {
     crate::game::native_entity_refs::tests::with_game(|game| {
         game.world
@@ -40,7 +40,7 @@ fn entering_hive_posts_block_change_from_bee() {
     });
 }
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn lowering_cauldron_by_bottle_posts_block_change_without_source() {
     crate::game::native_entity_refs::tests::with_game(|game| {
         game.world
@@ -67,7 +67,7 @@ fn lowering_cauldron_by_bottle_posts_block_change_without_source() {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn tying_to_fence_and_knot_posts_block_attach_from_player() {
     use horizon_client::mobs::leash::Holder;
     crate::game::native_entity_refs::tests::with_game(|game| {
@@ -92,7 +92,7 @@ fn tying_to_fence_and_knot_posts_block_attach_from_player() {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn saddling_a_pig_posts_equip_from_the_pig() {
     let root = std::path::PathBuf::from(std::env::var_os("HORIZON_TEST_RESOURCES").unwrap());
     let settings = Settings::default();
@@ -148,7 +148,7 @@ fn saddling_a_pig_posts_equip_from_the_pig() {
 /// no source (`Context.of(state)`) - so sculk sensors, calibrated sensors and
 /// wardens hear it.
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn a_landing_posts_the_block_game_event_its_rule_posts() {
     use crate::motion::{MotionEvent, MotionWorld, PlayerMotion};
     use horizon_client::landing::FallEvent;
@@ -284,7 +284,7 @@ fn a_landing_posts_the_block_game_event_its_rule_posts() {
 /// off first (`lowerFillLevel`'s `BLOCK_CHANGE`, already posted) and then
 /// posts `FLUID_PICKUP`, while washing a banner posts only the `BLOCK_CHANGE`.
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn a_cauldron_use_posts_its_fluid_event_after_the_sound() {
     use horizon_world::registry::BlockStateId;
     type Posted = (&'static str, [f64; 3], Option<Who>);

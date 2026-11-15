@@ -256,7 +256,7 @@ fn riding_chain(riders: usize) -> Compound {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn a_riding_chain_the_fix_makes_too_deep_is_refused_after_it() {
     // Data from before 1.13 is upgraded with the data fixers' tables of the prepared resources.
     set_resources(std::path::Path::new(

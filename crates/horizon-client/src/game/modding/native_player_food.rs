@@ -184,7 +184,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
     fn points_repair_a_damaged_mending_item_before_experience() {
         with_game(|game| {
             let player = acting_player(game);
@@ -209,7 +209,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
     fn levels_are_added_taken_and_clamped_at_zero() {
         with_game(|game| {
             let player = acting_player(game);
@@ -232,7 +232,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
     fn more_points_than_an_int_are_refused_untouched() {
         with_game(|game| {
             let player = acting_player(game);
@@ -256,7 +256,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
     fn a_stale_handle_gives_nothing() {
         with_game(|game| {
             let player = acting_player(game);

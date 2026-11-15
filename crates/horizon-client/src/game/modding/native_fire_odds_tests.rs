@@ -26,7 +26,7 @@ impl Hooks for FireOddsMod {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn a_block_part_answers_fire_odds_for_one_face() {
     use horizon_client::chunk::Chunk;
     use std::sync::Arc;

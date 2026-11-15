@@ -51,7 +51,7 @@ impl Hooks for Targets {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn the_block_beside_a_fence_answers_whether_it_connects() {
     let mods: mod_api::Mods = vec![mod_api::ModEntry::new("targets", Box::new(Targets))].into();
     crate::game::api_values::install_parts(&mods).unwrap();

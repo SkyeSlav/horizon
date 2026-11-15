@@ -79,7 +79,7 @@ fn use_on_wolf(game: &mut Game<'_>, item: &str) -> (bool, u8, u32) {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn the_collars_own_dye_leaves_a_wolf_as_it_was() {
     let mut resources = None;
     let mut game = game(&mut resources);

@@ -12,20 +12,7 @@ pub fn mob_from_nbt(
 ) -> Option<Mob> {
     let position = loaded_mob_position(tag);
     let random = crate::mobs::entity_random(id, position);
-    mob_from_nbt_at(tag, types, id, registry, random, position, true)
-}
-
-/// `mob_from_nbt` for a mob that is only drawn (a screen's entity): built as a client's copy is
-/// (`Mob::new_remote`), so no mod part's `register_goals` or behaviour registration runs.
-pub fn mob_from_nbt_remote(
-    tag: &Tag,
-    types: &HashMap<String, Arc<MobType>>,
-    id: u32,
-    registry: Option<&BlockRegistry>,
-) -> Option<Mob> {
-    let position = loaded_mob_position(tag);
-    let random = crate::mobs::entity_random(id, position);
-    mob_from_nbt_at(tag, types, id, registry, random, position, false)
+    mob_from_nbt_at(tag, types, id, registry, random, position)
 }
 
 fn loaded_mob_position(tag: &Tag) -> Vec3 {
@@ -42,5 +29,5 @@ pub fn mob_from_nbt_with_random(
     random: horizon_core::random::LegacyRandom,
 ) -> Option<Mob> {
     let position = loaded_mob_position(tag);
-    mob_from_nbt_at(tag, types, id, registry, random, position, true)
+    mob_from_nbt_at(tag, types, id, registry, random, position)
 }

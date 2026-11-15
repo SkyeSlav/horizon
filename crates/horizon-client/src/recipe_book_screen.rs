@@ -174,8 +174,10 @@ pub struct GhostView {
 /// What the recipe book shows.
 pub struct Screen<'a> {
     pub book: BookType,
-    /// Absolute book corner, shared with input. Overlay and ghost coordinates stay absolute.
-    pub origin: (i32, i32),
+    /// GUI size and `widthTooNarrow`.
+    pub width: i32,
+    pub height: i32,
+    pub narrow: bool,
     pub mouse: (i32, i32),
     /// `slotSelectTime.currentIndex()`.
     pub index: usize,
@@ -198,7 +200,8 @@ pub struct Screen<'a> {
 impl Screen<'_> {
     /// `RecipeBookComponent.getXOrigin` and `getYOrigin`.
     pub fn origin(&self) -> (i32, i32) {
-        self.origin
+        let offset = if self.narrow { 0 } else { 86 };
+        ((self.width - 147) / 2 - offset, (self.height - 166) / 2)
     }
     fn hovered(&self, x: i32, y: i32, w: i32, h: i32) -> bool {
         let (mx, my) = self.mouse;
@@ -238,8 +241,9 @@ pub fn draw(s: &Screen) -> Vec<Drawn> {
     );
     search_box(s, xo + 25, yo + 13, &mut put);
     // updateTabs.
-    let tab_x = xo - 30;
-    let tab_y = yo + 3;
+    let offset = if s.narrow { 0 } else { 86 };
+    let tab_x = (s.width - 147) / 2 - offset - 30;
+    let tab_y = (s.height - 166) / 2 + 3;
     for (n, tab) in s.tabs.iter().enumerate() {
         let (x, y) = (tab_x, tab_y + 27 * n as i32);
         let mut pose = IDENTITY;

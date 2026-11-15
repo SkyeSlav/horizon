@@ -28,7 +28,7 @@ fn saved(value: i32) -> Attachments {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn block_entity_rows_follow_load_restore_replacement_and_chunk_unload_in_their_dimension() {
     with_game(|game| {
         game.options.dedicated = Some(Vec::new());

@@ -89,7 +89,7 @@ mod customize_boss_event_progress_tests {
     /// y = 12; a mod hears each bar at vanilla's place, and hides one, spaces the next and moves
     /// another without touching the rest.
     #[test]
-    #[ignore = "daily"]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
     fn a_client_mod_hides_and_spaces_boss_bars() {
         let (w, h) = (480, 270);
         let left = w / 2 - 91;

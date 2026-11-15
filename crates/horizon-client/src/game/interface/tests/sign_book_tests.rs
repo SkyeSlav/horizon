@@ -4,7 +4,7 @@ use crate::game::game_tests::tests::server_game;
 use horizon_client::item_data::parse_stack;
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn signing_a_book_keeps_its_other_components() {
     let mut resources = None;
     let mut game = server_game(&mut resources);

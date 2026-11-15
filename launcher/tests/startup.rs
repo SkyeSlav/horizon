@@ -126,7 +126,7 @@ fn one_mib_entry_stack(source: &Path, directory: &Path) -> PathBuf {
 }
 
 #[test]
-#[ignore = "the Windows launcher-processes job runs it by name"]
+#[ignore = "daily"]
 fn cli_settings_work_with_one_mib_process_stack() {
     let home = tempfile::tempdir().unwrap();
     let root = home.path();

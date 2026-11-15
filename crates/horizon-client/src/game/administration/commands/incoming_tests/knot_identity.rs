@@ -175,7 +175,7 @@ fn host(game: &mut Game<'_>) {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn a_server_that_starts_tracking_later_shows_the_same_knot() {
     let mut resources = None;
     let mut game = game(&mut resources);
@@ -211,7 +211,7 @@ fn a_server_that_starts_tracking_later_shows_the_same_knot() {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn two_leads_on_one_fence_share_one_knot() {
     let mut resources = None;
     let mut game = game(&mut resources);
@@ -235,7 +235,7 @@ fn two_leads_on_one_fence_share_one_knot() {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn a_knot_tied_again_after_its_last_lead_is_a_new_entity() {
     let mut resources = None;
     let mut game = game(&mut resources);
@@ -263,7 +263,7 @@ fn a_knot_tied_again_after_its_last_lead_is_a_new_entity() {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn the_same_fence_position_in_another_level_is_another_knot() {
     let mut resources = None;
     let mut game = game(&mut resources);
@@ -314,7 +314,7 @@ fn the_same_fence_position_in_another_level_is_another_knot() {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn commands_that_would_move_or_remove_a_natural_knot_fail() {
     let mut resources = None;
     let mut game = game(&mut resources);

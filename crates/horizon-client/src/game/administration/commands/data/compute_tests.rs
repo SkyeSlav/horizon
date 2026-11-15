@@ -7,7 +7,7 @@ use crate::game::game_tests::tests::server_game;
 /// `default` / `block` / `entity` decoration builds; a provider the argument
 /// cannot decode fails the command and writes nothing.
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn compute_sources_store_the_providers_value() {
     let mut resources = None;
     let mut game = server_game(&mut resources);

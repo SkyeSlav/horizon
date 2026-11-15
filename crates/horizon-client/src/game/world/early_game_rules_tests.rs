@@ -48,7 +48,7 @@ impl Hooks for Observe {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "requires prepared resources"]
 fn early_server_game_rules_saved_and_creation_values() {
     for dedicated in [false, true] {
         for saved in [false, true] {

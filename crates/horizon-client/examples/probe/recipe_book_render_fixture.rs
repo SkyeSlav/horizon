@@ -118,15 +118,25 @@ pub fn main() -> horizon_client::Result<()> {
                 anim: anims.get(i).and_then(Value::as_f64).unwrap_or(0.0) as f32,
             })
             .collect();
-        let (xo, yo) = (
-            (int(&case["width"]) - 147) / 2
-                - if case["narrow"].as_bool().unwrap_or(false) {
-                    0
-                } else {
-                    86
-                },
-            (int(&case["height"]) - 166) / 2,
-        );
+        let (xo, yo) = Screen {
+            book: kind,
+            width: int(&case["width"]),
+            height: int(&case["height"]),
+            narrow: case["narrow"].as_bool().unwrap_or(false),
+            mouse: (0, 0),
+            index: 0,
+            filtering,
+            search: &search,
+            tabs: &[],
+            buttons: &[],
+            page,
+            pages,
+            overlay: None,
+            ghost: None,
+            translate: &translate,
+            text_width: &text_width,
+        }
+        .origin();
         let overlay = case["overlay"].as_u64().map(|i| {
             let i = i as usize;
             let c = &shown[i];
@@ -172,7 +182,9 @@ pub fn main() -> horizon_client::Result<()> {
             .collect();
         let screen = Screen {
             book: kind,
-            origin: (xo, yo),
+            width: int(&case["width"]),
+            height: int(&case["height"]),
+            narrow: case["narrow"].as_bool().unwrap_or(false),
             mouse: (int(&case["mouse"][0]), int(&case["mouse"][1])),
             index: case["index"].as_u64().unwrap_or(0) as usize,
             filtering,

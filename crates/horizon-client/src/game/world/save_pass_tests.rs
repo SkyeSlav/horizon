@@ -25,7 +25,7 @@ impl Hooks for SaveOnPickup {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources and isolated homes"]
 fn save_requested_during_pickup_keeps_lifted_items_on_disk() {
     use horizon_client::{
         chunk::Chunk,

@@ -35,7 +35,6 @@ pub fn public_types(krate: &str, lib: &Path) -> Result<Vec<String>, String> {
         lib.into(),
         dir.into(),
         true,
-        false,
         |path, source| syn::parse_file(source).map_err(|e| format!("{}: {e}", path.display())),
     )?;
     let mut parsed = Vec::new();

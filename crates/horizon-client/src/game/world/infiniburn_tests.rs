@@ -12,7 +12,7 @@ impl Drop for RestoreFacts {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "requires prepared resources"]
 fn infiniburn_refresh_updates_active_and_parked_worlds() {
     with_game(|game| {
         let scratch = tempfile::tempdir().unwrap();

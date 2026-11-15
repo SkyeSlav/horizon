@@ -83,7 +83,7 @@ fn saved_tag(game: &mut Game<'_>, uuid: [i32; 4]) -> Tag {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn a_summoned_mob_ignores_a_typed_finalize_marker() {
     with_game(|game| {
         assert!(
@@ -144,7 +144,7 @@ fn a_summoned_mob_ignores_a_typed_finalize_marker() {
 }
 
 #[test]
-#[ignore = "daily"]
+#[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn a_data_merged_finalize_marker_is_not_honoured() {
     with_game(|game| {
         assert!(
