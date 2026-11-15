@@ -227,50 +227,10 @@ path = "../horizon-client/examples/sprite_cache_parity.rs"
 name = "client_probe"
 path = "../horizon-client/examples/probe/main.rs"
 
-[[test]]
-name = "load_defaults"
-path = "../horizon-client/tests/load_defaults.rs"
-
-[[test]]
-name = "custom_component_api"
-path = "../horizon-client/tests/custom_component_api.rs"
-
-[[test]]
-name = "custom_component_unregistered"
-path = "../horizon-client/tests/custom_component_unregistered.rs"
-
-[[test]]
-name = "custom_component_wire"
-path = "../horizon-client/tests/custom_component_wire.rs"
-
-[[test]]
-name = "datapack_join"
-path = "../horizon-client/tests/datapack_join.rs"
-
-[[test]]
-name = "forced_chunks"
-path = "../horizon-client/tests/forced_chunks.rs"
-
-[[test]]
-name = "generation_saves"
-path = "../horizon-client/tests/generation_saves.rs"
-
-[[test]]
-name = "lan_bot"
-path = "../horizon-client/tests/lan_bot.rs"
-
-[[test]]
-name = "streaming_meshes"
-path = "../horizon-client/tests/streaming_meshes.rs"
-
-[[test]]
-name = "tall_column"
-path = "../horizon-client/tests/tall_column.rs"
-
-[[test]]
-name = "wide_states"
-path = "../horizon-client/tests/wide_states.rs"
-
 [[example]]
 name = "chunk_encoding_bench"
 path = "../horizon-client/examples/chunk_encoding_bench.rs"
+
+[[test]]
+name = "it"
+path = "tests/it/main.rs"

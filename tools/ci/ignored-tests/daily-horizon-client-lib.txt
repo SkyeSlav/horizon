@@ -1,10 +1,5 @@
 # The daily tests of horizon-client-lib: each is #[ignore = "daily"] in its source and runs once a day in the daily run,
 # where it must pass (README.md). Rows: PACKAGE TEST TARGET daily REASON, sorted; tools/ci/move_to_daily.py writes them.
-horizon-client-lib a_client_that_offers_the_registry_joins_and_reads_the_entry test:datapack_join daily network
-horizon-client-lib a_refused_reload_disconnects_instead_of_retaining_the_old_generation test:datapack_join daily network
-horizon-client-lib a_reload_snapshot_gives_the_client_generation_two_and_stales_old_handles test:datapack_join daily network
-horizon-client-lib a_required_registry_refuses_a_client_without_the_mod_before_any_registry_data test:datapack_join daily network
-horizon-client-lib a_synced_mod_block_entity_reaches_the_chunks_players_once_a_tick test:lan_bot daily child-process
 horizon-client-lib api_text::iterative_tests::recursive_fields_survive_512_nodes_on_256_kib lib daily slow
 horizon-client-lib benchmark::tests::a_refused_command_ends_the_trip_with_the_games_reason lib daily child-process
 horizon-client-lib benchmark::tests::a_refused_switch_ends_the_run_with_the_games_reason_and_changes_nothing lib daily child-process
@@ -25,6 +20,10 @@ horizon-client-lib control::tests::a_request_longer_than_the_limit_is_refused li
 horizon-client-lib control::tests::long_tcp_endpoint_opens lib daily network
 horizon-client-lib control::tests::tcp_endpoint_round_trip lib daily network
 horizon-client-lib control::tests::tcp_refuses_a_wrong_token lib daily network
+horizon-client-lib datapack_join::a_client_that_offers_the_registry_joins_and_reads_the_entry test:it daily network
+horizon-client-lib datapack_join::a_refused_reload_disconnects_instead_of_retaining_the_old_generation test:it daily network
+horizon-client-lib datapack_join::a_reload_snapshot_gives_the_client_generation_two_and_stales_old_handles test:it daily network
+horizon-client-lib datapack_join::a_required_registry_refuses_a_client_without_the_mod_before_any_registry_data test:it daily network
 horizon-client-lib datapack_net::transport::tests::incompressible_large_registry_snapshot_fits_each_frame_and_activates_only_when_complete lib daily slow
 horizon-client-lib item_render::special_parts_tests::a_parts_tint_reaches_the_vertices_as_a_vanilla_tint_does lib daily resources
 horizon-client-lib join_seq::visibility::tests::unbound_passes_block_until_restore_consumption_and_unwind lib daily child-process
@@ -41,12 +40,13 @@ horizon-client-lib lan::tests::actor_ids_never_wrap lib daily network
 horizon-client-lib lan::viewed_levels::tests::a_viewed_sound_reaches_a_viewer_holding_its_chunk_within_its_distance lib daily network
 horizon-client-lib lan::viewed_levels::tests::with_no_viewer_no_copy_is_built lib daily network
 horizon-client-lib lan::waypoints::tests::moves_by_receiver_match_the_loop lib daily slow
+horizon-client-lib lan_bot::a_synced_mod_block_entity_reaches_the_chunks_players_once_a_tick test:it daily child-process
 horizon-client-lib launch::tests::launch_refuses_a_socket_path_too_long bin:horizon-ctl daily child-process
-horizon-client-lib mobs::villager_client_visual_tests::villager_client_partial_hat_cache_refreshes lib daily resources
 horizon-client-lib menu::equip_movement::tests::four_slot_menu_transfer_prepares_once_and_stale_placement_refuses lib daily resources
 horizon-client-lib menu::equip_movement::tests::menus_without_actor_or_equipment_candidates_do_not_prepare lib daily resources
 horizon-client-lib menu::equip_movement::tests::occupied_equipment_cursor_and_hotbar_swaps_ask_once_per_click lib daily resources
 horizon-client-lib mobs::villager_brain::mob_map_tests::hostile_sensor_matches_registered_ids_and_world_snapshot lib daily resources
+horizon-client-lib mobs::villager_client_visual_tests::villager_client_partial_hat_cache_refreshes lib daily resources
 horizon-client-lib mobs::world::missing_data_report_tests::missing_mob_data_reports_one_counted_skip_per_test lib daily child-process
 horizon-client-lib mod_content::tests::registered_conditions_tests::failed_condition_build_removes_generated_staging lib daily resources
 horizon-client-lib mod_content::tests::registered_conditions_tests::registered_conditions_select_content_root_tags_and_structure_modifiers lib daily resources
