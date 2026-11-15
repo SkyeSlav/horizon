@@ -2,15 +2,14 @@
 //! case of a player right-clicking a tank with a bucket or any fluid container, in one call, with
 //! the bucket's sound and game event, and a container picking up and placing fluid in the world
 //! as a bucket does. Vocabulary over [`FLUIDS`], [`ITEM_FLUIDS`] at an [`ItemPlace`], the move
-//! step of [`move_resources`](crate::move_resources) and the level's
+//! step of `resource_util::move_first` and the level's
 //! [`pickup_fluid`](LevelRef::pickup_fluid) and [`place_fluid`](LevelRef::place_fluid), and a
 //! dispenser's answer for a fluid container ([`dispense_container`]): nothing changes until a mod
 //! calls them.
-use crate::content::resource::{Ends, move_once};
 use crate::{
     Capability, Direction, DispenseItemEvent, Dispensed, FLUIDS, FluidResource, FluidStack,
     GameEventContext, Hand, HostTransaction, ITEM_FLUIDS, ItemPlace, LevelRef, PlayerRef,
-    ResourceHandler, ServerHost, SoundSource,
+    ResourceHandler, ServerHost, SoundSource, resource_util,
 };
 
 /// `FluidType.BUCKET_VOLUME`: what a source block holds, and what a placement takes.
@@ -88,15 +87,14 @@ pub fn interact_with_handler(
     let Some(item) = place.capability(host, &ITEM_FLUIDS) else {
         return false;
     };
-    let moved = match move_first(host, handler, &item) {
-        Some(moved) => (moved, true),
-        None => match move_first(host, &item, handler) {
-            Some(moved) => (moved, false),
-            None => return false,
+    let moved = match resource_util::move_first(host, handler, &item, |_| true, u32::MAX, None) {
+        Ok(Some(moved)) => (moved, true),
+        _ => match resource_util::move_first(host, &item, handler, |_| true, u32::MAX, None) {
+            Ok(Some(moved)) => (moved, false),
+            _ => return false,
         },
     };
-    let (moved, pickup) = moved;
-    let fluid = FluidResource::of(&moved);
+    let ((fluid, _), pickup) = moved;
     let at = match pos {
         Some([x, y, z]) => Some([x, y, z].map(|c| f64::from(c) + 0.5)),
         None => player
@@ -169,11 +167,15 @@ pub fn try_pickup_fluid(
     }
     let handler = level.capability(host, &FLUIDS, pos, side)?;
     host.transaction(|host, tx| {
-        let moved = move_first(host, &handler, destination).ok_or(())?;
-        if let Some(fluid) = moved.key() {
-            level.play_fluid_effects(host, pos, fluid, true, player, tx);
+        let Ok(Some((fluid, amount))) =
+            resource_util::move_first(host, &handler, destination, |_| true, u32::MAX, Some(tx))
+        else {
+            return Err(());
+        };
+        if let Some(key) = fluid.fluid().key() {
+            level.play_fluid_effects(host, pos, key, true, player, tx);
         }
-        Ok::<_, ()>(moved)
+        Ok::<_, ()>(fluid.to_stack(amount))
     })
     .ok()
 }
@@ -303,40 +305,4 @@ pub fn first_stack_contained(host: &mut dyn ServerHost, place: &ItemPlace) -> Op
         let amount = item.amount(host, index);
         (amount > 0).then(|| fluid.to_stack(amount))
     })
-}
-
-/// One move of the first fluid of `from`, index by index, that `to` takes any of, as much of it
-/// as `to` takes in one go (NeoForge's `ResourceHandlerUtil.moveFirst`), all or nothing in a
-/// transaction of its own: what moved, or none, with nothing changed, where none moves or a
-/// handler answers more than it was asked. One go, not [`move_resources`](crate::move_resources)' repeats: a stack of
-/// buckets has one filled, as vanilla's click fills one.
-fn move_first(
-    host: &mut dyn ServerHost,
-    from: &Capability<dyn ResourceHandler<FluidResource>>,
-    to: &Capability<dyn ResourceHandler<FluidResource>>,
-) -> Option<FluidStack> {
-    for index in 0..from.size(host) {
-        let Some(fluid) = from.resource(host, index) else {
-            continue;
-        };
-        let want = from.amount(host, index);
-        let ends = Ends {
-            from,
-            to,
-            at: &index,
-        };
-        let moved = move_once(
-            host,
-            ends,
-            want,
-            |host, tx, want| from.extract(host, tx, index, &fluid, want),
-            |host, tx, out| to.insert_resource(host, tx, &fluid, out),
-        );
-        if let Ok(moved) = moved
-            && moved > 0
-        {
-            return Some(fluid.to_stack(moved));
-        }
-    }
-    None
 }

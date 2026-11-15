@@ -562,16 +562,22 @@ pub trait ResourceHandler<R> {
     }
 }
 
-/// Asks each of `parts` in turn, through `ask`, for what is left of `amount`, until it is all
-/// placed: the total. What adds up `insert_resource`, `extract_resource` and the handlers built of others.
-/// A part answering more than it was asked is a lie the total must not hide: the total is then
-/// one more than `amount`, which a move refuses as [`Overanswered`], or, asked `u32::MAX`, 0,
-/// with which a move undoes its step.
+/// The most one insert or extract is asked for when handlers are added up, so that an answer
+/// over the request always fits in a `u32` and shows (`u32::MAX` is served as this: a handler
+/// may always take less than asked).
+pub(crate) const MAX_REQUEST: u32 = u32::MAX - 1;
+
+/// Asks each of `parts` in turn, through `ask`, for what is left of `amount` (at most
+/// [`MAX_REQUEST`]), until it is all placed: the total. What adds up `insert_resource`,
+/// `extract_resource` and the handlers built of others. A part answering more than it was asked
+/// is a lie the total must not hide: the total is then one more than the request, which a nested
+/// handler's caller sees the same way, up to the move, which refuses it as [`Overanswered`].
 pub(crate) fn in_turn<P>(
     amount: u32,
     parts: impl IntoIterator<Item = P>,
     mut ask: impl FnMut(P, u32) -> u32,
 ) -> u32 {
+    let amount = amount.min(MAX_REQUEST);
     let mut done = 0;
     for part in parts {
         let left = amount - done;
@@ -580,14 +586,14 @@ pub(crate) fn in_turn<P>(
         }
         let answer = ask(part, left);
         if answer > left {
-            return amount.checked_add(1).unwrap_or(0);
+            return amount + 1;
         }
         done += answer;
     }
     done
 }
 
-/// A handler answered more than it was asked (`move_resources`): a mod bug, warned once naming
+/// A handler answered more than it was asked (`resource_util::move`): a mod bug, warned once naming
 /// the mod. Returned from a `host.transaction` closure with `?`, it aborts the whole move, so
 /// neither end keeps any of it.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -596,48 +602,6 @@ pub(crate) fn in_turn<P>(
 pub struct Overanswered {
     /// The mod whose handler answered, or "the game".
     pub owner: String,
-}
-
-/// Moves up to `max` of what `filter` accepts out of `from` into wherever `to` takes it, index by
-/// index from 0 (NeoForge's `ResourceHandlerUtil.move`), in transaction `tx`: how much moved.
-/// Each move is all or nothing, in a transaction of its own: what `to` won't take stays in
-/// `from`, and a move `to` takes only part of is tried again with that part (a cauldron gives
-/// whole thirds). A handler answering more than it was asked has its move undone and ends the
-/// moving with [`Overanswered`].
-pub fn move_resources<R>(
-    host: &mut dyn ServerHost,
-    from: &Capability<dyn ResourceHandler<R>>,
-    to: &Capability<dyn ResourceHandler<R>>,
-    filter: impl Fn(&R) -> bool,
-    max: u32,
-    tx: &Transaction,
-) -> Result<u32, Overanswered> {
-    let _ = tx;
-    let mut moved = 0;
-    for index in 0..from.size(host) {
-        while moved < max {
-            let Some(resource) = from.resource(host, index).filter(|r| filter(r)) else {
-                break;
-            };
-            let want = (max - moved).min(from.amount(host, index));
-            let went = move_once(
-                host,
-                Ends {
-                    from,
-                    to,
-                    at: &index,
-                },
-                want,
-                |host, tx, want| from.extract(host, tx, index, &resource, want),
-                |host, tx, out| to.insert_resource(host, tx, &resource, out),
-            )?;
-            if went == 0 {
-                break;
-            }
-            moved += went;
-        }
-    }
-    Ok(moved)
 }
 
 /// The two ends of a move and where it is, for warnings.
@@ -651,7 +615,7 @@ pub(crate) struct Ends<'a, A: ?Sized, B: ?Sized> {
 /// nothing in a transaction of its own, nested in the caller's: how much moved. A move `to` takes
 /// only part of is undone and tried again with that part, and one that moves nothing is undone
 /// (NeoForge's `move` commits only what moved); a handler answering more than it was asked has
-/// its move undone and gives [`Overanswered`]. The one step of `move_resources`, `move_energy`
+/// its move undone and gives [`Overanswered`]. The one step of `resource_util::move`, `move_energy`
 /// and the 64-bit `transfer`.
 pub(crate) fn move_once<A: ?Sized, B: ?Sized, N: Copy + PartialOrd + Default>(
     host: &mut dyn ServerHost,
