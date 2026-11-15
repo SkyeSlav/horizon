@@ -47,8 +47,14 @@ fn stack(item: &str, count: u32, components: &str) -> Stack {
 fn page() -> RecipePage {
     let log = stack("minecraft:oak_log", 1, "");
     let planks = stack("minecraft:oak_planks", 4, "[minecraft:custom_name=\"P\"]");
-    let water = FluidStack::new(mod_api::__private::fluid_key("minecraft:water").unwrap(), 1000);
-    let lava = FluidStack::new(mod_api::__private::fluid_key("minecraft:lava").unwrap(), 250);
+    let water = FluidStack::new(
+        mod_api::__private::fluid_key("minecraft:water").unwrap(),
+        1000,
+    );
+    let lava = FluidStack::new(
+        mod_api::__private::fluid_key("minecraft:lava").unwrap(),
+        250,
+    );
     let layouts = [
         RecipeLayout::Grid,
         RecipeLayout::Cooking,
@@ -58,7 +64,11 @@ fn page() -> RecipePage {
     ];
     let mut recipes: Vec<RecipeView> = layouts.into_iter().map(RecipeView::new).collect();
     recipes[0] = RecipeView::grid(2, 3)
-        .with_slots(vec![vec![log.clone(), planks.clone()], Vec::new(), vec![log.clone()]])
+        .with_slots(vec![
+            vec![log.clone(), planks.clone()],
+            Vec::new(),
+            vec![log.clone()],
+        ])
         .with_results(vec![
             RecipeResult::new(vec![planks.clone()]),
             RecipeResult::new(vec![log.clone()]).with_chance(12.5),
@@ -79,7 +89,10 @@ fn a_recipe_page_round_trips_on_the_wire() {
     assert_eq!(Reader::decode::<RecipePage>(writer.bytes()).unwrap(), page);
     let mut writer = Writer::new();
     writer.put(&None::<RecipePage>);
-    assert_eq!(Reader::decode::<Option<RecipePage>>(writer.bytes()).unwrap(), None);
+    assert_eq!(
+        Reader::decode::<Option<RecipePage>>(writer.bytes()).unwrap(),
+        None
+    );
 }
 
 #[test]

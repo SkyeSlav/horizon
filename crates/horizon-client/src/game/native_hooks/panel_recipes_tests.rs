@@ -56,7 +56,11 @@ fn a_native_mods_recipe_page_shows_in_the_panel_and_none_restores_its_items() {
             (0..6)
                 .map(|i| {
                     let result = RecipeResult::new(vec![stack("minecraft:oak_planks")]);
-                    if i == 1 { result.with_chance(250.0) } else { result }
+                    if i == 1 {
+                        result.with_chance(250.0)
+                    } else {
+                        result
+                    }
                 })
                 .collect(),
         )
@@ -105,7 +109,11 @@ fn a_native_mods_recipe_page_shows_in_the_panel_and_none_restores_its_items() {
     // A page with no recipes does the same.
     show(&mut panel, "viewer", Some(page_of_one()));
     assert!(panel.shown(|_| true).unwrap().recipes.is_some());
-    show(&mut panel, "viewer", Some(mod_api::RecipePage::new("", Vec::new())));
+    show(
+        &mut panel,
+        "viewer",
+        Some(mod_api::RecipePage::new("", Vec::new())),
+    );
     assert!(panel.shown(|_| true).unwrap().recipes.is_none());
 }
 
