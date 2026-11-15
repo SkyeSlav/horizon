@@ -8012,6 +8012,8 @@ impl Game<'_> {
                         packed,
                         self.res.mob_data(),
                         &armor,
+                        hidden,
+                        (listened || added.is_some()).then_some(&mut parts),
                         out,
                     );
                 } else if layers_only {

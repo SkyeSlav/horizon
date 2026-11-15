@@ -211,8 +211,7 @@ struct TerrainOut {
     // How the face shines in HDR output (mesher.rs's `EMISSION_BITS`): 0 not
     // at all, 1 to 4 the tier with its bright parts, 5 to 8 the tier all over.
     emission: u32,
-    // Block and sky light over 16, the light a world warp's fragment is given
-    // (gfx/world_warp_fragment.wgsl).
+    // Block and sky light over 16.
     scene: vec2<f32>,
     fade: u32,
     // A distant tile's tile-relative position, for its fade (`faded`).

@@ -3108,7 +3108,7 @@ impl Hub {
                 options.scale,
             )),
             T::Effect | T::InstantEffect => Some(ParticleData::ColorPower(rgb, options.scale)),
-            T::EntityEffect | T::TintedLeaves => Some(ParticleData::Color(
+            T::EntityEffect | T::TintedLeaves | T::Flash => Some(ParticleData::Color(
                 (((c[3].clamp(0.0, 1.0) * 255.0).round() as i32) << 24) | rgb,
             )),
             T::DragonBreath | T::SculkCharge => Some(ParticleData::Scalar(options.scale)),
