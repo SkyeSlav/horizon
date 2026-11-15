@@ -55,6 +55,10 @@ of any other level (one the server keeps open for viewing, a handle from an earl
 epoch, a level closed or never open) is refused as `WorldViewRefusalReason::Level`
 and logged once. The handle is resolved once a frame, so a stale one is refused from
 the next frame on.
+For a camera preview, add `with_full_light()`: the view's entities and block
+entities are drawn at full light (block and sky light 15) whatever the world's
+light where they stand, so a night or cave scene stays readable. Terrain, the sky
+and fog keep the world's light.
 
 Use `world_view_drawn` to copy a still to your own buffer or draw into the supplied
 target with its encoder. Copy a picture you need to preserve: targets are reused
