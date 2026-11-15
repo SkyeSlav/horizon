@@ -6,13 +6,7 @@
 //! (`Kind::Mount`) with the mount's saddle, body item and chest copied in and
 //! written back, and the slots go to the client after each change, as
 //! `broadcastChanges` does.
-<<<<<<< ours
 use super::{Game, lan_crafting::input};
-||||||| base
-use super::{Game, lan::LanHost, lan_crafting::input};
-=======
-use super::{Game, lan::LanHost, lan_actions::guest_within_entity_range, lan_crafting::input};
->>>>>>> theirs
 use horizon_client::{
     items::ItemStack,
     menu::{Kind, Menu},

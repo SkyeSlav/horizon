@@ -2,7 +2,7 @@
 //! entity to the item model, so a framed compass's needle reads the frame's
 //! position and yaw; and only `CompassItem.inventoryTick` ticks a
 //! `LodestoneTracker`, so any other item carrying the component keeps it.
-use crate::game::native_machines::tests::server_game;
+use crate::game::game_tests::tests::server_game;
 use crate::game::{Audio, Game, Options, Progress, Settings, execution_role, load_resources};
 use horizon_client::{entities::ItemFrame, items::ItemStack};
 use horizon_core::random::LegacyRandom;
@@ -141,7 +141,8 @@ fn a_framed_lodestone_compass_needle_turns_with_its_frame() {
 #[test]
 #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn only_a_compass_ticks_its_lodestone_tracker() {
-    let mut game = server_game();
+    let mut resources = None;
+    let mut game = server_game(&mut resources);
     // The resident chunk (0, 0) holds no lodestone at 5 70 5: the target is gone.
     for (slot, item) in [(0, "minecraft:stick"), (1, "minecraft:compass")] {
         let mut stack = ItemStack::new(item, 1);

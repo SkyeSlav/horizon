@@ -5,7 +5,7 @@
 //! closes only the screens whose `Screen.isAllowedInPortal` is false.
 
 use super::*;
-use crate::game::native_machines::tests::server_game;
+use crate::game::game_tests::tests::server_game;
 use horizon_client::entities::ArmorStand;
 use horizon_client::motion::PlayerMotion;
 
@@ -23,7 +23,8 @@ fn put_portal(game: &mut Game<'_>, x: i32, z: i32) {
 #[test]
 #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn armor_stands_in_a_nether_portal_go_through_and_cool_down() {
-    let mut game = server_game();
+    let mut resources = None;
+    let mut game = server_game(&mut resources);
     game.player = Some(PlayerMotion::new(game.motion, Vec3::new(8.5, 65.0, 8.5)).unwrap());
     game.load_ticking_neighbourhood(0, 0);
     // A stand standing in the portal at (4, 64..65, 4); a marker whose 0 by 0
@@ -75,7 +76,8 @@ fn armor_stands_in_a_nether_portal_go_through_and_cool_down() {
 #[test]
 #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn the_portal_effect_keeps_the_screens_that_allow_it() {
-    let mut game = server_game();
+    let mut resources = None;
+    let mut game = server_game(&mut resources);
     // `Screen.isAllowedInPortal` is `isPauseScreen` for these: the pause menu,
     // the options over it and the chat stay open while the effect grows.
     for screen in [Screen::Paused, Screen::Options, Screen::Chat] {

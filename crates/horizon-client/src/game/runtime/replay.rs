@@ -670,16 +670,8 @@ impl Game<'_> {
             self.replay.previous_camera_type = Some(self.camera_type);
             self.replay.standalone = standalone;
         }
-<<<<<<< ours
-        self.replay.driver = Some(driver);
-        self.camera_type = horizon_client::camera::CameraType::FirstPerson;
-||||||| base
-        self.replay.driver = Some(driver);
-        self.camera_type = super::perspective::CameraType::FirstPerson;
-=======
         self.replay.driver = Some(Box::new(driver));
-        self.camera_type = super::perspective::CameraType::FirstPerson;
->>>>>>> theirs
+        self.camera_type = horizon_client::camera::CameraType::FirstPerson;
         self.title = None;
         self.screen = Screen::Playing;
         self.capture(false);

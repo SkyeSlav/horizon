@@ -2,7 +2,7 @@
 //! only where `Player.mayBuild` holds or the stack's `can_place_on` matches
 //! the clicked block. Tools (an axe), honeycomb, bone meal, shears, a water
 //! bottle and a spawn egg used on a block pass in adventure mode otherwise.
-use crate::game::native_machines::tests::server_game;
+use crate::game::game_tests::tests::server_game;
 use crate::game::{Game, GuestUse, Hit};
 use horizon_client::command::args::GameMode;
 use horizon_client::first_person::Hand;
@@ -13,7 +13,8 @@ use horizon_world::registry::BlockStateId;
 /// A server's game with the prepared resources, or `None` where CI has none.
 fn game() -> Option<Game<'static>> {
     std::env::var_os("HORIZON_TEST_RESOURCES")?;
-    let mut game = server_game();
+    let mut resources = None;
+    let mut game = server_game(&mut resources);
     game.build_registries();
     Some(game)
 }

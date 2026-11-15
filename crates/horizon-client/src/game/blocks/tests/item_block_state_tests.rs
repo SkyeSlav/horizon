@@ -2,7 +2,7 @@
 //! `block_state` component asks for with `level.setBlock(pos, modifiedState, 2)`:
 //! the clients are told of the change, the neighbours are not, so a state that
 //! starts providing a signal powers nothing until something else updates it.
-use crate::game::{Game, Hit, native_machines::tests::server_game};
+use crate::game::{Game, Hit, game_tests::tests::server_game};
 use horizon_client::{command::args::GameMode, items::ItemStack};
 use horizon_world::nbt::{Compound, JavaString, Tag};
 
@@ -40,7 +40,8 @@ fn property(game: &Game<'_>, pos: [i32; 3], key: &str) -> Option<String> {
 fn a_block_state_component_does_not_update_neighbours() {
     const LAMP: [i32; 3] = [2, 4, 0];
     const BESIDE: [i32; 3] = [2, 4, 1];
-    let mut game = server_game();
+    let mut resources = None;
+    let mut game = server_game(&mut resources);
     game.options.dedicated = None;
     game.set_mode(GameMode::Creative);
     let lamp = game

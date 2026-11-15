@@ -11,6 +11,10 @@ pub(crate) struct Hit {
 }
 
 impl Hit {
+    /// The hit as block-use hooks hear it (`UseOnContext`'s hit result).
+    pub(super) fn native(&self) -> mod_api::BlockHit {
+        mod_api::BlockHit::new(self.point, self.face, self.inside)
+    }
     /// The block the clicked face leads to (`pos.relative(direction)`).
     pub(super) fn beside(&self) -> [i32; 3] {
         [

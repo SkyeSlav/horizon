@@ -1,7 +1,7 @@
 //! The adventure-mode gates on a right click: `TntBlock.prime` refuses to
 //! light TNT for a player whose held stack's `can_break` does not name it,
 //! and `ItemStack.useOn`'s `can_place_on` is what lets a placement through.
-use crate::game::{Hit, native_machines::tests::server_game};
+use crate::game::{Hit, game_tests::tests::server_game};
 use horizon_client::command::args::GameMode;
 use horizon_client::items::ItemStack;
 use horizon_client::mobs::Who;
@@ -12,7 +12,8 @@ type Posted = (&'static str, [f64; 3], Option<Who>);
 /// A server's game with nobody playing, or `None` without prepared resources.
 fn game() -> Option<crate::game::Game<'static>> {
     std::env::var_os("HORIZON_TEST_RESOURCES")?;
-    let mut game = server_game();
+    let mut resources = None;
+    let mut game = server_game(&mut resources);
     game.build_registries();
     game.set_allow_commands(true);
     game.player = None;
