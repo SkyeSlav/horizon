@@ -110,7 +110,7 @@ fn time_moves_the_clock_the_end_runs_on() {
     assert_eq!(level.end_clock, Some(400));
     game.level = level;
     game.world.end_clock = game.level.end_clock.unwrap_or(game.level.time);
-    game.load_world_state();
+    game.load_world_state().unwrap();
     assert_eq!(
         run(&mut game, "query time"),
         "Clock minecraft:the_end is at 400 tick(s)"

@@ -2914,7 +2914,7 @@ mod registered_slot_source_preservation_tests {
             r#"{"type":"minecraft:slot_range","source":"this","slots":"weapon.mainhand"}"#,
         )
         .unwrap();
-        game.reload_datapacks(true, &[]);
+        game.reload_datapacks(true, &[]).unwrap();
         let before = game.block_entity_nbt([0, 100, 0]).unwrap();
         let clock = game.world.game_time;
         count(&mut game, 3);
