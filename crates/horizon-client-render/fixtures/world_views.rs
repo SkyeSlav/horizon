@@ -386,6 +386,7 @@ fn fixture(window: Arc<Window>) -> Result<(), Box<dyn std::error::Error>> {
         let mut frame = fixture_frame(&hud);
         frame.entities = &entity;
         frame.static_block_entities = &static_sections;
+        frame.static_block_entity_stats.snapshot_revision = 1;
         frame.visible_static_block_entity_sections = &[[3, 10, 0]];
         let path = out.join(format!("{name}.png"));
         renderer.screenshot = Some(ScreenshotRequest {
