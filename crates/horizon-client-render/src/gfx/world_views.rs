@@ -404,8 +404,8 @@ impl Target {
 mod tests {
     use super::*;
 
-    /// A view at the frame's camera sees as a screen view would; one elsewhere sees a point
-    /// where its own camera-relative matrix does.
+    /// The full-light flag reaches the view camera as 1.0 only when the view asks for it,
+    /// for an ordinary, a mirrored and a clipped view.
     #[test]
     fn full_light_is_explicit_for_each_camera() {
         let view = native_render::WorldView::new(1, DVec3::ZERO, 0.0, 0.0, 70.0, [64, 64]);
@@ -425,6 +425,8 @@ mod tests {
         }
     }
 
+    /// A view at the frame's camera sees as a screen view would; one elsewhere sees a point
+    /// where its own camera-relative matrix does.
     #[test]
     fn a_view_sees_the_world_from_its_own_camera() {
         let frame_camera = DVec3::new(100.5, 70.0, -20.25);
