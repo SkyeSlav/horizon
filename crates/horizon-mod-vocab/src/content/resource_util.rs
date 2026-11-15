@@ -321,7 +321,8 @@ impl<R> ResourceHandler<R> for RangedResourceHandler<R> {
 // exhaustive: its field is private, so mods cannot build or destructure it
 pub struct EmptyResourceHandler(());
 
-static EMPTY: EmptyResourceHandler = EmptyResourceHandler(());
+// The immutable zero-state value is promoted when borrowed by instance().
+const EMPTY: EmptyResourceHandler = EmptyResourceHandler(());
 
 impl EmptyResourceHandler {
     /// The one empty handler (`EmptyResourceHandler.instance`).
@@ -762,7 +763,7 @@ fn move_by<R: PartialEq>(
     if only_first {
         within(host, tx, transfer)
     } else {
-        host.transaction(transfer)
+        host.transaction(|host, tx| transfer(host, tx))
     }
 }
 
