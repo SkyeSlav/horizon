@@ -21,6 +21,8 @@ pub mod residency;
 pub mod visibility;
 
 static NEXT: AtomicU64 = AtomicU64::new(1);
+// Movement needs comparable stamps, but must not dirty the admission flush.
+static LATEST_JOIN: AtomicU64 = AtomicU64::new(0);
 static NEXT_LIST: AtomicU64 = AtomicU64::new(1);
 
 /// Identifies a list and its write generation. Equal stamps mean the same list
@@ -49,13 +51,19 @@ pub struct JoinSeq(u64);
 impl JoinSeq {
     /// Not joined yet.
     pub const UNJOINED: Self = Self(0);
-    /// Assign the next number when an entity joins, with one relaxed add.
+    /// Assign the next number when an entity joins and mark admissions dirty.
     pub fn next() -> Self {
+        let joined = Self::stamp();
+        LATEST_JOIN.fetch_max(joined.0, Ordering::Relaxed);
+        joined
+    }
+    /// A comparable mutation stamp without a new storage admission.
+    fn stamp() -> Self {
         Self(NEXT.fetch_add(1, Ordering::Relaxed))
     }
-    /// The latest sequence assigned anywhere in this process.
+    /// The latest storage join anywhere in this process, excluding movement stamps.
     pub fn latest() -> Self {
-        Self(NEXT.load(Ordering::Relaxed) - 1)
+        Self(LATEST_JOIN.load(Ordering::Relaxed))
     }
 
     /// Above every number a join can get.

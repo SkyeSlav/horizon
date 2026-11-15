@@ -224,7 +224,7 @@ impl Journal {
         );
         let sequence = match event.change {
             Change::Install(_) | Change::PutBack(_) | Change::EnteredSection(_) => {
-                Some(JoinSeq::next())
+                Some(JoinSeq::stamp())
             }
             Change::Spawned(identity) => Some(identity.join),
             _ => None,
