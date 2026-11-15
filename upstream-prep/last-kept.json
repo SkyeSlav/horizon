@@ -596,7 +596,8 @@
   ".github/workflows/ignored-tests.yml",
   "tests/test_ci_xvfb.py",
   "tests/test_data_leg_timing.py",
-  "tools/ci/game_smoke.sh"
+  "tools/ci/game_smoke.sh",
+  "tools/ci/ignored-tests/"
  ],
  "tools/hotspots/README.md": [
   ".github/workflows/mod-checks.yml",

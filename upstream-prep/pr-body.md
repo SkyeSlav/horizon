@@ -6,7 +6,7 @@ This brings the mod API from arismoko/horizon upstream.
 
 I started this fork because I want Horizon to have massive mods that everyone can play. Horizon could already run mods: content mods, and native mods that patch the game's source and rebuild it. What it didn't have was an API that something the size of a real Java mod could be built on. This adds one: a mod API with its own types, named after NeoForge wherever NeoForge has the same thing, shared by native and WebAssembly mods, and built against a prebuilt game so nobody has to compile Horizon to play a mod. My hope is that it grows into something like NeoForge and can stand next to the Java modding experience.
 
-A lot of people showed up to help. 49 of you have commits in here. You ported actual mods to find out what was missing, and most of what's good in the API came out of that. Thank you.
+A lot of people showed up to help. 50 of you have commits in here. You ported actual mods to find out what was missing, and most of what's good in the API came out of that. Thank you.
 
 This is by no means close to done. It's the very start of a mod API. Things are broken right now, and things will keep breaking as it changes, so a mod written against it today should expect to be updated.
 
@@ -29,7 +29,7 @@ The tree is kept in step with horizon-rust/horizon: upstream's main has been mer
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="images/07-contributors-dark.png">
-  <img alt="49 people and 10,848 commits, by GitHub account" src="images/07-contributors-light.png" width="800">
+  <img alt="50 people and 10,986 commits, by GitHub account" src="images/07-contributors-light.png" width="800">
 </picture>
 
 ### Special thanks
@@ -141,8 +141,10 @@ The tree is kept in step with horizon-rust/horizon: upstream's main has been mer
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="images/08-screens-dark.png">
-  <img alt="The launcher's Mods page and a native mod's machine screen in the game" src="images/08-screens-light.png" width="800">
+  <img alt="The launcher's Installed mods tab: an instance's native mods with their state and switches, and the build card; Create running in the game" src="images/08-screens-light.png" width="800">
 </picture>
+
+In the game: Create, a work-in-progress port by [@OlaHulleberg](https://github.com/OlaHulleberg) ([create-horizon](https://github.com/OlaHulleberg/create-horizon)).
 
 **Tests and CI tiers**
 - `ci.yml` is yours as it is, plus one step: the wasm32 check of `horizon-mod-api` when the mod API changes.

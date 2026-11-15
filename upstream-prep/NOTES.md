@@ -30,3 +30,6 @@ Edit helper: /tmp/rep.py (edit(path, [(old,new)]) exact-once replacements). Recr
 - 2026-11-15 16:10: the owner edited the draft repo directly (606d95a: "Since the first draft" folded into the thanks).
   The repo's README is the source now; pr-draft/README.md is its copy. edit_readme.py and the 14 Nov original moved to
   pr-draft/retired/ and must not be rerun. After the final main, only the counts change: pr-draft/set_counts.py PEOPLE COMMITS.
+- 2026-11-15 16:56: rebuilt on main 4dc6455d4a (rollup 117). nightly-sdk.diff refreshed: main added daily_summary's
+  fixes_after (comment on a closed issue whose fix the tested commit predates); kept, on top of the removed tag/suspects/
+  after flow (summary job: pull-requests: read, fetch-depth 0). resolve.py is now in this folder. Counts 50 / 10,986.

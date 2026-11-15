@@ -1,5 +1,5 @@
 diff --git a/.github/workflows/daily.yml b/.github/workflows/daily.yml
-index a757da8565c..6413705b610 100644
+index dc51d61701c..f6b799dd9e6 100644
 --- a/.github/workflows/daily.yml
 +++ b/.github/workflows/daily.yml
 @@ -3,11 +3,9 @@ run-name: daily ${{ inputs.commit || github.sha }}${{ github.event_name == 'work
@@ -49,7 +49,7 @@ index a757da8565c..6413705b610 100644
      if: needs.resolve.outputs.skip == 'false'
      uses: ./.github/workflows/fn-replace-check.yml
      with:
-@@ -130,33 +128,20 @@ jobs:
+@@ -130,34 +128,22 @@ jobs:
      uses: ./.github/workflows/launcher-windows-check.yml
      with:
        commit: ${{ needs.resolve.outputs.commit }}
@@ -76,16 +76,18 @@ index a757da8565c..6413705b610 100644
 -      contents: write  # the daily-green tag
        issues: write
        actions: read
+       pull-requests: read  # which pull request closed a test's last issue, and whether this commit holds its fix
 -    outputs:
 -      green: ${{ steps.summary.outputs.green }}
      steps:
        - uses: actions/checkout@v4
          with:
 -          fetch-depth: 0
++          fetch-depth: 0  # the commit's whole history, for that check
            persist-credentials: false
        # No verdict file (a leg that never ran or died first) means that leg did not complete, never green.
        - uses: actions/download-artifact@v4
-@@ -172,60 +157,3 @@ jobs:
+@@ -173,62 +159,3 @@ jobs:
            RESULTS: ${{ toJSON(needs) }}
            REPORTS: ${{ runner.temp }}/reports
          run: python3 tools/ci/daily_summary.py
@@ -115,9 +117,11 @@ index a757da8565c..6413705b610 100644
 -    permissions:
 -      issues: write
 -      actions: read
+-      pull-requests: read  # as the summary: whether this commit holds the fix that closed the leg's last issue
 -    steps:
 -      - uses: actions/checkout@v4
 -        with:
+-          fetch-depth: 0  # the commit's whole history, for that check
 -          persist-credentials: false
 -      - env:
 -          GH_TOKEN: ${{ github.token }}
@@ -1086,7 +1090,7 @@ index a81cf60a6b4..d3dc21ff739 100644
  publication-time checks alone would not make concurrent deletion safe.
  
 diff --git a/tests/test_daily_summary.py b/tests/test_daily_summary.py
-index f8b286a0792..db0cc3f2d12 100644
+index 8cbff809ea7..def2db51568 100644
 --- a/tests/test_daily_summary.py
 +++ b/tests/test_daily_summary.py
 @@ -1,4 +1,4 @@
@@ -1135,42 +1139,50 @@ index f8b286a0792..db0cc3f2d12 100644
          if "/jobs" in path:
              return {"jobs": self.jobs[(page - 1) * 100:page * 100]}
          if path.startswith("issues?"):
-@@ -84,16 +78,8 @@ class Api:
-         raise AssertionError(path)
+@@ -95,19 +89,17 @@ def closers(fixes):
+     return query
  
  
--def git(merged=(), tag=True):
--    def run(*args):
+-def git(merged=(), tag=True, ancestors=()):
++def git(ancestors=()):
++    """`git merge-base --is-ancestor` as fixes_after runs it: success for the commits in `ancestors`."""
+     def run(*args):
 -        if args[0] == "rev-parse":
 -            return "d" * 40 if tag else None
+-        if args[0] == "merge-base":
+-            return "" if args[2] in ancestors else None
 -        return "\n".join(f"Merge pull request #{n} from arismoko/topic" for n in merged) + "\nMerge branch 'x'"
--    return run
--
--
++        assert args[:2] == ("merge-base", "--is-ancestor"), args
++        return "" if args[2] in ancestors else None
+     return run
+ 
+ 
  class DailySummaryTests(unittest.TestCase):
--    def run_summary(self, api, reports=(), results=LEGS, ref="refs/heads/main", dry_run="false", merged=(), tag=True):
-+    def run_summary(self, api, reports=(), results=LEGS, ref="refs/heads/main", dry_run="false"):
+-    def run_summary(self, api, reports=(), results=LEGS, ref="refs/heads/main", dry_run="false", merged=(), tag=True,
+-                    fixes=None, ancestors=()):
++    def run_summary(self, api, reports=(), results=LEGS, ref="refs/heads/main", dry_run="false", fixes=None,
++                    ancestors=()):
          with tempfile.TemporaryDirectory() as folder:
              for index, report in enumerate(reports):
                  path = Path(folder, "reports", f"daily-report-{index}")
-@@ -102,91 +88,42 @@ class DailySummaryTests(unittest.TestCase):
+@@ -116,98 +108,42 @@ class DailySummaryTests(unittest.TestCase):
              env = {"GITHUB_REPOSITORY": "arismoko/horizon", "GITHUB_RUN_ID": "77", "GITHUB_REF": ref,
                     "GITHUB_SERVER_URL": "https://github.com", "COMMIT": COMMIT, "DRY_RUN": dry_run,
                     "RESULTS": json.dumps(results), "REPORTS": str(Path(folder, "reports")),
 -                   "GITHUB_STEP_SUMMARY": str(Path(folder, "summary")), "GITHUB_OUTPUT": str(Path(folder, "out"))}
 +                   "GITHUB_STEP_SUMMARY": str(Path(folder, "summary"))}
              with mock.patch.dict(os.environ, env, clear=True), contextlib.redirect_stdout(io.StringIO()):
--                summary.main(api, git(merged, tag))
+-                summary.main(api, git(merged, tag, ancestors), closers(fixes or {}))
 -            return Path(folder, "summary").read_text(), Path(folder, "out").read_text()
-+                summary.main(api)
-+            return Path(folder, "summary").read_text()
- 
--    def run_after(self, api, result, ref="refs/heads/main", run="77"):
+-
+-    def run_after(self, api, result, ref="refs/heads/main", run="77", fixes=None):
 -        env = {"GITHUB_REPOSITORY": "arismoko/horizon", "GITHUB_RUN_ID": run, "GITHUB_REF": ref,
 -               "GITHUB_SERVER_URL": "https://github.com", "COMMIT": COMMIT, "DRY_RUN": "false"}
 -        with mock.patch.dict(os.environ, env, clear=True), contextlib.redirect_stdout(io.StringIO()):
--            summary.after("sdk-publish", result, api, git((), True))
--
+-            summary.after("sdk-publish", result, api, git((), True), closers(fixes or {}))
++                summary.main(api, git(ancestors), closers(fixes or {}))
++            return Path(folder, "summary").read_text()
+ 
 -    def test_a_failed_sdk_publish_files_one_issue_and_its_next_success_closes_it(self):
 -        failed = [job("sdk-publish / index"), job("sdk-publish / publish", "failure", ["Release sdk-<sha>"])]
 -        api = Api(failed)
@@ -1186,6 +1198,13 @@ index f8b286a0792..db0cc3f2d12 100644
 -        api.writes.clear()
 -        self.run_after(api, "success", run="79")
 -        self.assertIn(("PATCH", "issues/1000", {"state": "closed", "state_reason": "completed"}), api.writes)
+-        # A failure on a commit that predates the fix which closed the issue comments on it and leaves it closed.
+-        api.issues[0]["state"] = "closed"
+-        api.runs[80] = {"jobs": failed}
+-        api.writes.clear()
+-        self.run_after(api, "failure", run="80", fixes={1000: "f" * 40})
+-        self.assertEqual([(method, path) for method, path, _ in api.writes], [("POST", "issues/1000/comments")])
+-        self.assertIn("which predates the fix `fffffffff`", api.writes[0][2]["body"])
 -        # Off main nothing is written.
 -        quiet = Api(failed)
 -        self.run_after(quiet, "failure", ref="refs/heads/topic")
@@ -1217,7 +1236,10 @@ index f8b286a0792..db0cc3f2d12 100644
          api = Api(jobs)
 -        _, out = self.run_summary(api, [])
 -        self.assertIn("green=false", out, "a skipped shard is missing coverage")
--
++        self.run_summary(api, [])
++        self.assertIn("Daily: shards / ignored-tests-shards (horizon-world) did not complete",
++                      [body["title"] for _, path, body in api.writes if path == "issues"])
+ 
 -    def test_a_failed_sdk_build_is_red(self):
 -        jobs = [job for job in GREEN_JOBS if not job["name"].startswith("sdk")] + [
 -            job("sdk / fresh"), job("sdk / build windows", "failure", ["Build and collect"])]
@@ -1231,10 +1253,7 @@ index f8b286a0792..db0cc3f2d12 100644
 -        api = Api(GREEN_JOBS, tag=False)
 -        self.run_summary(api, [shard_report()])
 -        self.assertIn(("POST", "git/refs", {"ref": "refs/tags/daily-green", "sha": COMMIT}), api.writes)
-+        self.run_summary(api, [])
-+        self.assertIn("Daily: shards / ignored-tests-shards (horizon-world) did not complete",
-+                      [body["title"] for _, path, body in api.writes if path == "issues"])
- 
+-
 -    def test_a_failing_test_gets_one_issue_with_location_run_and_suspects(self):
 +    def test_a_failing_test_gets_one_issue_with_location_and_run(self):
          jobs = GREEN_JOBS[:1] + [job("shards / ignored-tests-shards (horizon-world)", "failure",
@@ -1258,7 +1277,7 @@ index f8b286a0792..db0cc3f2d12 100644
  
      def test_an_open_issue_gets_a_comment_not_a_duplicate(self):
          jobs = [job("shards / ignored-tests-shards (horizon-world)", "failure", ["Run"])] + GREEN_JOBS[2:]
-@@ -205,14 +142,13 @@ class DailySummaryTests(unittest.TestCase):
+@@ -244,14 +180,13 @@ class DailySummaryTests(unittest.TestCase):
                  job("fn-replace-check / fn-replace-check", "failure", ["Refusals by name"])] + GREEN_JOBS[6:]
          api = Api(jobs)
          self.run_summary(api, [], results=dict(LEGS, shards={"result": "cancelled"}, **{"wasm-mods": {"result": "failure"}},
@@ -1274,7 +1293,7 @@ index f8b286a0792..db0cc3f2d12 100644
  
      def test_a_shard_killed_for_memory_says_by_what_with_its_memory_time_and_running_tests(self):
          stuck = [f"game::slow::case_{n}" for n in range(7)]
-@@ -247,19 +183,21 @@ class DailySummaryTests(unittest.TestCase):
+@@ -286,19 +221,21 @@ class DailySummaryTests(unittest.TestCase):
      def test_every_shard_of_the_matrix_must_report_by_name(self):
          launcher = "shards / ignored-tests-shards (daily-rows-launcher)"
          self.assertIn(launcher, summary.expected_shards())
@@ -1302,7 +1321,7 @@ index f8b286a0792..db0cc3f2d12 100644
  
      def test_a_stopped_runs_test_names_are_bounded_in_length(self):
          long = "a" * 301
-@@ -269,8 +207,7 @@ class DailySummaryTests(unittest.TestCase):
+@@ -308,8 +245,7 @@ class DailySummaryTests(unittest.TestCase):
  
      def test_a_skipped_leg_with_no_jobs_is_not_green(self):
          api = Api([job for job in GREEN_JOBS if not job["name"].startswith("shards")])
@@ -1312,7 +1331,7 @@ index f8b286a0792..db0cc3f2d12 100644
          self.assertIn("Daily: shards did not complete", [body["title"] for _, path, body in api.writes if path == "issues"])
  
      def test_fixture_test_failures_are_filed_by_test_name(self):
-@@ -313,27 +250,17 @@ class DailySummaryTests(unittest.TestCase):
+@@ -352,27 +288,17 @@ class DailySummaryTests(unittest.TestCase):
          self.assertEqual([(m, p) for m, p, _ in api.writes], [("POST", "issues/900/comments")])
  
      def test_a_failed_helper_files_one_leg_issue_naming_it(self):
@@ -1343,7 +1362,7 @@ index f8b286a0792..db0cc3f2d12 100644
      def test_a_rerun_that_turns_a_test_green_still_posts_its_close_comment(self):
          red_jobs = [job("shards / ignored-tests-shards (horizon-world)", "failure", ["Run"])] + GREEN_JOBS[2:]
          issues = [{"number": 900, "title": "Daily: horizon-world flaky::one", "body": "> filed earlier"}]
-@@ -350,16 +277,16 @@ class DailySummaryTests(unittest.TestCase):
+@@ -389,16 +315,16 @@ class DailySummaryTests(unittest.TestCase):
          self.assertIn("Green again in the daily run", comment["body"])
  
      def test_a_leg_level_issue_closes_once_the_leg_passes_whole(self):
@@ -1366,7 +1385,7 @@ index f8b286a0792..db0cc3f2d12 100644
          self.assertNotIn(("PATCH", f"issues/{number}"), [(m, p) for m, p, _ in api.writes],
                           "a run where the leg did not report leaves it open")
          api.writes.clear()
-@@ -375,8 +302,7 @@ class DailySummaryTests(unittest.TestCase):
+@@ -414,8 +340,7 @@ class DailySummaryTests(unittest.TestCase):
                  ([j for j in GREEN_JOBS if not j["name"].startswith("linkage")], "Daily: linkage did not complete")):
              with self.subTest(title=title):
                  api = Api(jobs)
@@ -1376,7 +1395,7 @@ index f8b286a0792..db0cc3f2d12 100644
                  self.assertEqual([body["title"] for _, path, body in api.writes if path == "issues"], [title])
                  self.assertIn("did not report", api.writes[0][2]["body"])
  
-@@ -395,7 +321,7 @@ class DailySummaryTests(unittest.TestCase):
+@@ -434,7 +359,7 @@ class DailySummaryTests(unittest.TestCase):
          for ref, dry_run in (("refs/heads/hotspots-daily", "false"), ("refs/heads/main", "true")):
              with self.subTest(ref=ref, dry_run=dry_run):
                  api = Api(jobs)
@@ -1385,7 +1404,7 @@ index f8b286a0792..db0cc3f2d12 100644
                                             results=dict(LEGS, shards={"result": "failure"}))
                  self.assertEqual(api.writes, [])
                  self.assertIn("(dry run: nothing written)", text)
-@@ -431,92 +357,16 @@ class DailyWorkflowTests(unittest.TestCase):
+@@ -470,92 +395,16 @@ class DailyWorkflowTests(unittest.TestCase):
          jobs = self.workflow["jobs"]
          step = jobs["resolve"]["steps"][-1]
          self.assertEqual(step["env"]["DRY_RUN"], "${{ inputs.dry_run || github.ref != 'refs/heads/main' }}")
@@ -1414,7 +1433,7 @@ index f8b286a0792..db0cc3f2d12 100644
 -
 -        self.assertEqual(jobs["nightly"]["with"]["daily"], "true")
 +        # Nothing the daily run does writes but the issues: no tag, no SDK, no Nightly.
-+        self.assertEqual(jobs["summary"]["permissions"], {"issues": "write", "actions": "read"})
++        self.assertEqual(jobs["summary"]["permissions"], {"issues": "write", "actions": "read", "pull-requests": "read"})
 +        self.assertEqual(self.workflow["permissions"], {"contents": "read"})
 +        self.assertEqual(sorted(jobs), sorted(["schedule-dispatch", "resolve", "summary", *summary.LEGS]))
          self.assertTrue(jobs["summary"]["name"].startswith("summary ${{ needs.resolve.outputs.commit }}"))
@@ -2246,10 +2265,10 @@ index 4dd52358776..00000000000
 -if __name__ == "__main__":
 -    unittest.main()
 diff --git a/tools/ci/daily_summary.py b/tools/ci/daily_summary.py
-index 3a0dc80c117..3f143f2e404 100644
+index b0161dcea74..8f32b105a37 100644
 --- a/tools/ci/daily_summary.py
 +++ b/tools/ci/daily_summary.py
-@@ -1,11 +1,10 @@
+@@ -1,13 +1,12 @@
  #!/usr/bin/env python3
 -"""The daily run's summary (.github/workflows/daily.yml): the `daily-green` tag and one issue per failing test.
 +"""The daily run's summary (.github/workflows/daily.yml): one issue per failing test.
@@ -2258,13 +2277,17 @@ index 3a0dc80c117..3f143f2e404 100644
  files (tools/ci/ignored_tests.py --report: test identity, kind, panic location, policy file), then:
 -- every leg green: moves the tag `daily-green` to the commit;
 -- a failing test: files `Daily: <crate> <test>` (label `bug`) with its panic location, this run as the first that
--  saw it and the pull requests merged since the last green daily as suspects, or comments on the open one;
+-  saw it and the pull requests merged since the last green daily as suspects, or comments on the open one; when its
+-  newest issue was closed by a pull request or commit that is not in this run's commit (a fix merged after the commit
+-  under test), it comments on that closed issue and leaves it closed instead of filing a new one;
 +- a failing test: files `Daily: <crate> <test>` (label `bug`) with its panic location and this run as the first
-+  that saw it, or comments on the open one;
++  that saw it, or comments on the open one; when its newest issue was closed by a pull request or commit that is not in
++  this run's commit (a fix merged after the commit under test), it comments on that closed issue and leaves it closed
++  instead of filing a new one;
  - a leg that failed without a test name (build error, timeout, killed, cancelled, skipped, or a leg with no
    sanitised verdict): one issue per leg, `Daily: <leg> did not complete`, naming the failed steps and, for a shard,
    why each run stopped as its verdict file says (signal or exit status, memory peak and limit, wall time, the tests
-@@ -15,22 +14,18 @@ A job it does not know, or an expected leg with no job, is a red leg ("did not r
+@@ -17,15 +16,12 @@ A job it does not know, or an expected leg with no job, is a red leg ("did not r
  shard of the matrix (tools/ci/ignored_shards.py, which builds it) with no job of its name. Each comment
  names this run's URL, and none is posted twice for one run (a rerun of failed jobs, or a retry after a partial
  write, completes what is missing). `daily_summary.py --seen SHA` prints a completed real daily run of SHA, if any.
@@ -2281,14 +2304,7 @@ index 3a0dc80c117..3f143f2e404 100644
  """
  
  import datetime as dt
- import json
- import os
- import re
--import subprocess
- import sys
- import urllib.error
- import urllib.request
-@@ -39,22 +34,17 @@ from pathlib import Path
+@@ -41,22 +37,17 @@ from pathlib import Path
  sys.path.append(str(Path(__file__).resolve().parents[2]))
  from tools.ci import ignored_shards  # noqa: E402
  
@@ -2310,9 +2326,9 @@ index 3a0dc80c117..3f143f2e404 100644
  FIXTURE_TESTS_STEP = "Run the client tests that load the compiled fixture"
 -MERGE = re.compile(r"^Merge pull request #(\d+) from ")
  MAX_PAGES = 100
- 
- 
-@@ -101,9 +91,8 @@ def expected_shards():
+ # How far back a closed issue's fix is looked for: a fix that merged after the commit under test is hours old.
+ FIX_LOOKBACK = dt.timedelta(days=14)
+@@ -125,9 +116,8 @@ def expected_shards():
              for shard in [*ignored_shards.expand(ignored_shards.SHARDS), *ignored_shards.DAILY_ROWS_LEGS.values()]]
  
  
@@ -2324,7 +2340,7 @@ index 3a0dc80c117..3f143f2e404 100644
  
  
  def failed_helpers(jobs):
-@@ -134,8 +123,7 @@ def report_for(job, reports):
+@@ -158,8 +148,7 @@ def report_for(job, reports):
  
  def known(name):
      """daily.yml's own jobs and its legs' jobs; any other job is one the summary cannot judge."""
@@ -2334,7 +2350,7 @@ index 3a0dc80c117..3f143f2e404 100644
              or name.split(" / ", 1)[0] in LEGS and " / " in name)
  
  
-@@ -199,13 +187,12 @@ def verdicts(jobs, reports, results):
+@@ -223,13 +212,12 @@ def verdicts(jobs, reports, results):
      A failing test is a dict of package, test, kind, panic, policy and leg; an unfinished leg is (leg, conclusion,
      failed steps, reason). Green means every leg job and every called workflow concluded success."""
      tests, unfinished, passed, green_legs = [], [], set(), set()
@@ -2349,7 +2365,7 @@ index 3a0dc80c117..3f143f2e404 100644
              green_legs.add(job["name"])
              continue
          if job["conclusion"] == "skipped" and job["name"].split(" / ", 1)[0] in helpers:
-@@ -250,26 +237,8 @@ def verdicts(jobs, reports, results):
+@@ -274,18 +262,32 @@ def verdicts(jobs, reports, results):
              unfinished.append((leg, result, [], "did not complete, and no job or test of it says why"))
          elif result == "success" and not accounted:
              green_legs.add(leg)  # a whole leg that reported and passed closes its leg-level issue
@@ -2357,35 +2373,82 @@ index 3a0dc80c117..3f143f2e404 100644
 -             and all(job_green(job, fresh_ok) for job in leg_jobs(jobs)) and not tests and not unfinished)
      failing = {(item["package"], item["test"]) for item in tests}
 -    return tests, unfinished, passed - failing, green_legs, green
--
--
++    return tests, unfinished, passed - failing, green_legs
+ 
+ 
 -def suspects(commit, git):
 -    """The pull requests merged since the last green daily (`daily-green..commit`), or None with no green daily yet."""
 -    if git("rev-parse", "--verify", "--quiet", f"refs/tags/{TAG}^{{commit}}") is None:
 -        return None
 -    log = git("log", "--merges", "--format=%s", f"refs/tags/{TAG}..{commit}") or ""
 -    return sorted({int(found[1]) for line in log.splitlines() if (found := MERGE.match(line))})
--
--
++def test_title(item):
++    return f"{PREFIX}{item['package']} {item['test']}"
++
++
++def leg_title(leg):
++    return f"{PREFIX}{leg}{UNFINISHED}"
++
++
++def detail(item):
++    where = f"`{item['panic']}`" if item["panic"] else "not reported"
++    kinds = {
++        "failed": f"fails in the daily run. Panic location: {where}.",
++        "gpu": f"fails with a Vulkan driver present. Panic location: {where}.",
++        "passes-now": f"passes now but is listed as a known failure in `{item['policy']}`: take it off that list.",
++        "no-longer-runs": f"is listed in `{item['policy']}` but no longer runs: remove the row or restore the test.",
++    }
++    return f"`{item['test']}` ({item['package']}, leg `{item['leg']}`) {kinds[item['kind']]}"
++
++
++def leg_detail(leg, conclusion, steps, reason):
++    named_steps = ", ".join(f"`{step}`" for step in steps) or "none recorded"
++    return f"Leg `{leg}` ended `{conclusion}`: {reason}. Failed steps: {named_steps}."
+ 
+ 
+ def fixes_after(commit, titles, call, query, git):
+@@ -311,46 +313,11 @@ def fixes_after(commit, titles, call, query, git):
+     return fixes
+ 
+ 
 -def suspect_line(numbers, commit):
 -    if numbers is None:
 -        return f"Suspects: no daily run has been green yet, so every merge before `{commit[:9]}` is a suspect."
 -    if not numbers:
 -        return f"Suspects: no pull request merged between `{TAG}` and `{commit[:9]}` (a direct push or an older break)."
 -    return f"Suspects, merged since the last green daily (`{TAG}`..`{commit[:9]}`): " + ", ".join(f"#{n}" for n in numbers)
-+    return tests, unfinished, passed - failing, green_legs
- 
- 
- def test_title(item):
-@@ -296,13 +265,10 @@ def leg_detail(leg, conclusion, steps, reason):
-     return f"Leg `{leg}` ended `{conclusion}`: {reason}. Failed steps: {named_steps}."
- 
- 
--def plan(commit, run_url, tests, unfinished, passed, green_legs, green, open_issues, numbers):
+-
+-
+-def test_title(item):
+-    return f"{PREFIX}{item['package']} {item['test']}"
+-
+-
+-def leg_title(leg):
+-    return f"{PREFIX}{leg}{UNFINISHED}"
+-
+-
+-def detail(item):
+-    where = f"`{item['panic']}`" if item["panic"] else "not reported"
+-    kinds = {
+-        "failed": f"fails in the daily run. Panic location: {where}.",
+-        "gpu": f"fails with a Vulkan driver present. Panic location: {where}.",
+-        "passes-now": f"passes now but is listed as a known failure in `{item['policy']}`: take it off that list.",
+-        "no-longer-runs": f"is listed in `{item['policy']}` but no longer runs: remove the row or restore the test.",
+-    }
+-    return f"`{item['test']}` ({item['package']}, leg `{item['leg']}`) {kinds[item['kind']]}"
+-
+-
+-def leg_detail(leg, conclusion, steps, reason):
+-    named_steps = ", ".join(f"`{step}`" for step in steps) or "none recorded"
+-    return f"Leg `{leg}` ended `{conclusion}`: {reason}. Failed steps: {named_steps}."
+-
+-
+-def plan(commit, run_url, tests, unfinished, passed, green_legs, green, open_issues, numbers, fixes=None):
 -    """Every write this run makes, in order: ("tag", sha) / ("create", title, body) / ("comment", number, title, body)
-+def plan(commit, run_url, tests, unfinished, passed, green_legs, open_issues):
++def plan(commit, run_url, tests, unfinished, passed, green_legs, open_issues, fixes=None):
 +    """Every write this run makes, in order: ("create", title, body) / ("comment", number, title, body)
-     / ("close", number, title, body)."""
+     / ("close", number, title, body). `fixes` (fixes_after) holds the closed issues whose fix this commit predates."""
+     fixes = fixes or {}
      actions = []
 -    if green:
 -        actions.append(("tag", commit))
@@ -2393,12 +2456,16 @@ index 3a0dc80c117..3f143f2e404 100644
      reds = [(test_title(item), detail(item)) for item in tests]
      reds += [(leg_title(leg), leg_detail(leg, conclusion, steps, reason)) for leg, conclusion, steps, reason in unfinished]
      filed = set()
-@@ -312,11 +278,11 @@ def plan(commit, run_url, tests, unfinished, passed, green_legs, green, open_iss
+@@ -360,7 +327,7 @@ def plan(commit, run_url, tests, unfinished, passed, green_legs, green, open_iss
          filed.add(title)
          if title in open_issues:
              actions.append(("comment", open_issues[title], title,
 -                            f"🤖 Agent: {red_marks(run_url)[1]} on `{commit[:9]}`.\n\n{text}\n\n{line}\n"))
 +                            f"🤖 Agent: {red_marks(run_url)[1]} on `{commit[:9]}`.\n\n{text}\n"))
+         elif title in fixes:
+             number, fix = fixes[title]
+             actions.append(("comment", number, title,
+@@ -369,7 +336,7 @@ def plan(commit, run_url, tests, unfinished, passed, green_legs, green, open_iss
          else:
              actions.append(("create", title,
                              f"{DISCLOSURE}\n\n{text}\n\n{red_marks(run_url)[0]} on `{commit[:9]}`.\n\n"
@@ -2407,7 +2474,7 @@ index 3a0dc80c117..3f143f2e404 100644
                              "closed by the first that does not.\n"))
      for title, number in sorted(open_issues.items()):
          if title in filed:
-@@ -336,15 +302,11 @@ def plan(commit, run_url, tests, unfinished, passed, green_legs, green, open_iss
+@@ -389,15 +356,11 @@ def plan(commit, run_url, tests, unfinished, passed, green_legs, green, open_iss
  def render(actions, writes):
      lead = "## Daily summary" + ("" if writes else " (dry run: nothing written)")
      lines = [lead, ""]
@@ -2425,7 +2492,7 @@ index 3a0dc80c117..3f143f2e404 100644
              lines += [f"- {verb} **{action[1]}**", "", "  " + action[2].strip().replace("\n", "\n  "), ""]
          else:
              lines += [f"- {verb} #{action[1]} **{action[2]}**", "", "  " + action[3].strip().replace("\n", "\n  "), ""]
-@@ -370,13 +332,7 @@ def already_said(number, marks, call):
+@@ -423,13 +386,7 @@ def already_said(number, marks, call):
  
  def apply(actions, call, run_url):
      for action in actions:
@@ -2440,21 +2507,7 @@ index 3a0dc80c117..3f143f2e404 100644
              call("POST", "issues", {"title": action[1], "body": action[2], "labels": [LABEL]})
          elif action[0] == "comment":
              if not already_said(action[1], red_marks(run_url), call):
-@@ -387,12 +343,7 @@ def apply(actions, call, run_url):
-             call("PATCH", f"issues/{action[1]}", {"state": "closed", "state_reason": "completed"})
- 
- 
--def git(*args):
--    result = subprocess.run(["git", *args], capture_output=True, text=True)
--    return result.stdout.strip() if result.returncode == 0 else None
--
--
--def main(call=api, run_git=git):
-+def main(call=api):
-     env = os.environ
-     commit = env["COMMIT"]
-     # Only main writes, whatever the input says: a branch's run is always a dry run.
-@@ -401,44 +352,11 @@ def main(call=api, run_git=git):
+@@ -454,47 +411,13 @@ def main(call=api, run_git=git, query=graphql):
      reports = [json.loads(path.read_text()) for path in sorted(Path(env["REPORTS"]).glob("*/*.json"))] \
          if Path(env.get("REPORTS", "")).is_dir() else []
      jobs = pages(call, f"actions/runs/{env['GITHUB_RUN_ID']}/jobs?filter=latest", "jobs")
@@ -2464,7 +2517,9 @@ index 3a0dc80c117..3f143f2e404 100644
                     for issue in pages(call, f"issues?state=open&labels={LABEL}")
                     if "pull_request" not in issue and issue["title"].startswith(PREFIX)}
 -    numbers = suspects(commit, run_git) if tests or unfinished else []
--    actions = plan(commit, run_url, tests, unfinished, passed, green_legs, green, open_issues, numbers)
+     reds = {test_title(item) for item in tests} | {leg_title(leg) for leg, *_ in unfinished}
+     fixes = fixes_after(commit, reds - open_issues.keys(), call, query, run_git)
+-    actions = plan(commit, run_url, tests, unfinished, passed, green_legs, green, open_issues, numbers, fixes)
 -    text = render(actions, writes)
 -    print(text)
 -    if env.get("GITHUB_STEP_SUMMARY"):
@@ -2478,7 +2533,7 @@ index 3a0dc80c117..3f143f2e404 100644
 -    return 0
 -
 -
--def after(name, result, call=api, run_git=git):
+-def after(name, result, call=api, run_git=git, query=graphql):
 -    """Reports the job `name` that ran after the summary, which concluded `result` (`needs.<name>.result`): one
 -    issue for it while it fails, closed by its next success. Writes only where the summary would."""
 -    env = os.environ
@@ -2495,13 +2550,14 @@ index 3a0dc80c117..3f143f2e404 100644
 -        steps = [f"{job['name']}: {step}" for job in jobs if job["name"].startswith(f"{name} / ")
 -                 for step in failed_steps(job)]
 -        unfinished = [(name, result, steps, "nothing was published, so no Nightly follows")]
+-        fixes = fixes_after(commit, {leg_title(name)} - open_issues.keys(), call, query, run_git)
 -        actions = plan(commit, run_url, [], unfinished, set(), set(), False, open_issues,
--                       suspects(commit, run_git))
-+    actions = plan(commit, run_url, tests, unfinished, passed, green_legs, open_issues)
+-                       suspects(commit, run_git), fixes)
++    actions = plan(commit, run_url, tests, unfinished, passed, green_legs, open_issues, fixes)
      text = render(actions, writes)
      print(text)
      if env.get("GITHUB_STEP_SUMMARY"):
-@@ -467,6 +385,4 @@ if __name__ == "__main__":
+@@ -523,6 +446,4 @@ if __name__ == "__main__":
      if sys.argv[1:2] == ["--seen"]:
          print(seen(sys.argv[2]))
          sys.exit(0)
@@ -2509,7 +2565,7 @@ index 3a0dc80c117..3f143f2e404 100644
 -        sys.exit(after(sys.argv[2], sys.argv[3]))
      sys.exit(main())
 diff --git a/tools/ci/fn_replace_check.sh b/tools/ci/fn_replace_check.sh
-index 3f903268de5..fa61f02beee 100755
+index 8d734ed0cb8..82df21c9ea3 100755
 --- a/tools/ci/fn_replace_check.sh
 +++ b/tools/ci/fn_replace_check.sh
 @@ -8,7 +8,7 @@

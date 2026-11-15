@@ -20,7 +20,7 @@ clippy.toml	15	#2414	{ path = "horizon_client_render::collisions::SceneCollision
 clippy.toml	16	#2414	{ path = "horizon_client_render::collisions::SceneCollisions::resolve_with_context", reason = "go through `horizon_client::move_gate` (#2414): arm the move, the
 clippy.toml	17	#2414	{ path = "horizon_client_render::collisions::EntityCollisions::resolve", reason = "go through `horizon_client::move_gate` (#2414): arm the move, then resolve th
 clippy.toml	18	#2414	{ path = "horizon_client_render::collisions::EntityCollisions::resolve_with_context", reason = "go through `horizon_client::move_gate` (#2414): arm the move, th
-crates/cargo-horizon-mod/src/main.rs	289	#2593	// #2593: these become the pinned catalogs with the mod's own modules applied.
+crates/cargo-horizon-mod/src/main.rs	294	#2593	// #2593: these become the pinned catalogs with the mod's own modules applied.
 crates/horizon-assets/src/item_bake.rs	412	#2707	/// run). Both were agreed on review of #2707.
 crates/horizon-assets/src/item_model/foreign_tests.rs	161	#2606	/// types are no exception, except `neoforge:fluid_container`, which the engine decodes (#2606).
 crates/horizon-client-core/src/text.rs	570	#2493	// content anew, in whatever language is current now (#2493).
@@ -32,6 +32,7 @@ crates/horizon-client-render/src/gfx.rs	13379	#2386	// CIT glint sampled one ima
 crates/horizon-client-render/src/gfx/pack_center_depth.rs	7	#2386	//! and some drivers lack (#2386).
 crates/horizon-client-render/src/gfx/pack_post/depth_copy_tests.rs	4	#2400	//! read nothing until #2400. Original fixture, no pack files.
 crates/horizon-client-render/src/gfx/view_sections.rs	1	#3773	//! Each world view's own section list (#3773): the frame keeps the player camera's culling (the
+crates/horizon-client-render/src/mesher/part_tables_tests.rs	1	#3191	//! What `fluid::tesselate` draws from the client `BlockPart` tables (#3191): a water source with
 crates/horizon-client-render/src/particles/collide.rs	7	#2414	/// A particle step, not an `Entity.move` (#2414): the move gate is for
 crates/horizon-client-render/src/render_views.rs	474	#3774	/// The seven cases left out without a word before (#3774) and a clip plane out of range
 crates/horizon-client-render/src/streaming/viewed_meshing.rs	1	#4187	//! Viewed levels' sections meshed (#4187): each level a world view names gets a set of meshed
@@ -63,6 +64,7 @@ crates/horizon-client/src/game/administration/commands/pregen.rs	256	#3716	// A 
 crates/horizon-client/src/game/administration/commands/targets.rs	2	#2791	//! by family. Moved out of `mod.rs` unchanged (#2791's discipline).
 crates/horizon-client/src/game/administration/commands/world_cmds.rs	238	#924	/// False when the kind refuses the damage. `EntityRef::hurt` (#924)
 crates/horizon-client/src/game/administration/commands/world_cmds.rs	316	#916	// passes the victim's invulnerability (#916).
+crates/horizon-client/src/game/administration/functions.rs	1551	#4449	/// #4449: the mods' commands are in the tree before functions load, from the first world open
 crates/horizon-client/src/game/blocks/falling_blocks.rs	140	#2414	// The falling block's Entity.move goes through the move gate (#2414),
 crates/horizon-client/src/game/blocks/machines/storage_attempt_tests.rs	1	#3720	//! #3720: real Game ticks, Parts storage and transaction close/restore traces.
 crates/horizon-client/src/game/blocks/machines/tank_reopen_tests.rs	1	#2412	//! A committed mod tank survives a complete world save, close and reopen (#2412): the
@@ -73,7 +75,7 @@ crates/horizon-client/src/game/blocks/piston_push.rs	905	#2414	/// The move gate
 crates/horizon-client/src/game/blocks/piston_push.rs	1270	#2414	/// `gate` is the push's armed move gate (#2414); the resolve goes through it.
 crates/horizon-client/src/game/blocks/piston_push.rs	1479	#2414	/// A cancelled push spends none of the piston budget (#2414, design
 crates/horizon-client/src/game/blocks/piston_push.rs	1480	#2308	/// #2308: the hook fires before `limit_piston`). A listener cancels the
-crates/horizon-client/src/game/blocks/stations.rs	1555	#2273	#[allow(clippy::needless_question_mark)] // TODO(#2273)
+crates/horizon-client/src/game/blocks/stations.rs	1549	#2273	#[allow(clippy::needless_question_mark)] // TODO(#2273)
 crates/horizon-client/src/game/entities/armor_stands.rs	902	#916	// `Entity.isInvulnerableTo` before ArmorStand's own branches (#916):
 crates/horizon-client/src/game/entities/armor_stands.rs	1023	#916	// (#916).
 crates/horizon-client/src/game/entities/boats/mod.rs	896	#2414	// is a self move (#2414: vanilla's `AbstractBoat.tick` passes SELF);
@@ -103,7 +105,7 @@ crates/horizon-client/src/game/host/mod.rs	5	#2273	// The generated impls conver
 crates/horizon-client/src/game/interface/chat.rs	2688	#456	/// A native mod's command is in the tree the chat box uses (#456): known
 crates/horizon-client/src/game/interface/dedicated/missing_mods.rs	2	#3856	//! (#3856): opening it would remove those mods' blocks, and what they hold, for good. The server
 crates/horizon-client/src/game/interface/dedicated/mod.rs	1197	#4694	// (vanilla's forceDifficulty), including health_rules used for despawn (#4694).
-crates/horizon-client/src/game/interface/dedicated/mod.rs	1395	#3716	// The viewed areas' chunk caps (#3716): server.toml's `max_viewed_*` settings.
+crates/horizon-client/src/game/interface/dedicated/mod.rs	1396	#3716	// The viewed areas' chunk caps (#3716): server.toml's `max_viewed_*` settings.
 crates/horizon-client/src/game/interface/entity_culling/mod.rs	524	#2273	/// 32 blocks a missing view scale leaves (#2273).
 crates/horizon-client/src/game/interface/extras/sorting.rs	1	#332	//! Sorting (`sort`, `sortKey`; #332, `docs/extras.md`), off by default: a small button by a
 crates/horizon-client/src/game/interface/item_draw.rs	1379	#2289	// runs instead of ending at once (#2289).
@@ -149,14 +151,14 @@ crates/horizon-client/src/game/modding/block_entity_part_state_tests.rs	1	#781	/
 crates/horizon-client/src/game/modding/entity_part_state.rs	1	#796	//! Entity Part state (#796 stage 3) on the game side: where a handle's entity is now, and
 crates/horizon-client/src/game/modding/entity_part_state_tests.rs	1	#796	//! Entity Part state (#796 stage 3) on real entities: one value each, kept with its entity
 crates/horizon-client/src/game/modding/item_drop_state_tests.rs	1	#3423	//! `ItemDrop`'s item-entity state (#3423): `thrower`, `target`, `no_gravity` and `age` set by a
-crates/horizon-client/src/game/modding/mods/mod.rs	2101	#4031	/// A content mod's tameable type (#4031) is its template's mob: a wolf, a
-crates/horizon-client/src/game/modding/mods/mod.rs	2169	#845	/// A mod's declared attribute set (#845, `EntityAttributeCreationEvent`)
-crates/horizon-client/src/game/modding/mods/mod.rs	2172	#1469	/// built from the template's, so the reads of #1469 and #1493 answer the
-crates/horizon-client/src/game/modding/mods/mod.rs	2172	#1493	/// built from the template's, so the reads of #1469 and #1493 answer the
-crates/horizon-client/src/game/modding/mods/mod.rs	2238	#812	/// #812: a mod's declared attribute type joins the catalog before the
-crates/horizon-client/src/game/modding/mods/mod.rs	2291	#845	// A mod entity's row names its own new attribute (#845's rows
-crates/horizon-client/src/game/modding/mods/mod.rs	2389	#845	/// spawns with what the live attribute map answers (#845, review).
-crates/horizon-client/src/game/modding/mods/mod.rs	2434	#846	/// A mod that adds an attribute vanilla zombies lack (#846,
+crates/horizon-client/src/game/modding/mods/mod.rs	2141	#4031	/// A content mod's tameable type (#4031) is its template's mob: a wolf, a
+crates/horizon-client/src/game/modding/mods/mod.rs	2209	#845	/// A mod's declared attribute set (#845, `EntityAttributeCreationEvent`)
+crates/horizon-client/src/game/modding/mods/mod.rs	2212	#1469	/// built from the template's, so the reads of #1469 and #1493 answer the
+crates/horizon-client/src/game/modding/mods/mod.rs	2212	#1493	/// built from the template's, so the reads of #1469 and #1493 answer the
+crates/horizon-client/src/game/modding/mods/mod.rs	2278	#812	/// #812: a mod's declared attribute type joins the catalog before the
+crates/horizon-client/src/game/modding/mods/mod.rs	2331	#845	// A mod entity's row names its own new attribute (#845's rows
+crates/horizon-client/src/game/modding/mods/mod.rs	2429	#845	/// spawns with what the live attribute map answers (#845, review).
+crates/horizon-client/src/game/modding/mods/mod.rs	2474	#846	/// A mod that adds an attribute vanilla zombies lack (#846,
 crates/horizon-client/src/game/modding/native_ai_pause.rs	2	#4478	//! `MobRef::set_ai_paused` (#4478). Vanilla's `NoAI` skips `travel` with the
 crates/horizon-client/src/game/modding/native_chunk_areas.rs	1	#3716	//! A server mod's chunk areas for one player (#3716, step 9b'): `PlayerRef::set_chunk_areas`
 crates/horizon-client/src/game/modding/native_collision_exclusions.rs	1	#3717	//! A player's collision exclusions for mods (#3717): boxes of its own level in which that level's
@@ -194,7 +196,7 @@ crates/horizon-client/src/game/modding/native_entity_invulnerable.rs	1143	#916	/
 crates/horizon-client/src/game/modding/native_entity_layers_tests.rs	1	#860	//! `register_entity_layers` on the client (#860 stage 2): the event tells what renderers this load
 crates/horizon-client/src/game/modding/native_entity_move_correction_tests.rs	1	#2414	//! Small moves through the `entity_move` gate (#2414, ruling 5): a listener's
 crates/horizon-client/src/game/modding/native_entity_move_player_tests.rs	1	#2414	//! The Player-cause sites of `entity_move` (#2414): a cancelling listener on
-crates/horizon-client/src/game/modding/native_entity_move_player_tests.rs	163	#2414	/// vehicle Player-cause site (#2414).
+crates/horizon-client/src/game/modding/native_entity_move_player_tests.rs	164	#2414	/// vehicle Player-cause site (#2414).
 crates/horizon-client/src/game/modding/native_entity_move_sweep_tests.rs	1	#2414	//! The `entity_move` sweep (#2414, Ari's 1b): one entity of every walk
 crates/horizon-client/src/game/modding/native_entity_move_sweep_tests.rs	50	#2414	/// (#2414 point 3) and none for the push-only general rows.
 crates/horizon-client/src/game/modding/native_entity_move_sweep_tests.rs	332	#2414	/// nothing; a piston push fires once with the piston cause (#2414 point 3).
@@ -226,10 +228,10 @@ crates/horizon-client/src/game/modding/native_goal_ticks/native_goal_ticks_tests
 crates/horizon-client/src/game/modding/native_goal_ticks/native_goal_ticks_tests.rs	150	#1077	/// (#1077): the real guest's uuid and entity id, never a scan per read. A
 crates/horizon-client/src/game/modding/native_goal_ticks/native_goal_ticks_tests.rs	443	#1158	// since the Host rebuild (#1158): the handle's own backend read
 crates/horizon-client/src/game/modding/native_goal_ticks/native_goal_ticks_tests.rs	962	#1077	/// printed once for the PR body (#1077). Run with `--ignored --nocapture`.
-crates/horizon-client/src/game/modding/native_guest_turn_tests.rs	301	#228	/// Before #228, the host was absent during a guest turn and B and the
-crates/horizon-client/src/game/modding/native_guest_turn_tests.rs	652	#228	/// The passenger walk (horizon-rust/horizon#8383) keeps #228's host visibility.
-crates/horizon-client/src/game/modding/native_guest_turn_tests.rs	1299	#2244	/// same connection's next messaged turn runs and captures nothing outside it (#2244).
-crates/horizon-client/src/game/modding/native_guest_turn_tests.rs	1380	#2240	/// and the same connection's next turn runs and is heard (#2240).
+crates/horizon-client/src/game/modding/native_guest_turn_tests.rs	302	#228	/// Before #228, the host was absent during a guest turn and B and the
+crates/horizon-client/src/game/modding/native_guest_turn_tests.rs	653	#228	/// The passenger walk (horizon-rust/horizon#8383) keeps #228's host visibility.
+crates/horizon-client/src/game/modding/native_guest_turn_tests.rs	1300	#2244	/// same connection's next messaged turn runs and captures nothing outside it (#2244).
+crates/horizon-client/src/game/modding/native_guest_turn_tests.rs	1381	#2240	/// and the same connection's next turn runs and is heard (#2240).
 crates/horizon-client/src/game/modding/native_ignited_by_lava_tests.rs	1	#3185	//! `ignited_by_lava` answered by a block Part with the asked block's face (#3185): the Part's
 crates/horizon-client/src/game/modding/native_is_fire_source_tests.rs	1	#3185	//! `is_fire_source` answered by a block Part (#3185): stone keeps a fire burning, netherrack
 crates/horizon-client/src/game/modding/native_item_places.rs	135	#932	/// answers (#932, NeoForge's `LivingEntityEquipmentWrapper`): a mob's or an armor stand's
@@ -237,11 +239,11 @@ crates/horizon-client/src/game/modding/native_item_places.rs	193	#3385	// A writ
 crates/horizon-client/src/game/modding/native_item_places.rs	425	#932	/// Writes mob `entity`'s equipment `slot` (#932): the same write
 crates/horizon-client/src/game/modding/native_item_places.rs	429	#932	/// The equipment `slot` of living entity `entity` (#932): a mob's
 crates/horizon-client/src/game/modding/native_item_places.rs	443	#932	/// The equipment write `set_equipment` makes (#932), deferred: whether it
-crates/horizon-client/src/game/modding/native_item_places.rs	912	#932	/// A living entity's [`ENTITY_ITEMS`] is its equipment (#932): seven slots by
-crates/horizon-client/src/game/modding/native_item_places.rs	987	#941	/// stacks, and the same attribute map (#941's live map reads the worn armour).
-crates/horizon-client/src/game/modding/native_item_places.rs	1034	#941	// The attribute map answers the same armour for both (#941).
-crates/horizon-client/src/game/modding/native_item_places.rs	2357	#932	/// #932, review: an armor stand's equipment through the same handler —
-crates/horizon-client/src/game/modding/native_item_places.rs	2359	#932	/// #932, review: an armor stand's equipment through the same handler —
+crates/horizon-client/src/game/modding/native_item_places.rs	913	#932	/// A living entity's [`ENTITY_ITEMS`] is its equipment (#932): seven slots by
+crates/horizon-client/src/game/modding/native_item_places.rs	988	#941	/// stacks, and the same attribute map (#941's live map reads the worn armour).
+crates/horizon-client/src/game/modding/native_item_places.rs	1035	#941	// The attribute map answers the same armour for both (#941).
+crates/horizon-client/src/game/modding/native_item_places.rs	2358	#932	/// #932, review: an armor stand's equipment through the same handler —
+crates/horizon-client/src/game/modding/native_item_places.rs	2360	#932	/// #932, review: an armor stand's equipment through the same handler —
 crates/horizon-client/src/game/modding/native_level_notify_tests.rs	1	#968	//! #968/#3720: crack effects wait for commit; explicit block-update requests survive abort.
 crates/horizon-client/src/game/modding/native_level_world.rs	560	#3316	/// #3316's case: `example:cap` (8, 0..=64) refuses `/gamerule example:cap 70`, takes 12, and
 crates/horizon-client/src/game/modding/native_live_holder_tests.rs	253	#2051	/// The two block entity types of #2051's fixture: `tick_paths:both` is
@@ -251,9 +253,9 @@ crates/horizon-client/src/game/modding/native_living_refs.rs	432	#1275	/// (`mob
 crates/horizon-client/src/game/modding/native_living_refs.rs	440	#943	// (`player_can_use_portal`, #943).
 crates/horizon-client/src/game/modding/native_living_refs.rs	944	#932	/// The write `native_living_set_equipment` makes (#932): with `defer`,
 crates/horizon-client/src/game/modding/native_living_refs.rs	1004	#941	// the next read — a hit's armor, a `LivingRef`'s — sees them (#941).
-crates/horizon-client/src/game/modding/native_living_refs.rs	2645	#943	/// The living reads of #943 answer the engine's own decisions.
-crates/horizon-client/src/game/modding/native_living_refs.rs	2784	#943	/// A sleeper's bed orientation is the bed block's own facing (#943):
-crates/horizon-client/src/game/modding/native_living_refs.rs	2870	#943	/// #943, review: a guest answers the same one portal rule over their
+crates/horizon-client/src/game/modding/native_living_refs.rs	2699	#943	/// The living reads of #943 answer the engine's own decisions.
+crates/horizon-client/src/game/modding/native_living_refs.rs	2838	#943	/// A sleeper's bed orientation is the bed block's own facing (#943):
+crates/horizon-client/src/game/modding/native_living_refs.rs	2924	#943	/// #943, review: a guest answers the same one portal rule over their
 crates/horizon-client/src/game/modding/native_living_renderers_tests.rs	1	#860	//! `register_entity_renderers` for living types (#860 stage 3): a renderer registered for a type
 crates/horizon-client/src/game/modding/native_menu_places.rs	3	#3384	//! `player_open_mod_menu` (#3384) and backs its container slots with
 crates/horizon-client/src/game/modding/native_menus.rs	373	#3385	// A click a mod's backed slots answer (#3385); any other goes to the mods.
@@ -266,6 +268,7 @@ crates/horizon-client/src/game/modding/native_mob_refs.rs	214	#29	/// ticking ar
 crates/horizon-client/src/game/modding/native_mob_refs.rs	259	#934	/// does not update their brain memory (#934). A fox, an enderman or a
 crates/horizon-client/src/game/modding/native_mob_refs.rs	373	#934	/// of `Mob.setTarget`'s (#934). A plain, non-expiring memory write: the
 crates/horizon-client/src/game/modding/native_on_caught_fire_tests.rs	1	#3185	//! `on_caught_fire` heard by a block Part (#3185): the listener gets the burned block's old state
+crates/horizon-client/src/game/modding/native_part_tables_tests.rs	1	#3191	//! The client `BlockPart` tables the fluid mesher reads (#3191), resolved on the client thread:
 crates/horizon-client/src/game/modding/native_passage_cross.rs	1	#3775	//! Crossing a passage within a level (#3775, docs/modding/src/how-to/passages.md): the client
 crates/horizon-client/src/game/modding/native_passage_cross.rs	177	#3775	/// chunk must be loaded and tracked too (ruling 10 on #3775: the server computes `to`
 crates/horizon-client/src/game/modding/native_passages.rs	1	#3775	//! Passages within one level (#3775, docs/modding/src/how-to/passages.md): the server's
@@ -284,8 +287,9 @@ crates/horizon-client/src/game/modding/native_structure_types.rs	401	#2273	#[all
 crates/horizon-client/src/game/modding/native_structure_types/tests.rs	625	#2273	#[allow(clippy::err_expect)] // TODO(#2273): `expect_err` once the Ok type is Debug
 crates/horizon-client/src/game/modding/native_viewed_levels.rs	1	#3981	//! A client mod's reads of the levels the server opened for viewing (#3981, gap 10), as Immersive
 crates/horizon-client/src/game/modding/payload_transport/raw_fault_tests.rs	1	#3209	//! Main-thread fault isolation on one raw channel (#3209), through a published server and a
+crates/horizon-client/src/game/modding/payload_transport/typed_tests.rs	1	#813	//! Typed payloads (#813 step 4b-1) on the real routes: the integrated server over memory and a
 crates/horizon-client/src/game/modding/player_equipment_change_tests.rs	1	#3417	//! `living_equipment_change` for a server's players (#3417): a hotbar selection, a pickup into
-crates/horizon-client/src/game/native_hooks/base.rs	3501	#2934	/// `use_block`: False skips; True overrides sneak; Default skips when sneaking with either hand full (the both-stacks sneak-bypass exception remains open in #2
+crates/horizon-client/src/game/native_hooks/base.rs	3500	#2934	/// `use_block`: False skips; True overrides sneak; Default skips when sneaking with either hand full (the both-stacks sneak-bypass exception remains open in #2
 crates/horizon-client/src/game/native_hooks/block_entity_client_tick_tests.rs	2	#3611	//! `block_entity_client_tick` (#3611), through a client's real frames (`client_tick_steps` after
 crates/horizon-client/src/game/native_hooks/client_chunk_hooks_tests.rs	2	#3425	//! `client_chunk_load` and `client_chunk_unload` through a loopback client (#3425): a chunk
 crates/horizon-client/src/game/native_hooks/client_narrator_tests.rs	2	#4532	//! `ClientNarratorClientHost::narrate` (#4532): `Now` interrupts and `Queued`
@@ -297,9 +301,9 @@ crates/horizon-client/src/game/native_hooks/general_entity_tick.rs	5	#792	/// (`
 crates/horizon-client/src/game/native_hooks/on_chunk_unloaded_tests.rs	2	#3145	//! `on_chunk_unloaded` through a real game (#3145): a chunk with two mod block entities and a
 crates/horizon-client/src/game/native_hooks/piston_push_reaction.rs	4	#3242	// See #3242: fold with resolve_block_paths when it lands
 crates/horizon-client/src/game/native_hooks/shared.rs	1558	#2247	// keeps the caller's collector and write list as they were (#2247's
-crates/horizon-client/src/game/network/lan/mod.rs	234	#2538	// owner). The fox's type goes with its flags (#2538).
-crates/horizon-client/src/game/network/lan/mod.rs	2421	#4510	/// sees the support (#4510). `tick_lan` then syncs the level; a paused
-crates/horizon-client/src/game/network/lan/mod.rs	3402	#3716	// lit neighbours. The viewed areas (#3716) are squares of their own.
+crates/horizon-client/src/game/network/lan/mod.rs	235	#2538	// owner). The fox's type goes with its flags (#2538).
+crates/horizon-client/src/game/network/lan/mod.rs	2420	#4510	/// sees the support (#4510). `tick_lan` then syncs the level; a paused
+crates/horizon-client/src/game/network/lan/mod.rs	3401	#3716	// lit neighbours. The viewed areas (#3716) are squares of their own.
 crates/horizon-client/src/game/network/lan/viewed_areas.rs	1	#3716	//! The players' viewed areas (#3716, `lan::viewed_levels`) in the level in place: the squares
 crates/horizon-client/src/game/network/lan_actions/guest_body.rs	233	#1255	// distance: climbing down doesn't hurt where it lands (#1255).
 crates/horizon-client/src/game/network/lan_actions/guest_body.rs	245	#1305	// lit campfires and grown sweet berry bushes hurt (#1305).
@@ -316,8 +320,8 @@ crates/horizon-client/src/game/network/lan_actions/shared.rs	49	#4124	/// measur
 crates/horizon-client/src/game/network/lan_actions/shared.rs	265	#4124	/// dig resumed after a fall still runs on the first START's ticks (#4124).
 crates/horizon-client/src/game/network/lan_actions/shared.rs	272	#4124	/// in reach (#4124).
 crates/horizon-client/src/game/network/lan_actions/shared.rs	444	#4124	/// `getDestroyProgress` decide between the break and the delayed dig (#4124).
-crates/horizon-client/src/game/network/lan_actions/shared.rs	1962	#4124	/// #4124: a STOP is measured from the START that named its block (`destroyPos`) — an abort, or
-crates/horizon-client/src/game/network/lan_actions/shared.rs	2004	#3684	/// #3684: a player shrunk to `minecraft:scale` 0.1 who stands 0.05 from a
+crates/horizon-client/src/game/network/lan_actions/shared.rs	1963	#4124	/// #4124: a STOP is measured from the START that named its block (`destroyPos`) — an abort, or
+crates/horizon-client/src/game/network/lan_actions/shared.rs	2005	#3684	/// #3684: a player shrunk to `minecraft:scale` 0.1 who stands 0.05 from a
 crates/horizon-client/src/game/network/lan_actions/tests/collision_exclusion_wall_tests.rs	1	#3717	//! #3717: a block sharing volume with one of a player's collision exclusions is no wall: the
 crates/horizon-client/src/game/network/lan_actions/tests/orb_merge_contract_tests.rs	1	#3977	//! The issue #3977 merge contract through a real `Game`: `3 x 2` and `5 x 1` become
 crates/horizon-client/src/game/network/lan_actions/turns.rs	204	#3717	// The mods' collision exclusions are the guest's (#3717).
@@ -335,21 +339,21 @@ crates/horizon-client/src/game/network/lan_vehicles.rs	532	#2414	// A listener's
 crates/horizon-client/src/game/network/remote/interaction_actions.rs	225	#4124	// and goes on growing on the jumps that follow (#4124).
 crates/horizon-client/src/game/network/remote/item_fallthrough_tests.rs	113	#2931	// Entity CONSUME prediction belongs to #2931 and is deliberately excluded.
 crates/horizon-client/src/game/network/remote/item_used_on_block_tests.rs	1	#2940	//! ITEM_USED_ON_BLOCK after the block phase sees the stack copied before it (#2940).
-crates/horizon-client/src/game/network/remote/mod.rs	729	#4124	/// same block and item sends no new START and the server keeps its clock (#4124).
-crates/horizon-client/src/game/network/remote/mod.rs	1568	#3246	// so a key kept here would still be down in the next world (#3246).
-crates/horizon-client/src/game/network/remote/mod.rs	3048	#1077	// their `register_goals` ran on the authoritative side (#1077).
-crates/horizon-client/src/game/network/remote/mod.rs	3091	#2083	// dragon where it spawned (#2083).
-crates/horizon-client/src/game/network/remote/mod.rs	4175	#3788	// the real body under a pose (#3788).
-crates/horizon-client/src/game/network/remote/mod.rs	4451	#4149	// this one (#4149), and that copy is played at 1.0.
-crates/horizon-client/src/game/network/remote/mod.rs	7044	#1591	// tropical fish lie on their side without `in_water`, #1591).
-crates/horizon-client/src/game/network/remote/mod.rs	7925	#4124	/// the same block sends no START and the server's clock runs on (#4124).
-crates/horizon-client/src/game/network/remote/mod.rs	8014	#4124	// one keeps the clock (#4124).
-crates/horizon-client/src/game/network/remote/mod.rs	8021	#1254	// when the server is done too (#1254).
-crates/horizon-client/src/game/network/remote/mod.rs	9341	#3307	// stack would give it back after the Destroy Item slot cleared it (#3307).
-crates/horizon-client/src/game/network/remote/mod.rs	14974	#3844	/// end clamped on its own, and an absolute one snaps both (#3844).
-crates/horizon-client/src/game/network/remote/mod.rs	14998	#4149	/// `hurt` default for an unknown type (#4149).
-crates/horizon-client/src/game/network/remote/mod.rs	15224	#3357	/// Q over a slot of the inventory on a server (#3357): the predicted THROW
-crates/horizon-client/src/game/network/remote/mod.rs	15529	#3424	/// rocket ends the click and the off hand's shield is not raised (#3424).
+crates/horizon-client/src/game/network/remote/mod.rs	730	#4124	/// same block and item sends no new START and the server keeps its clock (#4124).
+crates/horizon-client/src/game/network/remote/mod.rs	1569	#3246	// so a key kept here would still be down in the next world (#3246).
+crates/horizon-client/src/game/network/remote/mod.rs	2795	#1077	// their `register_goals` ran on the authoritative side (#1077).
+crates/horizon-client/src/game/network/remote/mod.rs	2838	#2083	// dragon where it spawned (#2083).
+crates/horizon-client/src/game/network/remote/mod.rs	3922	#3788	// the real body under a pose (#3788).
+crates/horizon-client/src/game/network/remote/mod.rs	4198	#4149	// this one (#4149), and that copy is played at 1.0.
+crates/horizon-client/src/game/network/remote/mod.rs	6791	#1591	// tropical fish lie on their side without `in_water`, #1591).
+crates/horizon-client/src/game/network/remote/mod.rs	7672	#4124	/// the same block sends no START and the server's clock runs on (#4124).
+crates/horizon-client/src/game/network/remote/mod.rs	7761	#4124	// one keeps the clock (#4124).
+crates/horizon-client/src/game/network/remote/mod.rs	7768	#1254	// when the server is done too (#1254).
+crates/horizon-client/src/game/network/remote/mod.rs	9088	#3307	// stack would give it back after the Destroy Item slot cleared it (#3307).
+crates/horizon-client/src/game/network/remote/mod.rs	14721	#3844	/// end clamped on its own, and an absolute one snaps both (#3844).
+crates/horizon-client/src/game/network/remote/mod.rs	14745	#4149	/// `hurt` default for an unknown type (#4149).
+crates/horizon-client/src/game/network/remote/mod.rs	14971	#3357	/// Q over a slot of the inventory on a server (#3357): the predicted THROW
+crates/horizon-client/src/game/network/remote/mod.rs	15276	#3424	/// rocket ends the click and the off hand's shield is not raised (#3424).
 crates/horizon-client/src/game/network/remote/passage_cross_tests.rs	1	#3775	//! A window crossing a passage its server told it of (#3775): it moves itself through,
 crates/horizon-client/src/game/network/remote/use_item.rs	60	#4684	// this client; the server leaves the actor out (#4684).
 crates/horizon-client/src/game/network/remote_block_writes.rs	20	#3002	// stops when the server places what it moved (#3002).
@@ -392,17 +396,19 @@ crates/horizon-client/src/game/world/carrier_transfers.rs	411	#2488	// under #24
 crates/horizon-client/src/game/world/carrier_transfers.rs	2307	#2488	/// Every save route refuses while the #2488 obligation holds —
 crates/horizon-client/src/game/world/carrier_transfers.rs	2338	#2488	// queued for the next tick, as #2488 defines.
 crates/horizon-client/src/game/world/carrier_transfers.rs	2477	#2488	/// The #2488 obligation is what autosave and `save-all` refuse on:
-crates/horizon-client/src/game/world/integrated.rs	1598	#2430	/// reaches it (#2430).
+crates/horizon-client/src/game/world/integrated.rs	1599	#2430	/// reaches it (#2430).
 crates/horizon-client/src/game/world/levels.rs	465	#2488	/// saves (the #2488 gate holds it back).
 crates/horizon-client/src/game/world/levels.rs	608	#792	/// Whether a parked level's general rows hold any of these UUIDs (#792's
 crates/horizon-client/src/game/world/levels.rs	1439	#3716	// So does a viewed `Ticking` area (#3716), for its chunks only.
 crates/horizon-client/src/game/world/persist.rs	639	#3310	// saved with its chunk (#3310).
 crates/horizon-client/src/game/world/persist.rs	732	#3310	// on moving; later saves take them from the level (#3310).
+crates/horizon-client/src/game/world/runtime_levels.rs	276	#4019	/// open reuses it: opening and unloading one id over and over leaks once (#4019).
+crates/horizon-client/src/game/world/runtime_levels_tests.rs	1311	#4019	/// reads the seed of the open it is in (#4019).
 crates/horizon-client/src/game/world/server_travel.rs	647	#943	// `LivingEntity.canUsePortal` (#943): not a passenger — its vehicle
 crates/horizon-client/src/game/world/server_travel/changed_dimension_tests.rs	2	#3250	//! single player and the LAN world opened from it, and a dedicated server (#3250).
 crates/horizon-client/src/game/world/view_pass.rs	1	#3716	//! The view pass (#3716): a level that only viewed `Loaded` areas name is not ticked, but its
-crates/horizon-client/src/game/world/view_pass.rs	808	#3983	/// its chunk, wrapped, through `tick_server` (#3983).
-crates/horizon-client/src/game/world/view_pass.rs	832	#3983	/// pig, wrapped, bound to the same entity, through `tick_server` (#3983).
+crates/horizon-client/src/game/world/view_pass.rs	809	#3983	/// its chunk, wrapped, through `tick_server` (#3983).
+crates/horizon-client/src/game/world/view_pass.rs	833	#3983	/// pig, wrapped, bound to the same entity, through `tick_server` (#3983).
 crates/horizon-client/src/game/world/world_entry.rs	492	#3728	// A new world load: a saved base clamped into its bounds warns again (#3728).
 crates/horizon-client/src/game/world/world_rest.rs	104	#845	// #845: the declared sets take their types' rows — the merged rows
 crates/horizon-client/src/game/world/world_rest.rs	122	#846	// #846: the types mods added attributes to take their grown rows the
@@ -421,11 +427,11 @@ crates/horizon-client/src/health.rs	1366	#916	/// `Entity.permanentlyInvulnerabl
 crates/horizon-client/src/health.rs	1368	#916	/// `Entity.invulnerableTime > 0` at the hit's start (#916).
 crates/horizon-client/src/health.rs	1370	#916	/// The hit is a creative player's (`isCreativePlayer`, #916).
 crates/horizon-client/src/lan/anticheat.rs	457	#2414	// `Entity.move` (#2414): the gate is for moves, this asks the blocks.
-crates/horizon-client/src/lan/arrivals.rs	2341	#3728	/// that widened it leaves the catalog (#3728).
-crates/horizon-client/src/lan/arrivals.rs	3058	#3728	/// #3728: a player whose health is past vanilla's 1024, as a mod that
+crates/horizon-client/src/lan/arrivals.rs	2342	#3728	/// that widened it leaves the catalog (#3728).
+crates/horizon-client/src/lan/arrivals.rs	3059	#3728	/// #3728: a player whose health is past vanilla's 1024, as a mod that
 crates/horizon-client/src/lan/chunk_watch.rs	3	#3775	//! server sends with a chunk (#3775). The hub records them only while a mod
-crates/horizon-client/src/lan/conn.rs	1519	#811	// The mods' datapack registries this client has, or the reason it cannot play (#811).
-crates/horizon-client/src/lan/conn.rs	2498	#3209	/// #3209: a client may announce its channels while the server waits on a configuration
+crates/horizon-client/src/lan/conn.rs	1520	#811	// The mods' datapack registries this client has, or the reason it cannot play (#811).
+crates/horizon-client/src/lan/conn.rs	2493	#3209	/// #3209: a client may announce its channels while the server waits on a configuration
 crates/horizon-client/src/lan/entity.rs	905	#3716	/// A client that views this level from another (#3716): its areas here, centre and radius in
 crates/horizon-client/src/lan/guest.rs	70	#916	/// `Invulnerable` and its `invulnerableTime` window (#916), the same
 crates/horizon-client/src/lan/guest.rs	357	#3717	/// A mod's boxes of its level in which the level's blocks don't stop it (#3717): its moves
@@ -433,18 +439,18 @@ crates/horizon-client/src/lan/guest.rs	485	#3716	/// Its areas in any level and 
 crates/horizon-client/src/lan/guest.rs	660	#3716	/// Whether the guest's client views level `dimension` besides its own (#3716): its areas
 crates/horizon-client/src/lan/guest.rs	888	#3775	/// Passages to hold or forget (#3775), if the guest is on a Horizon client, the only
 crates/horizon-client/src/lan/guest_list.rs	115	#3716	/// (#3716, `viewed_levels::entities`), each with its view's tracker, chunks and areas and
-crates/horizon-client/src/lan/hub.rs	470	#3716	/// Players' areas in other levels and what their clients view of them (#3716).
-crates/horizon-client/src/lan/hub.rs	4783	#3717	// A new player: a mod's collision exclusions were the dead one's (#3717).
-crates/horizon-client/src/lan/hub.rs	4939	#3717	// A mod's collision exclusions were the old level's (#3717).
-crates/horizon-client/src/lan/hub.rs	4955	#3716	// Its chunks, queues and entities left behind, or kept as a viewed level (#3716).
+crates/horizon-client/src/lan/hub.rs	476	#3716	/// Players' areas in other levels and what their clients view of them (#3716).
+crates/horizon-client/src/lan/hub.rs	4790	#3717	// A new player: a mod's collision exclusions were the dead one's (#3717).
+crates/horizon-client/src/lan/hub.rs	4946	#3717	// A mod's collision exclusions were the old level's (#3717).
+crates/horizon-client/src/lan/hub.rs	4962	#3716	// Its chunks, queues and entities left behind, or kept as a viewed level (#3716).
 crates/horizon-client/src/lan/hub/move_collision.rs	2	#3717	//! guest's collision exclusions (#3717): a mod's boxes in which the level's blocks don't stop the
 crates/horizon-client/src/lan/hub/move_collision.rs	37	#2414	// A Player-cause move through the move gate (#2414); the gate records the movement
 crates/horizon-client/src/lan/hub/move_collision.rs	52	#2414	// A listener's decision that is not the request (#2414, ruling 5): the
 crates/horizon-client/src/lan/hub/move_collision.rs	122	#2414	// distance (#2414, ruling 5): a cancel or a replacement always sends the
 crates/horizon-client/src/lan/hub/passage_cross.rs	1	#3775	//! The hub's half of a guest's crossing of a passage within its level (#3775,
-crates/horizon-client/src/lan/hub/raw_inbox.rs	16	#4510	/// (#4510). `tick_level` then syncs what those packets (and the block ticks)
+crates/horizon-client/src/lan/hub/raw_inbox.rs	22	#4510	/// (#4510). `tick_level` then syncs what those packets (and the block ticks)
 crates/horizon-client/src/lan/hub/tests/collision_exclusion_tests.rs	1	#3717	//! #3717: a mod's collision exclusions on both sides of a guest's moves. Its client walks through
-crates/horizon-client/src/lan/menu.rs	2880	#2669	/// `ArmorSlot.mayPlace` for a guest reads the stack's own `equippable` (#2669): an iron
+crates/horizon-client/src/lan/menu.rs	2885	#2669	/// `ArmorSlot.mayPlace` for a guest reads the stack's own `equippable` (#2669): an iron
 crates/horizon-client/src/lan/playerdata.rs	305	#916	// reads them (#916).
 crates/horizon-client/src/lan/playerdata.rs	622	#916	// only while open, as the host's own save keeps them (#916).
 crates/horizon-client/src/lan/playerdata.rs	1256	#916	/// #916, coderabbit: a guest's `Invulnerable` flag and its window ride
@@ -453,7 +459,7 @@ crates/horizon-client/src/lan/viewed_levels/entities.rs	1	#3716	//! The entities
 crates/horizon-client/src/lan/viewed_levels/mod.rs	1	#3716	//! Viewed levels, server side (#3716): levels besides their own that players' clients keep, so
 crates/horizon-client/src/lan/viewed_levels/sounds.rs	1	#3983	//! A viewed level's sounds (#3983, gap 12). Besides vanilla's broadcast in their own level, the
 crates/horizon-client/src/lan/viewed_levels/switch.rs	1	#3716	//! A travel into a viewed level (#3716, 9e): `ServerPlayer.teleport(TeleportTransition)`'s
-crates/horizon-client/src/lan/viewed_levels/tests.rs	875	#3983	/// A sound in the Nether (#3983) reaches, wrapped, a viewer of revision 3 whose sent chunks hold
+crates/horizon-client/src/lan/viewed_levels/tests.rs	876	#3983	/// A sound in the Nether (#3983) reaches, wrapped, a viewer of revision 3 whose sent chunks hold
 crates/horizon-client/src/lib.rs	11	#589	// The game's allocator lives in the library, not the executable: the prebuilt game (#589) is this crate as a
 crates/horizon-client/src/lib.rs	14	#2394	// shares (#2394, #3877).
 crates/horizon-client/src/lib.rs	14	#3877	// shares (#2394, #3877).
@@ -543,7 +549,7 @@ crates/horizon-client/src/net.rs	2357	#3716	/// #3716: a client asked about view
 crates/horizon-client/src/net.rs	2404	#3384	/// #3384: a client asked which `horizon:menu_extra` layout it reads answers its revision
 crates/horizon-client/src/projectiles.rs	2676	#4031	// living type's are (#4031): a wolf's range of 10 chunks, a cat's and
 crates/horizon-client/src/raw_payloads/engine.rs	1	#813	//! Engine declarations in the negotiated payload table (#813 step 4a).
-crates/horizon-client/src/recipe_book.rs	1179	#2415	/// The flags of mods' own books, beside the four vanilla pairs (#2415).
+crates/horizon-client/src/recipe_book.rs	1222	#2415	/// The flags of mods' own books, beside the four vanilla pairs (#2415).
 crates/horizon-client/src/recipe_book/custom_books.rs	1	#2415	//! The open and filter flags of mods' own recipe books (#2415), beside the four vanilla
 crates/horizon-client/src/recipe_book/custom_books_tests.rs	1	#2415	//! The design's storage, persistence, copy and replace acceptance cases (#2415).
 crates/horizon-client/src/save/level_mods.rs	3	#3856	//! Horizon's own records beside it, with the check before a world opens (#3856).
@@ -580,8 +586,8 @@ crates/horizon-mod-api-gen/src/lib.rs	474	#824	/// The doc of [`EntityPart`], th
 crates/horizon-mod-api-gen/src/lib.rs	475	#792	/// which the general entity tick moment (#792) also scopes hooks to.
 crates/horizon-mod-api-gen/src/points.rs	1	#589	//! Injection points (#589): every function of the game module that [`point_shape::eligible`]
 crates/horizon-mod-api-gen/src/wire/host.rs	291	#2414	/// isolated hook (#2414 ruling) unwinds instead: the isolated dispatch catches the unwind the
-crates/horizon-mod-api-gen/src/wire/host.rs	867	#2414	// A hook the catalog isolates (#2414) must fail loudly: the
-crates/horizon-mod-api-gen/src/wire/host.rs	1054	#3123	/// stale until the build script was touched (#3123).
+crates/horizon-mod-api-gen/src/wire/host.rs	899	#2414	// A hook the catalog isolates (#2414) must fail loudly: the
+crates/horizon-mod-api-gen/src/wire/host.rs	1090	#3123	/// stale until the build script was touched (#3123).
 crates/horizon-mod-api-macros/src/lib.rs	186	#1077	// Entity parts (#1077) carry plain methods beside their scoped hooks
 crates/horizon-mod-api-macros/src/lib.rs	187	#792	// (#792): the goal, behavior and spawn-size registrars are not hooks, so
 crates/horizon-mod-api-macros/src/lib.rs	366	#589	/// on a function: an injection point (#589), where mods listen through the API. The staging pass
@@ -600,12 +606,17 @@ crates/horizon-mod-points/tests/replace.rs	1	#2368	//! `replace` listeners (#236
 crates/horizon-mod-points/tests/replace.rs	4	#2273	// Generated fixtures exercise every shape; TODO(#2273): make the generator emit clippy-clean code.
 crates/horizon-mod-points/tests/wire_loopback.rs	1	#2273	// Generated fixtures exercise every shape; TODO(#2273): make the generator emit clippy-clean code.
 crates/horizon-mod-runtime/src/capability_generations.rs	3	#3446	//! kept capability (`BlockCapabilityCache`) compares to know it must look again (#3446).
-crates/horizon-mod-runtime/src/lib.rs	4	#3446	/// A level's capability generations, which kept capabilities compare (#3446).
+crates/horizon-mod-runtime/src/lib.rs	9	#3446	/// A level's capability generations, which kept capabilities compare (#3446).
 crates/horizon-mod-vocab/changes/client-narrator.toml	2	#4532	why = "Adds ClientNarratorClientHost::narrate (#4532): a client mod's line for the player's narrator through the game's own GameNarrator, Narration::Now as sayS
 crates/horizon-mod-vocab/changes/entity-part-state.toml	2	#796	why = "Part state is kept on entities too (#796 stage 3): edit_part_state and read_state take any PartStateHolder (BlockEntityRef or EntityRef) in a new first t
+crates/horizon-mod-vocab/changes/fluid-face-parts.toml	2	#3191	why = "Adds two client BlockPart methods (#3191). should_hide_adjacent_fluid_face (IBlockExtension.shouldHideAdjacentFluidFace): a block state hides the face a 
+crates/horizon-mod-vocab/changes/gui-fill-gradient.toml	2	#4525	why = "HUD layers and screens can draw a vertical gradient rectangle (GuiGraphics.fillGradient, #4525): DrawContext::fill_gradient(rect, top, bottom) and the Gu
 crates/horizon-mod-vocab/changes/int-game-rules.toml	2	#3316	why = "Mods declare integer game rules with a default, min and max (#3316): GameRulesRegistrar::game_rule_int returns an IntGameRuleKey, read with LevelRef::gam
+crates/horizon-mod-vocab/changes/item-enchant-pick-parts.toml	2	#3225	why = "Adds three server-side ItemPart listen methods from #3225 (part 1 of 2), each starting from vanilla's answer: is_primary_item_for (IItemExtension.isPrima
+crates/horizon-mod-vocab/changes/item-menu-loop-parts.toml	2	#3225	why = "Adds three ItemPart listen methods from #3225 (part 2 of 2), each on both sides with the loop context and no Host, each starting from vanilla's answer: c
 crates/horizon-mod-vocab/changes/menu-slot-places.toml	9	#3385	why = "A mod menu's slots can show a held item's contents or an entity's item handler, written through that handler (#3385). PlayerRef::back_mod_menu_slots says
 crates/horizon-mod-vocab/changes/mob-ai-pause.toml	2	#4478	why = "Adds MobRef::set_ai_paused and MobRef::ai_paused (#4478): a mod pauses a mob's AI step (Mob.serverAiStep: its Brain or its goal and target selectors, nav
+crates/horizon-mod-vocab/changes/typed-payloads.toml	2	#813	why = "Typed payloads on the registered raw transport (#813 step 4b-1): typed registration on PayloadRegistrar returns ToServer/ToClient tokens that the host ch
 crates/horizon-mod-vocab/src/block/part_state.rs	1	#781	//! Typed state a block entity Part keeps on each block entity of its type (#781, #796).
 crates/horizon-mod-vocab/src/block/part_state.rs	1	#796	//! Typed state a block entity Part keeps on each block entity of its type (#781, #796).
 crates/horizon-mod-vocab/src/client/render_pipeline.rs	90	#4438	/// file of the mod's own, packed into the runtime atlas's slot pool (#4438) and drawn the
@@ -623,10 +634,9 @@ crates/horizon-mod-vocab/src/hooks/player_passage_cross.rs	4	#3775	/// `player`'
 crates/horizon-mod-vocab/src/hooks/render_living_post.rs	13	#3915	/// flames and its shadow (the reference draws the leash and the name tag first, #3915). A type
 crates/horizon-mod-vocab/src/hooks/render_living_post.rs	15	#3915	/// the renderer in the model's place, so it changes with #3915 and not before. For a player,
 crates/horizon-mod-vocab/src/hooks/viewed_level_sound.rs	4	#3716	/// A sound of a level the server opened for viewing (#3716) reached this client, and the
-crates/horizon-mod-vocab/src/host/entities.rs	449	#3341	/// state for the entities it shows, so the client half of #3341 is still to come.
 crates/horizon-mod-vocab/src/host/levels.rs	833	#3775	/// Registers `passage` in the level ([`Passage`], #3775) and numbers it. The engine
 crates/horizon-mod-vocab/src/host/players.rs	75	#3775	/// Moves the window's player through `passage` (#3775), one its server told it of, as
-crates/horizon-mod-vocab/src/host/players.rs	653	#3385	/// for the player with storage that is not a block entity (#3385; NeoForge's
+crates/horizon-mod-vocab/src/host/players.rs	654	#3385	/// for the player with storage that is not a block entity (#3385; NeoForge's
 crates/horizon-mod-vocab/src/item/menu_slot_place.rs	4	#3384	//! (#3384) and then backs its container slots with [`PlayerRef::back_mod_menu_slots`]; a click
 crates/horizon-mod-vocab/src/item/recipe_property_validation.rs	25	#2617	// Keep ownership aligned with PartRegistrar::owned_declaration_id (parts/owned_namespaces.rs, #2617).
 crates/horizon-mod-vocab/src/parts/attributes.rs	34	#3728	/// when it grows the attribute catalog (#3728).
@@ -655,6 +665,7 @@ crates/horizon-mod-wasm/tests/view_snapshot.rs	2	#2273	// Generated fixtures exe
 crates/horizon-mod-wasm/wire-loopback/tests/wire_loopback.rs	2	#2273	// Generated fixtures exercise every shape; TODO(#2273): make the generator emit clippy-clean code.
 crates/horizon-mod-wasm/wire-loopback/tests/wire_loopback/client_narrator.rs	3	#4532	//! comes back as the native call returns it (#4532).
 crates/horizon-mod-wasm/wire-loopback/tests/wire_loopback/entity_move.rs	2	#2414	//! (#2414): the same hook the native listener sees, through the generator's
+crates/horizon-mod-wasm/wire-loopback/tests/wire_loopback/fluid_face_parts.rs	1	#3191	//! The fluid-face `BlockPart` methods (#3191) cross the wire with their arguments and answers
 crates/horizon-mod-wasm/wire-loopback/tests/wire_loopback/item_drop_state.rs	1	#3423	//! `ItemDrop`'s item-entity state crosses the `living_drops` boundary both ways (#3423): the guest
 crates/horizon-mod-wasm/wire-loopback/tests/wire_loopback/mob_ai_pause.rs	3	#4478	//! each named refusal comes back as the native call returns it (#4478).
 crates/horizon-mod-wasm/wire-loopback/tests/wire_loopback/part_state.rs	1	#781	//! Block entity Part state (#781) through the generated transport: a guest Part's tick finds its
@@ -942,8 +953,8 @@ docs/design/mod-api/neoforge-extensions.md	143	#3226	| `isPiglinCurrency(stack)`
 docs/design/mod-api/neoforge-extensions.md	144	#3226	| `makesPiglinsNeutral(stack, entity)` | Covered | `ItemPart::makes_piglins_neutral` (`hooks/makes_piglins_neutral.rs`) | Starts from `#minecraft:piglin_safe_ar
 docs/design/mod-api/neoforge-extensions.md	153	#1039	| `onEntityItemUpdate(stack, itemEntity)` | Missing | — | No per-item dropped-entity tick. [#1039](https://github.com/arismoko/horizon/issues/1039). |
 docs/design/mod-api/neoforge-extensions.md	162	#1039	| `canPerformAction(instance, ability)` | Partial | `ItemPart::can_perform_action` (`hooks/can_perform_action.rs`), `block_tool_modification` (`hooks/block_tool
-docs/design/mod-api/neoforge-extensions.md	207	#3341	| `getFluidTypeHeight(type)` | Partial | `host.entity_fluid_heights` | Each fluid the entity touched with its height, from its last fluid update. Server only; t
-docs/design/mod-api/neoforge-extensions.md	213	#3341	| `getFirstEyeInFluidType()` | Partial | `host.entity_eye_fluid` | Water or lava at the eyes from the last fluid update; mobs now track lava there too. Server o
+docs/design/mod-api/neoforge-extensions.md	207	#3341	| `getFluidTypeHeight(type)` | Partial | `host.entity_fluid_heights` | Each fluid the entity touched with its height, from its last fluid update. Both sides: pr
+docs/design/mod-api/neoforge-extensions.md	213	#3341	| `getFirstEyeInFluidType()` | Partial | `host.entity_eye_fluid` | Water or lava at the eyes from the last fluid update; mobs now track lava there too. Both sid
 docs/design/mod-api/neoforge-extensions.md	317	#1038	[#1038](https://github.com/arismoko/horizon/issues/1038) (blocks) and
 docs/design/mod-api/neoforge-extensions.md	318	#1039	[#1039](https://github.com/arismoko/horizon/issues/1039) (items) were written from the earlier audit. Some of
 docs/design/mod-api/neoforge-extensions.md	362	#3425	Horizon, as #3425 asks.
@@ -1031,14 +1042,16 @@ docs/design/mod-api/travel-and-move.md	3	#1009	Proposal for [#1009](https://gith
 docs/design/mod-api/travel-and-move.md	14	#2414	methods to Host. `entity_move` is ruled otherwise (#2414 maintainer ruling): a
 docs/design/mod-api/travel-and-move.md	96	#2414	changed state mid-callback. `entity_move`, ruled hostless (#2414), reduces to
 docs/design/mod-api/typed-payloads.md	3	#2882	The registered **raw** transport implements [#2882](https://github.com/arismoko/horizon/issues/2882).
-docs/design/mod-api/typed-payloads.md	5	#813	[#813](https://github.com/arismoko/horizon/issues/813). They are not implemented by the raw API.
-docs/design/mod-api/typed-payloads.md	184	#2882	`crates/horizon-mod-vocab/src/content/payload_codec.rs` holds the pure codec half of stage 2, exported from `mod_api`, and `#[derive(PayloadCodec)]` writes a ty
-docs/design/mod-api/typed-payloads.md	201	#811	Two things this stage does not do. The bounded field kinds of [#811](https://github.com/arismoko/horizon/issues/811) (`DatapackFieldKind`) are not merged with t
-docs/design/mod-api/typed-payloads.md	206	#813	## Remaining typed work in #813
-docs/design/mod-api/typed-payloads.md	216	#811	Share schema/value codec primitives with #811. Wire is an ABI representation, not
-docs/design/mod-api/typed-payloads.md	247	#3087	| Size | The connection's frame limits (#3087); the former 1,048,576-byte body cap is removed |
-docs/design/mod-api/typed-payloads.md	251	#796	Attachment sync keeps its message format. #796 stage 2 (tracked Part state) adds, on
-docs/design/mod-api/typed-payloads.md	254	#796	with #796's world/dimension, residency join, full-before-delta ordering, bounded assembly
+docs/design/mod-api/typed-payloads.md	5	#813	configuration snapshots remain work for [#813](https://github.com/arismoko/horizon/issues/813).
+docs/design/mod-api/typed-payloads.md	207	#2882	`crates/horizon-mod-vocab/src/content/payload_codec.rs` holds the pure codec half of stage 2, exported from `mod_api`, and `#[derive(PayloadCodec)]` writes a ty
+docs/design/mod-api/typed-payloads.md	224	#811	Two things this stage does not do. The bounded field kinds of [#811](https://github.com/arismoko/horizon/issues/811) (`DatapackFieldKind`) are not merged with t
+docs/design/mod-api/typed-payloads.md	229	#813	## Typed registration and tokens (#813 step 4b-1)
+docs/design/mod-api/typed-payloads.md	274	#813	## Remaining typed work in #813
+docs/design/mod-api/typed-payloads.md	283	#811	Share schema/value codec primitives with #811. Wire is an ABI representation, not
+docs/design/mod-api/typed-payloads.md	286	#813	(the contract amendment on #813). Structured
+docs/design/mod-api/typed-payloads.md	315	#3087	| Size | The connection's frame limits (#3087); the former 1,048,576-byte body cap is removed |
+docs/design/mod-api/typed-payloads.md	319	#796	Attachment sync keeps its message format. #796 stage 2 (tracked Part state) adds, on
+docs/design/mod-api/typed-payloads.md	322	#796	with #796's world/dimension, residency join, full-before-delta ordering, bounded assembly
 docs/design/mod-api/unified-fluid-declaration.md	3	#2436	Provisional proposal for [#2436](https://github.com/arismoko/horizon/issues/2436).
 docs/design/mod-api/unified-fluid-declaration.md	128	#2453	[PR #2453](https://github.com/arismoko/horizon/pull/2453) owns transaction tokens,
 docs/design/mod-api/unified-fluid-declaration.md	159	#2453	| Transaction abort | Tank insert followed by abort restores original amount; forged authority follows #2453 refusal |
@@ -1056,8 +1069,8 @@ docs/design/raw-custom-payload-transport.md	3	#813	This is the raw transport bel
 docs/design/raw-custom-payload-transport.md	4	#2882	#2882. The codec prerequisite is #2951. Names and contracts are based on
 docs/design/raw-custom-payload-transport.md	4	#2951	#2882. The codec prerequisite is #2951. Names and contracts are based on
 docs/design/raw-custom-payload-transport.md	14	#813	Attachment synchronization rides this transport as an engine declaration (#813 step 4a;
-docs/design/raw-custom-payload-transport.md	91	#813	## Acceptance and the amendment to #813
-docs/design/raw-custom-payload-transport.md	93	#813	Replace #813's proposed 32-per-tick cap and its “33 sends” acceptance row: vanilla
+docs/design/raw-custom-payload-transport.md	113	#813	## Acceptance and the amendment to #813
+docs/design/raw-custom-payload-transport.md	115	#813	Replace #813's proposed 32-per-tick cap and its “33 sends” acceptance row: vanilla
 docs/design/stack-snapshot.md	3	#1407	Proposal for [#1407](https://github.com/arismoko/horizon/issues/1407); this note does not authorize an implementation. TreeFall needs to retain a whole stack wh
 docs/design/stack-snapshot.md	25	#2846	[#2846](https://github.com/arismoko/horizon/issues/2846) is separately designing a block-entity-tick journal and a reads-own-writes overlay for dropped-item wri
 docs/design/stack-snapshot.md	25	#2846	[#2846](https://github.com/arismoko/horizon/issues/2846) is separately designing a block-entity-tick journal and a reads-own-writes overlay for dropped-item wri
@@ -1176,7 +1189,7 @@ docs/modding/src/how-to/items/data-maps.md	117	#4199	are queryable through `Biom
 docs/modding/src/how-to/items/data-maps.md	160	#3359	yet ([#3359](https://github.com/arismoko/horizon/issues/3359)).
 docs/modding/src/how-to/items/loot-functions-and-conditions.md	33	#1270	future global modifier pass (#1270). Nested tables share all parameters and
 docs/modding/src/how-to/items/loot-functions-and-conditions.md	54	#3330	answers until #3330 adopts the shared table.
-docs/modding/src/how-to/native-mods/062-builtin-item-ingredients.md	80	#3875	decoders are added incrementally in **#3875**. Their absence is not a load refusal.
+docs/modding/src/how-to/native-mods/062-builtin-item-ingredients.md	84	#3875	decoders are added incrementally in **#3875**. Their absence is not a load refusal.
 docs/modding/src/how-to/screen-room.md	3	#3194	`Hooks::screen_room` lets a client mod reserve room for a panel to the right of an open container. This is a layout query, not a drawing or cancellation hook. I
 docs/modding/src/how-to/wasm-mods.md	254	#3673	Issue #3673 measured a 30 MB module at roughly 30 s on one thread and 3 s on eight.
 docs/modding/src/how-to/world/spawning.md	178	#795	This is the accepted read-host scoped-view first step of #795, not the completed in-place ownership design. Write-host callbacks and the remaining ownership wor
@@ -1266,18 +1279,25 @@ tests/test_sdk_publish.py	1	#4108	"""The mod SDK is published in one file, sdk-p
 tests/test_service_images.py	10	#3474	lockfile has horizon-mod-vocab copies every crate (`COPY crates crates`) and rebuilds when any of them changes (#3474).
 tools/ci/fn-replace-check/lower/horizon-mod.toml	28	#4058	# library is `mod_render`, so the installer must name `::mod_render::render` (#4058).
 tools/ci/ignored-tests/README.md	58	#4451	The #4451 source inventory found 3,996 actual Rust ignore attributes in 1,139 files, including 3,022 non-daily
+tools/ci/ignored-tests/client-fluid-reads.txt	1	#4697	# Cached client entity fluid reads (#4697).
+tools/ci/ignored-tests/daily-client-player-reach.txt	1	#4698	# Client entity geometry and local-player reach (#4698).
 tools/ci/ignored-tests/daily-console-and-limits.txt	1	#3744	# Part 7 of #3744: the console and player-limit tests read the prepared 26.3 data.
 tools/ci/ignored-tests/daily-horizon-client-attachment-sync.txt	1	#813	# Attachment sync on the negotiated payload route (#813 step 4a): a real integrated server, LAN TCP peers.
+tools/ci/ignored-tests/daily-horizon-client-gui-gradient.txt	1	#4525	# A mod's gradient fills (DrawContext::fill_gradient, GuiDraw::FillGradient, #4525) through the game's dispatch.
 tools/ci/ignored-tests/daily-horizon-client-issue-4451.txt	1	#4451	# Prepared-resource/descriptive-ignore inventory migration for #4451.
+tools/ci/ignored-tests/daily-horizon-client-item-enchant-pick-parts.txt	1	#3225	# ItemPart::is_primary_item_for, apply_enchantments and is_not_replaceable_by_pick_action (#3225, part 1).
+tools/ci/ignored-tests/daily-horizon-client-item-menu-loop-parts.txt	1	#3225	# ItemPart::can_grindstone_repair, is_combine_repairable and can_fit_inside_container_items (#3225, part 2).
 tools/ci/ignored-tests/daily-horizon-client-lib-issue-4451.txt	1	#4451	# Prepared-resource/descriptive-ignore inventory migration for #4451.
 tools/ci/ignored-tests/daily-horizon-client-mob-ai-pause.txt	1	#4478	# A mod's AI pause (MobRef::set_ai_paused, #4478): path, target, physics, save and refusals.
 tools/ci/ignored-tests/daily-horizon-client-narrator.txt	1	#4532	# A client mod's narrator line (ClientNarratorClientHost::narrate, #4532): through the client host, and not on a server's thread.
 tools/ci/ignored-tests/daily-horizon-client-render-issue-4451.txt	1	#4451	# Prepared-resource/descriptive-ignore inventory migration for #4451.
 tools/ci/ignored-tests/daily-horizon-client-special-renderers.txt	1	#876	# Special item model renderers (#876): when a mod's renderer is asked in a real game, outside a tick's
+tools/ci/ignored-tests/daily-horizon-client-typed-payloads.txt	1	#813	# Typed payloads on the raw transport (#813 step 4b-1): a real integrated server, LAN TCP peers, the compiled wasm fixture.
 tools/ci/ignored-tests/daily-horizon-items-issue-4451.txt	1	#4451	# Prepared-resource/descriptive-ignore inventory migration for #4451.
-tools/ci/ignored-tests/daily-horizon-launcher-issue-4451.txt	1	#4451	# Prepared-resource/descriptive-ignore inventory migration for #4451.
 tools/ci/ignored-tests/daily-horizon-world-issue-4451.txt	1	#4451	# Prepared-resource/descriptive-ignore inventory migration for #4451.
+tools/ci/ignored-tests/daily-standard-pack-gpu-entities.txt	1	#4641	# Asset-free pixel assertions run on the daily GPU hosts, under with_xvfb.py (#4641).
 tools/ci/ignored-tests/daily-text-json-services.txt	1	#3943	# #3943 resource-backed text and level service tests. Kept separate from the generated shared inventory.
+tools/ci/ignored-tests/daily-unloaded-guest-ticks.txt	1	#4612	# ServerPlayer.doTick keeps running before PlayerLoaded (#4612).
 tools/ci/ignored-tests/entity-part-state.txt	1	#796	# Entity Part state (#796 stage 3) on a real Game, each in a fresh child process.
 tools/ci/ignored-tests/issue-2177.txt	1	#2137	# Client failures exposed after enforcing target completion (#2137).
 tools/ci/ignored-tests/issue-2177.txt	2	#2177	horizon-client game::explosion::tests::explosion_items_parity_fixture #2177 harness
@@ -1289,9 +1309,9 @@ tools/ci/ignored-tests/server-package-admission.txt	1	#4138	# side = "server" pa
 tools/ci/ignored_shards.py	33	#952	# plan replaced (CI run #952, e8752e146f: horizon-client 380s, horizon-client-render
 tools/ci/ignored_tests.py	731	#2944	# Owner-approved stopgap; #2944 removes this when the legs run under 15 minutes.
 tools/ci/reexec_include_ignored.py	2	#4022	"""Make every test that reruns its own test executable select the test whatever its ignore state (#4022).
-tools/join-locate-probe/README.md	43	#1771	#1771 (`transfer_arrival_rebinds_only_bound_owners_with_the_same_id`).
-tools/join-locate-probe/README.md	49	#1772	preserved on the superseded #1772 and #1776 branches, not copied into production.
-tools/join-locate-probe/README.md	49	#1776	preserved on the superseded #1772 and #1776 branches, not copied into production.
+tools/join-locate-probe/README.md	44	#1771	#1771 (`transfer_arrival_rebinds_only_bound_owners_with_the_same_id`).
+tools/join-locate-probe/README.md	50	#1772	preserved on the superseded #1772 and #1776 branches, not copied into production.
+tools/join-locate-probe/README.md	50	#1776	preserved on the superseded #1772 and #1776 branches, not copied into production.
 tools/layering/mod_host_map.py	9	#2534	# How each strand is resolved (#2534): phases 2 and 4 are dropped (owner, 2026-11-10); phase 6 is not built.
 tools/layering/scan_engine_mod_edges.py	2	#2534	"""List every place an engine crate touches a mod crate, for #2534's move of the mod host above the engine.
 tools/layering/scan_engine_mod_edges.py	39	#2534	# Each strand's #2534 phase; None where nothing moves: the engine keeps its Host impls (phase 2 dropped) and attachment
