@@ -1,0 +1,57 @@
+//! `RecipesClientHost::panel_recipes`: a native or wasm mod's `RecipePage` shown in its item
+//! panel's place, on the one path the panel's recipe view has (`native_panel_recipes`, then
+//! `Panel::show_recipes`). The API's types are converted to the renderer's here, at the boundary.
+use super::*;
+
+/// The renderer's view of an API page: its title, tabs, selected tab and recipes, none of them cut
+/// yet (`RecipePage::new` cuts them). `None` is no recipes, which shows the items again.
+pub(super) fn page_views(
+    page: Option<mod_api::RecipePage>,
+) -> (String, Vec<mod_api::Stack>, u32, Vec<NativeRecipeView>) {
+    let Some(page) = page else {
+        return (String::new(), Vec::new(), 0, Vec::new());
+    };
+    let views = page.recipes.into_iter().map(recipe_view).collect();
+    (page.title, page.tabs, page.tab, views)
+}
+
+fn recipe_view(view: mod_api::RecipeView) -> NativeRecipeView {
+    NativeRecipeView {
+        layout: match view.layout {
+            mod_api::RecipeLayout::Cooking => NativeRecipeLayout::Cooking,
+            mod_api::RecipeLayout::Single => NativeRecipeLayout::Single,
+            mod_api::RecipeLayout::Smithing => NativeRecipeLayout::Smithing,
+            mod_api::RecipeLayout::Brewing => NativeRecipeLayout::Brewing,
+            // `Grid`, and any layout a later API adds before the renderer draws it.
+            _ => NativeRecipeLayout::Grid,
+        },
+        width: view.width,
+        height: view.height,
+        slots: view.slots,
+        results: view
+            .results
+            .into_iter()
+            .map(|result| NativeRecipeResult {
+                stacks: result.stacks,
+                chance: result.chance,
+            })
+            .collect(),
+        fluid_inputs: view.fluid_inputs,
+        fluid_outputs: view.fluid_outputs,
+        note: view.note,
+        action: view.action,
+    }
+}
+
+impl Game<'_> {
+    /// Shows `page` in mod `mod_id`'s item panel instead of its items, cut to the renderer's
+    /// limits; `None` shows the items again.
+    pub(in crate::game) fn panel_recipes(
+        &mut self,
+        mod_id: &str,
+        page: Option<mod_api::RecipePage>,
+    ) {
+        let (title, tabs, tab, views) = page_views(page);
+        self.native_panel_recipes(mod_id, &title, tabs, tab, views);
+    }
+}
