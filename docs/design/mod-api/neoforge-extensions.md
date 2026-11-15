@@ -204,14 +204,14 @@ entity coverage is data, handles and global hooks. On the server a mod can act o
 | `revive()` | Missing | — | No entity revive API. |
 | `isMultipartEntity()` | Missing | — | The dragon's parts are internal to the engine. |
 | `getParts()` | Missing | — | Same; `EntityRef` names dragon parts in some reads but does not expose the array. |
-| `getFluidTypeHeight(type)` | Partial | `host.entity_fluid_heights` | Each fluid the entity touched with its height, from its last fluid update. Server only; the client half is still to come (#3341). |
-| `getMaxHeightFluidType()` | Partial | `host.entity_fluid_heights` | The first entry: the list is highest first. Server only. |
-| `isInFluidType(state)` | Partial | `host.entity_fluid_heights` | Whether the state's fluid is in the list. Entities track water and lava; mod fluids join once the entity update tracks them. Server only. |
+| `getFluidTypeHeight(type)` | Partial | `host.entity_fluid_heights` | Each fluid the entity touched with its height, from its last fluid update. Both sides: predicted for the local player, the last client fluid update for tracked entities. Mod fluids still need the entity update to track them (#3341). |
+| `getMaxHeightFluidType()` | Partial | `host.entity_fluid_heights` | The first entry: the list is highest first. Both sides. |
+| `isInFluidType(state)` | Partial | `host.entity_fluid_heights` | Whether the state's fluid is in the list. Entities track water and lava; mod fluids join once the entity update tracks them. Both sides. |
 | `isInFluidType(type)` | Partial | `host.entity_fluid_heights` | Same. |
-| `isInFluidType(predicate)` | Partial | `host.entity_fluid_heights` | The mod applies its predicate to the list. Server only. |
-| `isInFluidType()` | Partial | `host.entity_fluid_heights` | A non-empty list. Server only. |
-| `getFirstEyeInFluidType()` | Partial | `host.entity_eye_fluid` | Water or lava at the eyes from the last fluid update; mobs now track lava there too. Server only; the client half is still to come (#3341). |
-| `isEyeInFluidType(type)` | Partial | `host.entity_eye_fluid` | Compare its answer. Server only. |
+| `isInFluidType(predicate)` | Partial | `host.entity_fluid_heights` | The mod applies its predicate to the list. Both sides. |
+| `isInFluidType()` | Partial | `host.entity_fluid_heights` | A non-empty list. Both sides. |
+| `getFirstEyeInFluidType()` | Partial | `host.entity_eye_fluid` | Water or lava at the eyes from the last fluid update; mobs now track lava there too. Both sides: predicted for the local player, the last client fluid update for tracked entities. Mod fluids still need the entity update to track them (#3341). |
+| `isEyeInFluidType(type)` | Partial | `host.entity_eye_fluid` | Compare its answer. Both sides. |
 | `canStartSwimming()` | Missing | — | Swimming start is engine-owned. |
 | `getFluidMotionScale(type)` | Missing | — | No per-entity fluid scale. |
 | `isPushedByFluid(type)` | Partial | `FluidTypeProperties.can_push_entity` | Per-fluid data, not a per-entity answer. |
@@ -234,6 +234,13 @@ entity coverage is data, handles and global hooks. On the server a mod can act o
 | `canDrownInFluidType(type)` | Partial | `living_drown` (`hooks/base.rs`), `FluidTypeProperties.can_drown` | The global drown event can cancel or change damage; fluid data decides whether it applies. |
 | `moveInFluid(type, movement, fallDistance)` | Missing | — | Movement in fluid is engine-owned; no per-entity method. |
 | `onDamageTaken(container)` | Partial | `living_damage_post` (`hooks/living_damage_post.rs`), `living_incoming_damage` (`hooks/base.rs`) | Global server hooks: the incoming container before the hit, and a post-damage notice at the end of every hurt that passed the cooldown (health damage 0 when none was taken), not a per-entity callback. |
+
+## Player reach and flight
+
+| Method | Verdict | Horizon route |
+| --- | --- | --- |
+| server reach (`Player.canInteractWithEntity`, `isWithinAttackRange`) | **Covered** | `player_within_entity_reach(player, entity, EntityReach)`, server-side: eyes to the closest point of the entity's box (0 inside it, no ray, no fallback). `Interact` strict below (range + 3)², `Container` strict below (range + 4)², `Attack` inclusive within [min − margin − 3, max + margin + 3] from the main hand's `attack_range`, else 0 to the range. None across levels or for an entity whose box Horizon doesn't keep. |
+| `mayFly()` | **Covered** | `player_may_fly(player)`, both sides: the `mayfly` ability. Horizon has no creative-flight attribute yet, so nothing is OR'd in. |
 
 ## `IBlockEntityExtension`
 

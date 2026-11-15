@@ -4,6 +4,7 @@
 //! fly and amphibious node evaluators (`path`, `nav`), move/look/jump/body controls (`control`),
 //! `LivingEntity` physics (`living`) and per-species behaviour, models, animations and sounds.
 pub mod ai;
+mod ai_pause;
 pub mod allay;
 pub mod ambient;
 pub mod anim;
@@ -51,6 +52,7 @@ pub mod hostile;
 mod hurt_by;
 pub mod illager;
 pub mod illusioner;
+pub mod invulnerable;
 pub mod item_break;
 pub mod keyframes;
 pub mod landing;
@@ -1554,6 +1556,10 @@ pub struct Mob {
     /// direction and feet, which `SulfurCube.knockback` turns the launch by. Set by whoever deals
     /// the blow (`Game::attacker_aim`) and cleared once it is dealt.
     pub attacker_aim: Option<Aim>,
+    /// `DamageSource.isCreativePlayer()` of the blow being dealt: its causing entity is a
+    /// player in creative mode, whose hits `Entity.isInvulnerableToBase` lets through. Set by
+    /// whoever deals the blow (`Game::hurt_by_player`) and cleared once it is dealt.
+    pub creative_attacker: bool,
     /// The horizontal motion `(x, z)` of the projectile that is the direct entity of the blow
     /// being dealt (`Projectile.calculateHorizontalHurtKnockbackDirection`): the knock goes the
     /// way it was travelling. None for any other direct entity.
@@ -2717,8 +2723,7 @@ impl Mob {
     /// of every mob writes each one in its slot, not through a copy.
     #[inline]
     pub fn seen(&self, _player: Option<[i32; 4]>, items: &crate::items::Items) -> Seen {
-        let m = self;
-        let villager = m.species() == Species::Villager;
+        let (m, villager) = (self, self.species() == Species::Villager);
         Seen {
             kind: Arc::clone(&m.kind),
             in_water: self.fluids.in_water,
@@ -2731,6 +2736,7 @@ impl Mob {
             hitbox: m.hitbox(),
             eye_y: m.eye_y(),
             alive: m.alive(),
+            removed: m.removed,
             invulnerable: m.is_invulnerable(),
             baby: m.is_baby(),
             // A villager is "in love" when it is willing to breed (`canBreed`).
@@ -3551,7 +3557,7 @@ impl Mob {
     pub fn new_remote(id: u32, kind: Arc<MobType>, position: Vec3, yaw: f32) -> Self {
         Self::remote_with_random(id, kind, position, yaw, entity_random(id, position))
     }
-    fn remote_with_random(
+    pub(crate) fn remote_with_random(
         id: u32,
         kind: Arc<MobType>,
         position: Vec3,
@@ -3614,6 +3620,7 @@ impl Mob {
             silent: false,
             invulnerable_flag: false,
             attacker_aim: None,
+            creative_attacker: false,
             projectile_motion: None,
             climbing: false,
             on_climbable: false,
@@ -3834,23 +3841,6 @@ impl Mob {
     /// `hurtServer` of `amount` from `source` in `level`.
     pub fn damage(&mut self, level: &mut DamageLevel<'_>, amount: f32, source: Damage) -> bool {
         self.damage_with(level, amount, source, None)
-    }
-    /// `LivingEntity.isInvulnerableTo` and dead or removed: only #bypasses_invulnerability gets
-    /// past the flag. Fire-immune mobs also refuse fire, except a ghast's reflected fireball.
-    /// The guard every damage hook runs after (`LivingIncomingDamageEvent`).
-    pub fn refuses_damage(&self, source: &Damage) -> bool {
-        self.extra.client_side
-            || !self.alive()
-            || self.removed
-            || (self.is_invulnerable() && !source.kind.bypasses_invulnerability())
-            || (source.is_fire() && self.kind.flags.fire_immune && !self.reflected_fireball(source))
-    }
-    /// `Ghast.isReflectedFireball`: its fire immunity does not refuse a
-    /// player's return hit.
-    fn reflected_fireball(&self, source: &Damage) -> bool {
-        &*self.kind.id == "minecraft:ghast"
-            && source.kind == DamageKind::Fireball
-            && source.attacker == Some(Who::Player)
     }
     /// `LivingEntity.hurtServer`'s partial mob adapter, with health reductions inline.
     /// `damage` by a source with a weapon: `armor_effectiveness` runs the
@@ -4278,7 +4268,7 @@ impl Mob {
         let cloud = self.species() == Species::Enderman
             && direct == "minecraft:area_effect_cloud"
             && !self.removed
-            && !(self.is_invulnerable() && !source.kind.bypasses_invulnerability());
+            && !self.is_invulnerable_to(&source);
         let hurt = self.damage(level, amount, source);
         if cloud {
             enderman::teleport_chance(self, &source);
@@ -6990,6 +6980,7 @@ mod silent_voice_tests {
     /// the check the silent cow plays `entity.cow.ambient` like the loud one,
     /// and without drawing first its random state falls two draws behind.
     #[test]
+    #[ignore = "daily"]
     fn a_silent_mob_makes_no_ambient_sound() {
         let Some((loud, loud_next)) = ambient(false) else {
             return;
@@ -7216,10 +7207,12 @@ mod hidden_speed_mob_tick_tests {
         let _ = admitted;
     }
     #[test]
+    #[ignore = "daily"]
     fn noai_full_mob_tick_promotes_speed() {
         full_tick_promotes(true)
     }
     #[test]
+    #[ignore = "daily"]
     fn ai_full_mob_tick_promotes_speed() {
         full_tick_promotes(false)
     }

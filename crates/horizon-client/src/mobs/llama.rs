@@ -96,14 +96,13 @@ pub fn register(m: &mut Mob) {
 /// `TraderLlama.DEFAULT_DESPAWN_DELAY`.
 pub const DEFAULT_DESPAWN_DELAY: i32 = 47999;
 /// `Llama.finalizeSpawn` and `AbstractChestedHorse.randomizeAttributes`:
-/// health 15 to 30, a coat and the strength.
-pub fn finalize(m: &mut Mob) {
-    let r = &mut m.random;
-    let health =
-        15.0 + r.next_int_bound(8).unwrap_or(0) as f32 + r.next_int_bound(9).unwrap_or(0) as f32;
+/// the strength and a coat, then health 15 to 30.
+pub fn finalize(m: &mut Mob, r: &mut impl RandomSource) {
     let max = if r.next_float() < 0.04 { 5 } else { 3 };
     let strength = 1 + r.next_int_bound(max).unwrap_or(0);
     let variant = r.next_int_bound(4).unwrap_or(0);
+    let health =
+        15.0 + r.next_int_bound(8).unwrap_or(0) as f32 + r.next_int_bound(9).unwrap_or(0) as f32;
     set_base(m, Attr::MaxHealth, f64::from(health));
     m.health = health;
     m.extra.variant2 = strength as u8;
@@ -269,6 +268,7 @@ mod tests {
         assert!(fives > 0 && fives < 200);
     }
     #[test]
+    #[ignore = "daily"]
     fn breeding_experience_uses_only_the_parent_random_when_drops_are_enabled() {
         super::super::world::with_test_world(&[], |_, types| {
             for kind in ["minecraft:llama", "minecraft:horse", "minecraft:cow"] {
@@ -290,6 +290,7 @@ mod tests {
         });
     }
     #[test]
+    #[ignore = "daily"]
     fn breeding_experience_is_drawn_in_the_goal_unless_a_mod_must_decide() {
         let mut kind = None;
         super::super::world::with_test_world(&[], |_, types| {

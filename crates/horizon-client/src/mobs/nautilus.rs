@@ -7,7 +7,7 @@ use super::{
     Mob, MobEvent, MobWorld, Species, Who,
     anim::{Poses, State},
     control::{LookKind, MoveKind, Operation},
-    goals::{Breed, Cx, Goal, LOOK, LookAtPlayer, MOVE, Panic, Stroll, Tempt, goal_clone},
+    goals::{Breed, Cx, Goal, LOOK, MOVE, Panic, Stroll, Tempt, goal_clone},
     keyframes::Animation,
     nav::NavKind,
 };
@@ -59,7 +59,6 @@ pub fn register(m: &mut Mob) {
         g.add(1, t);
         g.add(2, Charge::new(0.5));
         g.add(3, Stroll::swimming(1.0, 1));
-        g.add(3, LookAtPlayer::new(6.0));
     } else {
         g.add(0, Panic::new(1.6));
         g.add(1, Breed::new(0.4));
@@ -68,13 +67,12 @@ pub fn register(m: &mut Mob) {
         g.add(2, t);
         g.add(3, Charge::new(0.6));
         g.add(4, Stroll::swimming(1.0, 1));
-        g.add(4, LookAtPlayer::new(6.0));
     }
 }
 /// `finalizeSpawn`: `NautilusAi.initMemories` (2400 to 3600 ticks before it
 /// first looks for prey) and the zombie's variant by biome.
-pub fn finalize(m: &mut Mob, warm_ocean: bool) {
-    m.extra.counter = 2400 + m.random.next_int_bound(1201).unwrap_or(0);
+pub fn finalize(m: &mut Mob, warm_ocean: bool, r: &mut impl RandomSource) {
+    m.extra.counter = 2400 + r.next_int_bound(1201).unwrap_or(0);
     m.extra.nautilus_attack_cooldown_ttl = Some(i64::MAX);
     if zombie(m) {
         m.extra.variant = u8::from(warm_ocean);
@@ -756,9 +754,30 @@ mod tests {
         }
     }
 
+    /// `NautilusAi` and `ZombieNautilusAi` have no `LookAtPlayerGoal`: the
+    /// idle activity's walk from a look target never runs (no sensor writes
+    /// `LOOK_TARGET`), so a nautilus never turns to stare at a player.
+    #[test]
+    fn neither_brain_looks_at_a_player() {
+        for (id, species) in [
+            ("minecraft:nautilus", Species::Nautilus),
+            ("minecraft:zombie_nautilus", Species::ZombieNautilus),
+        ] {
+            let mut kind = (*crate::mobs::sensor_scan_tests::kind()).clone();
+            kind.id = id.into();
+            kind.species = species;
+            let mut m = Mob::new(1, Arc::new(kind), Vec3::ZERO, 0.0);
+            register(&mut m);
+            // The stroll is there, so the list is the brain's own.
+            assert!(m.ai.goals.has("RandomSwimming"), "{id} strolls");
+            assert!(!m.ai.goals.has("LookAtPlayer"), "{id} looks at players");
+        }
+    }
+
     /// `ChargeAttack.dealKnockBack` is `causeExtraKnockback`: `LivingEntity.knockback`
     /// on the target, away from (sin(yaw), -cos(yaw)), not a raw push of its motion.
     #[test]
+    #[ignore = "daily"]
     fn a_charge_knocks_its_target_back_along_its_facing() {
         let mut events = Vec::new();
         let ran = with_test_world(&[], |w, types| {
@@ -919,6 +938,7 @@ mod hostile_target_tests {
     }
 
     #[test]
+    #[ignore = "daily"]
     fn a_nautilus_only_targets_a_pufferfish_it_sees() {
         let near = Vec3::new(6.5, 62.0, 0.5);
         // 16 out on x and 3 on z: inside the sensor's box, past range(16).

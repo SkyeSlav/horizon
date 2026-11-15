@@ -466,16 +466,13 @@ impl Game<'_> {
         match rider {
             Target::Player => {
                 match vehicle {
-                    Target::Boat(id) => {
-                        if let Some(boat) = self.boats.iter().find(|b| b.id == id) {
-                            self.yaw = boat.yaw;
-                        }
-                    }
+                    // `ServerPlayer.startRiding` teleports with `Relative.ROTATION`: the
+                    // rider keeps their view, whatever the vehicle's yaw.
+                    Target::Boat(_) => {}
                     Target::Mob(id) => {
                         if let Some(mob) = self.mobs.iter_mut().find(|m| m.id == id) {
                             mob.extra.flag = false;
                             mob.extra.counter = 0;
-                            self.yaw = mob.yaw;
                         }
                         self.mount.jump_ticks = 0;
                         self.mount.jump_scale = 0.0;
@@ -793,6 +790,16 @@ mod tests {
                         mounting,
                     };
                     events.lock().unwrap().clear();
+                    if vehicle_kind == "minecraft:marker" {
+                        // Marker.couldAcceptPassenger refuses even a forced mount,
+                        // before the cancellable mount notification.
+                        assert!(!game.entity_start_riding(rider, vehicle, false));
+                        assert!(!game.entity_start_riding(rider, vehicle, true));
+                        assert_eq!(rider.vehicle(game), None);
+                        assert_eq!(vehicle.passengers(game), Some(vec![]));
+                        assert!(events.lock().unwrap().is_empty());
+                        continue;
+                    }
 
                     // A canceled handle write reports the type but changes neither side.
                     cancel.store(true, Ordering::SeqCst);
@@ -1017,6 +1024,7 @@ mod tests {
         use horizon_client::motion::PlayerMotion;
         super::super::native_entity_refs::tests::with_game(|game| {
             game.player = Some(PlayerMotion::new(game.motion, Vec3::ZERO).unwrap());
+            game.yaw = 10.0;
             game.boats
                 .push(Boat::new(60, "oak".into(), Vec3::ZERO, 45.0));
             assert!(game.interact_boat(Some(InteractTarget {
@@ -1024,7 +1032,7 @@ mod tests {
                 location: [0.0; 3]
             })));
             assert_eq!(game.riding, Some(60));
-            assert_eq!(game.yaw, 45.0);
+            assert_eq!(game.yaw, 10.0, "mounting keeps the rider's view");
             game.riding = None;
             game.carts
                 .push(Minecart::new(61, CartKind::Rideable, Vec3::ZERO));
@@ -1502,7 +1510,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
+    #[ignore = "daily"]
     fn a_mob_gets_off_where_the_query_says() {
         use super::super::{
             boats::Boat,
@@ -1540,7 +1548,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
+    #[ignore = "daily"]
     fn a_player_gets_off_where_the_query_says() {
         use super::super::{
             boats::Boat,
@@ -1556,16 +1564,16 @@ mod tests {
             hub.update_guest(1, |g| g.motion = Some(Box::new(motion)))
                 .unwrap();
 
-            // Beside a cow, 0.45 + 0.4 across its facing, and to the other side past a wall.
+            // Animal searches neighbouring block centres, then the other side past a wall.
             let cow = add_mob(game, 120, "minecraft:cow", at);
-            assert_near(get_off(game, player, cow), [-0.35, 64.0, 0.5]);
+            assert_near(get_off(game, player, cow), [-0.5, 64.0, 0.5]);
             let registry = game.pack.assets.registry;
             let stone = registry.default_state("minecraft:stone").unwrap();
             let air = registry.default_state("minecraft:air").unwrap();
             for y in [64, 65] {
                 game.world.set(-1, y, 0, stone).unwrap();
             }
-            assert_near(get_off(game, player, cow), [1.35, 64.0, 0.5]);
+            assert_near(get_off(game, player, cow), [1.5, 64.0, 0.5]);
             for y in [64, 65] {
                 game.world.set(-1, y, 0, air).unwrap();
             }
@@ -1578,10 +1586,10 @@ mod tests {
             game.boats.push(Boat::new(123, "oak".into(), at, 0.0));
             let boat = game.entity(123).unwrap();
             assert_near(get_off(game, player, boat), [0.5, 64.0, 1.77229]);
-            // Unlike a mob's, a player's search takes a cart's yaw as it is.
+            // As for a mob, a cart facing south lets it off to the north.
             game.carts.push(Minecart::new(124, CartKind::Rideable, at));
             let cart = game.entity(124).unwrap();
-            assert_near(get_off(game, player, cart), [-0.5, 64.0, 0.5]);
+            assert_near(get_off(game, player, cart), [0.5, 64.0, -0.5]);
         });
     }
 

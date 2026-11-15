@@ -183,6 +183,12 @@ host.transaction(|host, tx| {
 })
 ```
 
+Inside `menu_clicked`, `ItemPlace::MenuSlot` can take from and give to the clicking
+player's inventory and hotbar slots as well as the menu's own storage. Inserts fill
+only the named slot and return the amount that fits. Abort the transaction if a
+partial move should leave both places unchanged. Stale menu or player identities
+refuse writes. The same storage path is used by native and wasm listeners.
+
 ## A mod's chest menu
 
 `host.open_menu(uuid, rows, title, items, replace)` opens a chest menu (`generic_9x1` to `generic_9x6`) for a player
@@ -202,6 +208,15 @@ if let Some(menu) = host.menu(uuid, window) {
     });
 }
 ```
+
+To rebuild the whole menu at once (a page turned, a list refiltered) `host.menu_set_items(uuid, window, items)`
+replaces everything it shows and sends it as one `ContainerSetContent` for that window, now rather than with the next
+tick's sync, as vanilla's `sendAllDataToRemote` does: the screen, the title and the cursor stay. Like `open_menu` it pads
+`items` with empty slots and drops the ones past the menu's last. It returns `Result<(), MenuItemsRefusal>` and each
+refusal sends and changes nothing: `Client`, `NoPlayer` (no placed player has that UUID), `NotOpen` (`window` is not
+the player's open `open_menu` menu: another window, a closed menu, or a menu the game opened) and
+`Stack(StackWriteError)` (an item the world lacks, a count or damage the item does not allow). For one slot or a few,
+write them through `host.menu` as above: they cost one packet each and no replacement of the others.
 
 A title or a row count changes only with a new menu, as in vanilla: `open_menu` again, with a new window id, the
 title and all the items. The old menu closes on the server as a close does, its cursor stack going back to the
@@ -258,3 +273,39 @@ if let Some(window) = window {
 ```
 
 A vanilla menu and a menu no mod backed never take this path: their slots keep the backing they had.
+
+## Recipe transfer into a mod menu
+
+A recipe viewer's "+" calls `RecipesClientHost::transfer_recipe_id(recipe, max)` (or `transfer_recipe(book_id)`
+for a recipe-book recipe). The game's own transfer fills crafting grids only, so for a machine's menu the
+server first asks the `MenuPart` of the open mod menu type:
+
+```rust,ignore
+fn menu_transfer(
+    &self,
+    host: &mut dyn mod_api::ServerHost,
+    event: &mut mod_api::MenuTransferEvent<'_>,
+) -> Option<mod_api::RecipeTransferResult> {
+    // Look up event.recipe, check event.player's inventory, and unless event.dry_run
+    // move one set (as many as fit with event.max) into the block entity at event.pos.
+    let _ = (host, event);
+    Some(mod_api::RecipeTransferResult::Moves)
+}
+```
+
+Return `None` to hand the transfer on to the game's grid transfer (`NotIntoMenu` for a menu without a
+crafting grid). A dry run, the viewer's check, must move nothing. Vanilla menu types are never asked. A solo
+world and a LAN host's own player get the same contract: the game is the server there and asks the part of the
+player's open block menu before its own grid transfer, on the same thread.
+
+`menu.slot_kinds(host)` is a client read in menu index order, with exactly
+`slot_count` entries. It describes the client's layout and content declaration,
+not the server's backing or acceptance rules. `Player(index)` uses hotbar 0–8,
+main 9–35, armour 36–39 (feet to head), off hand 40. Container equipment is
+`Equipment`; linked storage is `Storage`. Workstations without a classified layout (anvil, enchanting table, loom,
+and similar types) return `Other` for every slot, including player slots. A game menu with no known client slot count returns `None`, as do
+stale or foreign handles, missing content types, and calls without an open menu
+or outside a world. Creative returns the underlying inventory menu's 46 slots,
+never creative tab wrappers; read the screen type to distinguish them.
+The answer is stable for one open menu. Cache it: each read builds one Vec
+from the layout table and content declaration, with one allocation.

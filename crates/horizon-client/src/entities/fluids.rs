@@ -155,13 +155,14 @@ impl ExperienceOrb {
     /// resets its fall, and `Entity.baseTick` halves it in lava (`isInLava`
     /// is false on the orb's first tick, `Entity.firstTick`). Answers
     /// `isEyeInFluid(FluidTags.WATER)` for the eye the scan reads, `0.425`
-    /// above the orb's feet, and `isInWater`.
+    /// above the orb's feet, `isInWater`, and `isInLava` (before
+    /// `Entity.firstTick` is taken into account).
     pub fn update_fluids(
         &mut self,
         world: &World,
         fluids: &FluidResources,
         context: &LoopContext,
-    ) -> (bool, bool) {
+    ) -> (bool, bool, bool) {
         let (water, lava, eye) = update_entity_fluids(
             self.bounds(),
             self.position,
@@ -178,7 +179,7 @@ impl ExperienceOrb {
         if lava > 0.0 && self.ticks > 1 {
             self.fall_distance *= 0.5;
         }
-        (eye, water > 0.0)
+        (eye, water > 0.0, lava > 0.0)
     }
 }
 impl ArmorStand {
@@ -339,6 +340,7 @@ mod tests {
     /// while the pool itself, its edge on a solid floor and the air beside it
     /// have no current.
     #[test]
+    #[ignore = "daily"]
     fn fluid_flow_runs_away_from_a_pool_and_is_zero_in_still_water() {
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../.local/horizon-client")
@@ -388,6 +390,7 @@ mod tests {
         }
     }
     #[test]
+    #[ignore = "daily"]
     fn items_follow_flowing_water_but_still_water_has_no_horizontal_push() {
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../.local/horizon-client")
@@ -502,6 +505,7 @@ mod tests {
     /// orb in flowing water gains velocity along the flow and moves, while an orb
     /// in still source water does not gain horizontal velocity (#7442).
     #[test]
+    #[ignore = "daily"]
     fn experience_orbs_follow_flowing_water_but_still_water_has_no_horizontal_push() {
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../.local/horizon-client")
@@ -550,6 +554,7 @@ mod tests {
             health: 5,
             air: 300,
             following: None,
+            fire_ticks: 0,
         };
         let mut still = orb.clone();
         assert!(still.tick(
@@ -608,6 +613,7 @@ mod tests {
     /// surface, with its eye in the water, floats (`setUnderwaterMovement`)
     /// instead of falling.
     #[test]
+    #[ignore = "daily"]
     fn an_orb_whose_eye_dips_into_water_floats_with_its_feet_in_air() {
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../.local/horizon-client")
@@ -651,6 +657,7 @@ mod tests {
             health: 5,
             air: 300,
             following: None,
+            fire_ticks: 0,
         };
         assert!(orb.tick(
             &world,
@@ -676,6 +683,7 @@ mod tests {
     /// still source water does not. Vanilla's boat tick runs this before
     /// `floatBoat` scales the velocity, which is what `game::boats` does.
     #[test]
+    #[ignore = "daily"]
     fn a_boat_box_is_pushed_by_the_current_it_sits_in() {
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../.local/horizon-client")
@@ -741,6 +749,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "daily"]
     fn armor_stands_follow_flowing_water_but_markers_and_still_water_stay_in_place() {
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../.local/horizon-client")

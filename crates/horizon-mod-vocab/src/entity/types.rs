@@ -129,7 +129,10 @@ pub struct EntityUuid(pub u128);
 /// An entity of the open world, for the `Host` methods that read or change one
 /// (`entity.position(host)`). It holds the world's epoch and the entity's id: ids
 /// are shared by every server level and never reused while the server world is
-/// open, and an entity that changes dimension gets a new one, as in vanilla.
+/// open. An entity that changes dimension on its own (a lone mob, a general entity)
+/// is rebuilt under a new id, as in vanilla, so its old handle goes stale; a vehicle a
+/// player rides keeps its id, and its handle still resolves in the new level. Follow
+/// the entity's UUID across a change of level.
 /// On a client the epoch identifies one client level and changes when that level
 /// is replaced. Server reads and writes reject a handle from an earlier epoch,
 /// of an entity that is gone, or used on a client. `Host::entity` makes a server
@@ -1072,6 +1075,8 @@ pub enum RemovalReason {
 }
 
 /// An online player in one open server world, keyed by UUID.
+/// This is the player's identity, not a particular body: handles for the same
+/// player stay equal across respawn. Respawning does not invalidate a handle.
 /// A nested guest turn cannot re-enter a player active in an outer turn;
 /// operations requiring that player's swapped state report them unavailable.
 #[derive(horizon_mod_api_macros::Wire)]
@@ -1209,6 +1214,63 @@ impl From<crate::text::TextFormError> for OpenMenuError {
 impl NoBackend for OpenMenuError {
     fn no_backend() -> Self {
         Self::PlayerUnavailable
+    }
+}
+
+/// Why [`PlayerRef::respawn`] respawned nobody. Nothing changed when one comes back; the checks
+/// run in the order the variants are listed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+#[derive(horizon_mod_api_macros::Wire)]
+pub enum RespawnRefusal {
+    /// The call was made on a client; the respawn is the server's.
+    Client,
+    /// A player's state is swapped in (the call came from inside a player's hook, such as a
+    /// command or a packet handler); call it from `server_tick`.
+    InPlayerHook,
+    /// The handle no longer identifies a player on this server: it is stale, or they left.
+    Stale,
+    /// The player has no connection of their own to press Respawn on: a fake player, or the
+    /// world's own player in a single-player world.
+    NoConnection,
+    /// The player has health above 0 and has not won the game: the case the Respawn button
+    /// ignores. A player who has won the game (the End poem is showing) is respawned even
+    /// alive, as the button does.
+    Alive,
+}
+
+impl NoBackend for RespawnRefusal {
+    fn no_backend() -> Self {
+        Self::Stale
+    }
+}
+
+/// Why `menu_set_items` replaced nothing. Nothing is sent when one comes back.
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+#[derive(horizon_mod_api_macros::Wire)]
+pub enum MenuItemsRefusal {
+    /// The call was made on a client; menus are the server's.
+    Client,
+    /// No player of that UUID is online and placed.
+    NoPlayer,
+    /// The window is not the player's open `open_menu` menu: another window, a menu the game
+    /// opened (a chest, a trade), or none open.
+    NotOpen,
+    /// One of the stacks was refused at the game's item conversion boundary: an item the world
+    /// lacks, a count or damage the item does not allow.
+    Stack(StackWriteError),
+}
+
+impl From<StackWriteError> for MenuItemsRefusal {
+    fn from(error: StackWriteError) -> Self {
+        Self::Stack(error)
+    }
+}
+
+impl NoBackend for MenuItemsRefusal {
+    fn no_backend() -> Self {
+        Self::NoPlayer
     }
 }
 
@@ -1454,3 +1516,20 @@ pub struct AttributeTooltip {
 #[cfg(test)]
 #[path = "entity_type_key_tests.rs"]
 mod entity_type_key_tests;
+
+/// Why a move-control wish was refused. The previous wish stays unchanged.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, horizon_mod_api_macros::Wire)]
+#[non_exhaustive]
+pub enum WantedPositionError {
+    /// The host has no game backend (for example, a mod test double).
+    Unavailable,
+    /// A coordinate is NaN or infinite.
+    NonFinitePosition,
+    /// The speed is NaN or infinite. Finite negative speeds are accepted.
+    NonFiniteSpeed,
+}
+impl NoBackend for WantedPositionError {
+    fn no_backend() -> Self {
+        Self::Unavailable
+    }
+}

@@ -49,12 +49,7 @@ pub(super) fn load_world_rest(
         // hold its files so it is read once.
         let _recipe_files = horizon_client::json_folder::read(&root.join("data/minecraft/recipe"));
         let sources = startup::time("rest.recipe_sources", || {
-            lan::sync::load_sources(
-                root,
-                &resources.core.item_data,
-                resources.core.item_data.context().origin(),
-                overlay,
-            )
+            lan::sync::initial_sources(root, &resources.core.item_data, overlay)
         })?;
         let recipes = startup::time("rest.recipes", || {
             Recipes::from_resolved(root, &items, overlay, &sources)
@@ -150,6 +145,9 @@ pub(super) fn load_world_rest(
             }
             mob_data.register_mod_spawn(&declaration.id, &declaration.rule);
         }
+        crate::game::entity_part_state::refuse_entity_part_state_kinds(|kind| {
+            mob_types.contains_key(kind)
+        })?;
         mob_data.cem = std::sync::RwLock::new(Arc::new(if draws {
             horizon_client::mobs::cem::CemModels::load(resource_root.source(), &mob_types)
         } else {

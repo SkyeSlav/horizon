@@ -1496,9 +1496,10 @@ impl MotionWorld<'_, '_, '_> {
     }
     /// The part of `applyEffectsFromBlocks` a server's player must see before
     /// its landing is checked: `ServerGamePacketListenerImpl.handleMovePlayer`
-    /// runs `move` (whose `checkInsideBlocks` lets a cobweb or a sweet berry
-    /// bush call `makeStuckInBlock`, forgetting the fall) before
-    /// `doCheckFallDamage`. Only the fall and the impulse are applied; the
+    /// runs `move` and then `doCheckFallDamage`, and `checkInsideBlocks` lets a
+    /// cobweb, a sweet berry bush or powder snow (while the block at its feet
+    /// is powder snow) call `makeStuckInBlock`, forgetting the fall, before
+    /// that check reads it. Only the fall and the impulse are applied; the
     /// slowing is the client's, and `server_block_damage` does the rest. The
     /// moves stay in the history for it.
     pub fn server_stuck_in_blocks(&mut self, from: Vec3) -> Result<()> {
@@ -1789,6 +1790,13 @@ impl MotionWorld<'_, '_, '_> {
         }
         Ok(())
     }
+    /// `Entity.getInBlockState`: whether the block at the player's own position
+    /// (its feet) is powder snow.
+    fn feet_in_powder_snow(&mut self) -> bool {
+        let feet = BlockPos::containing(self.player.position);
+        let state = self.assets.registry.state(self.block(feet));
+        state.is_some_and(|s| s.name == "minecraft:powder_snow")
+    }
     /// `Player.makeStuckInBlock` as a server's player sees it: its client
     /// moves it and applies the slowing, but the fall is forgotten and the
     /// impulse context ends here too.
@@ -1891,13 +1899,7 @@ impl MotionWorld<'_, '_, '_> {
     /// `PowderSnowBlock.entityInside` for the player: stuck while the block
     /// at its feet is powder snow, with a snowflake now and then (server).
     fn powder_snow_inside(&mut self, p: BlockPos) -> Result<()> {
-        let feet = BlockPos::containing(self.player.position);
-        let in_block = self
-            .assets
-            .registry
-            .state(self.block(feet))
-            .is_some_and(|s| s.name == "minecraft:powder_snow");
-        if !in_block {
+        if !self.feet_in_powder_snow() {
             return Ok(());
         }
         self.make_stuck_in_block(Vec3::new(f64::from(0.9_f32), 1.5, f64::from(0.9_f32)));
@@ -1910,13 +1912,7 @@ impl MotionWorld<'_, '_, '_> {
     /// `PowderSnowBlock.entityInside`'s server particle: one snowflake at
     /// the top of `p` when the player moved horizontally this tick.
     fn powder_snow_snowflake(&mut self, p: BlockPos) {
-        let feet = BlockPos::containing(self.player.position);
-        if !self
-            .assets
-            .registry
-            .state(self.block(feet))
-            .is_some_and(|s| s.name == "minecraft:powder_snow")
-        {
+        if !self.feet_in_powder_snow() {
             return;
         }
         // ServerPlayer.getKnownMovement: this tick's movement.
@@ -2381,18 +2377,7 @@ impl EntityMoveWorld for MotionWorld<'_, '_, '_> {
         emission::apply_movement_emission(self, kind, movement, position, state)
     }
     fn block_speed_factor(&mut self) -> Result<f32> {
-        let efficiency = self.player.attribute("minecraft:movement_efficiency")? as f32;
-        let location = self.location();
-        let context = self.loop_context;
-        let block = movement_support::block_speed_factor(
-            &mut RegistryMovementWorld {
-                properties: &self.resources.blocks,
-                world: self,
-                edits: &ModBlockFactors(context),
-            },
-            location,
-        )?;
-        Ok(block + efficiency * (1.0 - block))
+        self.player_block_speed_factor()
     }
 }
 // The player's footsteps and swim sounds. Flapping and the step game event
@@ -3015,7 +3000,8 @@ impl crate::block_contact::InsideWalk for PlayerInside<'_, '_, '_, '_> {
         // its one contact a tick, vanilla's `entityInside` count, comes from
         // the passes that follow.
         if self.pass == BlockPass::ServerStuck {
-            if matches!(name, "minecraft:cobweb" | "minecraft:sweet_berry_bush") {
+            let snow = name == "minecraft:powder_snow" && self.m.feet_in_powder_snow();
+            if snow || matches!(name, "minecraft:cobweb" | "minecraft:sweet_berry_bush") {
                 self.m.server_stuck_in_block();
             }
             return Ok(());
@@ -3151,21 +3137,14 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "daily"]
     fn a_glide_that_just_ended_moves_slowly_until_the_pose_changes() {
-        let root = std::env::var_os("HORIZON_TEST_RESOURCES")
-            .map(std::path::PathBuf::from)
-            .unwrap_or_else(|| {
-                Path::new(env!("CARGO_MANIFEST_DIR"))
-                    .join("../../.local/horizon-client")
-                    .join(horizon_core::VANILLA_VERSION)
-            });
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             eprintln!("skipped glide exit regression: prepared resources unavailable");
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
-        let mut p = PlayerMotion::new(&resources, Vec3::ZERO).unwrap();
+        };
+        let resources = &v.motion;
+        let mut p = PlayerMotion::new(resources, Vec3::ZERO).unwrap();
         p.set_pose(crate::pose::Pose::FallFlying).unwrap();
         // Gliding: LivingEntity.isVisuallySwimming is false.
         p.fall_flying = true;
@@ -3182,21 +3161,14 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "daily"]
     fn sword_sweep_requires_charge_ground_and_slow_horizontal_movement() {
-        let root = std::env::var_os("HORIZON_TEST_RESOURCES")
-            .map(std::path::PathBuf::from)
-            .unwrap_or_else(|| {
-                Path::new(env!("CARGO_MANIFEST_DIR"))
-                    .join("../../.local/horizon-client")
-                    .join(horizon_core::VANILLA_VERSION)
-            });
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             eprintln!("skipped sword sweep regression: prepared resources unavailable");
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
-        let mut p = PlayerMotion::new(&resources, Vec3::ZERO).unwrap();
+        };
+        let resources = &v.motion;
+        let mut p = PlayerMotion::new(resources, Vec3::ZERO).unwrap();
         p.ground.on_ground = true;
         p.speed = 0.1;
         assert!(p.is_sweep_attack(1.0, false, true));
@@ -3218,23 +3190,16 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "daily"]
     fn max_health_modifier_changes_clamp_health() {
         // #8573: LivingEntity.onAttributeUpdated clamps health to max_health
         // for every modifier change, with no explicit clamp call.
-        let root = std::env::var_os("HORIZON_TEST_RESOURCES")
-            .map(std::path::PathBuf::from)
-            .unwrap_or_else(|| {
-                Path::new(env!("CARGO_MANIFEST_DIR"))
-                    .join("../../.local/horizon-client")
-                    .join(horizon_core::VANILLA_VERSION)
-            });
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             eprintln!("skipped health clamp: prepared resources unavailable");
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
-        let mut p = PlayerMotion::new(&resources, Vec3::ZERO).unwrap();
+        };
+        let resources = &v.motion;
+        let mut p = PlayerMotion::new(resources, Vec3::ZERO).unwrap();
         let boost = "minecraft:effect.health_boost";
         // Health boost I: +4 max health, and the hearts are filled.
         p.set_modifier("minecraft:max_health", boost, 4.0, "add_value", true)
@@ -3299,23 +3264,16 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "daily"]
     fn attribute_bases_survive_a_save_and_reload() {
         // #4425: LivingEntity.addAdditionalSaveData writes AttributeMap.pack
         // and readAdditionalSaveData applies it (before the health).
-        let root = std::env::var_os("HORIZON_TEST_RESOURCES")
-            .map(std::path::PathBuf::from)
-            .unwrap_or_else(|| {
-                Path::new(env!("CARGO_MANIFEST_DIR"))
-                    .join("../../.local/horizon-client")
-                    .join(horizon_core::VANILLA_VERSION)
-            });
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             eprintln!("skipped attribute save: prepared resources unavailable");
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
-        let mut p = PlayerMotion::new(&resources, Vec3::ZERO).unwrap();
+        };
+        let resources = &v.motion;
+        let mut p = PlayerMotion::new(resources, Vec3::ZERO).unwrap();
         let set_base = |p: &mut PlayerMotion, name: &str, v: f64| {
             let key = p.attributes.key(name).unwrap();
             let h = p.attributes.get_instance(Some(key)).unwrap().unwrap();
@@ -3346,7 +3304,7 @@ mod tests {
         level = crate::save::Level::default();
         level.read_player(&tag);
         level.player_extra = Some(tag);
-        let mut back = PlayerMotion::new(&resources, Vec3::ZERO).unwrap();
+        let mut back = PlayerMotion::new(resources, Vec3::ZERO).unwrap();
         let mut pending = true;
         back.load_saved_state_once(&mut pending, &level).unwrap();
         let base = |p: &mut PlayerMotion, name: &str| {
@@ -3365,16 +3323,12 @@ mod tests {
         let root = std::path::PathBuf::from(
             std::env::var_os("HORIZON_TEST_RESOURCES").expect("HORIZON_TEST_RESOURCES"),
         );
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.clone(),
-            ))
-            .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
-        let mut scene = World::test_scene(&assets, &render, 1).unwrap();
-        let mut player = PlayerMotion::new(&resources, Vec3::new(10.0, 100.0, 10.0)).unwrap();
+        let Some(v) = crate::test_fixtures::vanilla() else {
+            panic!("no prepared resources at {}", root.display());
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
+        let mut scene = World::test_scene(assets, render, 1).unwrap();
+        let mut player = PlayerMotion::new(resources, Vec3::new(10.0, 100.0, 10.0)).unwrap();
         player.auto_jump_enabled = true;
         player.ground.on_ground = true;
         player.move_vector = [0.0, 1.0];
@@ -3390,9 +3344,9 @@ mod tests {
             entities: &entities,
             player: &mut player,
             scene: &mut scene,
-            assets: &assets,
-            collision_binding: &binding,
-            resources: &resources,
+            assets,
+            collision_binding: binding,
+            resources,
             health: &resources.health,
         }
         .update_auto_jump(0.0, 0.1)
@@ -3401,31 +3355,18 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "daily"]
     fn player_stands_walks_sneaks_and_jumps_on_ghast() {
-        let root = std::env::var_os("HORIZON_TEST_RESOURCES")
-            .map(std::path::PathBuf::from)
-            .unwrap_or_else(|| {
-                Path::new(env!("CARGO_MANIFEST_DIR"))
-                    .join("../../.local/horizon-client")
-                    .join(horizon_core::VANILLA_VERSION)
-            });
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.to_path_buf(),
-            ))
-            .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
-        let mut scene = World::test_scene(&assets, &render, 1).unwrap();
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
+        let mut scene = World::test_scene(assets, render, 1).unwrap();
         let entities = [Aabb::new(
             Vec3::new(10.0, 80.0, 10.0),
             Vec3::new(14.0, 84.0, 14.0),
         )];
-        let mut player = PlayerMotion::new(&resources, Vec3::new(12.0, 84.0, 12.0)).unwrap();
+        let mut player = PlayerMotion::new(resources, Vec3::new(12.0, 84.0, 12.0)).unwrap();
         let mut tick = |player: &mut PlayerMotion, keys| {
             MotionWorld {
                 tag_items: None,
@@ -3435,9 +3376,9 @@ mod tests {
                 entities: &entities,
                 player,
                 scene: &mut scene,
-                assets: &assets,
-                collision_binding: &binding,
-                resources: &resources,
+                assets,
+                collision_binding: binding,
+                resources,
                 health: &resources.health,
             }
             .controlled_simulation_tick(keys)
@@ -3489,22 +3430,13 @@ mod tests {
     /// `MovingPistonBlock.getCollisionShape`: a block halfway through a push
     /// up is solid at its moving position, so a player lands on it.
     #[test]
+    #[ignore = "daily"]
     fn a_player_lands_on_a_block_a_piston_is_moving() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../.local/horizon-client")
-            .join(horizon_core::VANILLA_VERSION);
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.to_path_buf(),
-            ))
-            .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
-        let mut scene = World::test_scene(&assets, &render, 1).unwrap();
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
+        let mut scene = World::test_scene(assets, render, 1).unwrap();
         let registry = assets.registry;
         let moving = registry.default_state("minecraft:moving_piston").unwrap();
         let stone = registry.default_state("minecraft:stone").unwrap();
@@ -3520,7 +3452,7 @@ mod tests {
                 previous_progress: 0.0,
             },
         ));
-        let mut player = PlayerMotion::new(&resources, Vec3::new(20.5, 6.0, 20.5)).unwrap();
+        let mut player = PlayerMotion::new(resources, Vec3::new(20.5, 6.0, 20.5)).unwrap();
         for _ in 0..30 {
             MotionWorld {
                 tag_items: None,
@@ -3530,9 +3462,9 @@ mod tests {
                 entities: &[],
                 player: &mut player,
                 scene: &mut scene,
-                assets: &assets,
-                collision_binding: &binding,
-                resources: &resources,
+                assets,
+                collision_binding: binding,
+                resources,
                 health: &resources.health,
             }
             .controlled_simulation_tick(Default::default())
@@ -3551,9 +3483,9 @@ mod tests {
                 entities: &[],
                 player: &mut player,
                 scene: &mut scene,
-                assets: &assets,
-                collision_binding: &binding,
-                resources: &resources,
+                assets,
+                collision_binding: binding,
+                resources,
                 health: &resources.health,
             }
             .controlled_simulation_tick(Default::default())
@@ -3563,26 +3495,13 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "daily"]
     fn a_lava_cauldron_burns_the_player_inside_it() {
-        let root = std::env::var_os("HORIZON_TEST_RESOURCES")
-            .map(std::path::PathBuf::from)
-            .unwrap_or_else(|| {
-                Path::new(env!("CARGO_MANIFEST_DIR"))
-                    .join("../../.local/horizon-client")
-                    .join(horizon_core::VANILLA_VERSION)
-            });
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.to_path_buf(),
-            ))
-            .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
-        let mut scene = World::test_scene(&assets, &render, 1).unwrap();
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
+        let mut scene = World::test_scene(assets, render, 1).unwrap();
         let cauldron = assets
             .registry
             .default_state("minecraft:lava_cauldron")
@@ -3597,49 +3516,36 @@ mod tests {
                 entities: &[],
                 player,
                 scene: &mut scene,
-                assets: &assets,
-                collision_binding: &binding,
-                resources: &resources,
+                assets,
+                collision_binding: binding,
+                resources,
                 health: &resources.health,
             }
             .controlled_simulation_tick(Default::default())
             .unwrap();
         };
         // Standing on the cauldron's floor, in its lava.
-        let mut player = PlayerMotion::new(&resources, Vec3::new(20.5, 4.25, 20.5)).unwrap();
+        let mut player = PlayerMotion::new(resources, Vec3::new(20.5, 4.25, 20.5)).unwrap();
         player.ticks_frozen = 40;
         tick(&mut player);
         assert!(player.health.health() < 20.0, "the lava must hurt");
         assert!(player.fire_ticks > 0, "the lava must ignite");
         assert_eq!(player.ticks_frozen, 0);
         // Beside it, nothing.
-        let mut away = PlayerMotion::new(&resources, Vec3::new(22.5, 4.0, 20.5)).unwrap();
+        let mut away = PlayerMotion::new(resources, Vec3::new(22.5, 4.0, 20.5)).unwrap();
         tick(&mut away);
         assert_eq!(away.health.health(), 20.0);
         assert!(away.fire_ticks <= 0);
     }
 
     #[test]
+    #[ignore = "daily"]
     fn a_water_cauldron_puts_out_a_burning_player() {
-        let root = std::env::var_os("HORIZON_TEST_RESOURCES")
-            .map(std::path::PathBuf::from)
-            .unwrap_or_else(|| {
-                Path::new(env!("CARGO_MANIFEST_DIR"))
-                    .join("../../.local/horizon-client")
-                    .join(horizon_core::VANILLA_VERSION)
-            });
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.to_path_buf(),
-            ))
-            .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
-        let mut scene = World::test_scene(&assets, &render, 1).unwrap();
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
+        let mut scene = World::test_scene(assets, render, 1).unwrap();
         let water = assets
             .registry
             .resolve(&horizon_world::chunk::BlockState {
@@ -3657,9 +3563,9 @@ mod tests {
                 entities: &[],
                 player,
                 scene: &mut scene,
-                assets: &assets,
-                collision_binding: &binding,
-                resources: &resources,
+                assets,
+                collision_binding: binding,
+                resources,
                 health: &resources.health,
             }
             .controlled_simulation_tick(Default::default())
@@ -3674,13 +3580,13 @@ mod tests {
         };
         // Burning, on the cauldron's floor in its water: put out, and the
         // server is asked to lower the water.
-        let mut burning = PlayerMotion::new(&resources, Vec3::new(20.5, 4.25, 20.5)).unwrap();
+        let mut burning = PlayerMotion::new(resources, Vec3::new(20.5, 4.25, 20.5)).unwrap();
         burning.fire_ticks = 100;
         tick(&mut burning);
         assert!(burning.fire_ticks <= 0, "the water must put the fire out");
         assert_eq!(asks(&burning), 1);
         // Not burning: nothing to lower.
-        let mut dry = PlayerMotion::new(&resources, Vec3::new(20.5, 4.25, 20.5)).unwrap();
+        let mut dry = PlayerMotion::new(resources, Vec3::new(20.5, 4.25, 20.5)).unwrap();
         tick(&mut dry);
         assert_eq!(asks(&dry), 0);
     }
@@ -3688,33 +3594,20 @@ mod tests {
     /// `PowderSnowBlock.entityInside`: a burning player in powder snow asks
     /// for the block to be destroyed, and EXTINGUISH puts the fire out.
     #[test]
+    #[ignore = "daily"]
     fn a_burning_player_melts_powder_snow() {
-        let root = std::env::var_os("HORIZON_TEST_RESOURCES")
-            .map(std::path::PathBuf::from)
-            .unwrap_or_else(|| {
-                Path::new(env!("CARGO_MANIFEST_DIR"))
-                    .join("../../.local/horizon-client")
-                    .join(horizon_core::VANILLA_VERSION)
-            });
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.clone(),
-            ))
-            .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
-        let mut scene = World::test_scene(&assets, &render, 1).unwrap();
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
+        let mut scene = World::test_scene(assets, render, 1).unwrap();
         let snow = assets
             .registry
             .default_state("minecraft:powder_snow")
             .unwrap();
         scene.set(20, 4, 20, snow).unwrap();
         let mut run = |fire: i32| {
-            let mut player = PlayerMotion::new(&resources, Vec3::new(20.5, 4.0, 20.5)).unwrap();
+            let mut player = PlayerMotion::new(resources, Vec3::new(20.5, 4.0, 20.5)).unwrap();
             player.fire_ticks = fire;
             MotionWorld {
                 tag_items: None,
@@ -3724,9 +3617,9 @@ mod tests {
                 entities: &[],
                 player: &mut player,
                 scene: &mut scene,
-                assets: &assets,
-                collision_binding: &binding,
-                resources: &resources,
+                assets,
+                collision_binding: binding,
+                resources,
                 health: &resources.health,
             }
             .controlled_simulation_tick(Default::default())
@@ -3757,26 +3650,13 @@ mod tests {
     /// flying player (whose own client never lands) is still hurt by a fall it
     /// carries, as `Player.makeStuckInBlock` ignores it.
     #[test]
+    #[ignore = "daily"]
     fn a_server_player_landing_in_a_web_or_bush_takes_no_fall_damage() {
-        let root = std::env::var_os("HORIZON_TEST_RESOURCES")
-            .map(std::path::PathBuf::from)
-            .unwrap_or_else(|| {
-                Path::new(env!("CARGO_MANIFEST_DIR"))
-                    .join("../../.local/horizon-client")
-                    .join(horizon_core::VANILLA_VERSION)
-            });
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.clone(),
-            ))
-            .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
-        let mut scene = World::test_scene(&assets, &render, 1).unwrap();
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
+        let mut scene = World::test_scene(assets, render, 1).unwrap();
         let web = assets.registry.default_state("minecraft:cobweb").unwrap();
         let bush = assets
             .registry
@@ -3786,7 +3666,7 @@ mod tests {
         scene.set(24, 4, 20, bush).unwrap();
         let land = |scene: &mut World, x: f64, flying: bool| {
             let at = Vec3::new(x, 4.0, 20.5);
-            let mut player = PlayerMotion::new(&resources, at).unwrap();
+            let mut player = PlayerMotion::new(resources, at).unwrap();
             player.fall_distance = 10.0;
             player.flying = flying;
             let from = at.add_vector(Vec3::new(0.0, 1.5, 0.0));
@@ -3806,9 +3686,9 @@ mod tests {
                 entities: &[],
                 player: &mut player,
                 scene,
-                assets: &assets,
-                collision_binding: &binding,
-                resources: &resources,
+                assets,
+                collision_binding: binding,
+                resources,
                 health: &resources.health,
             };
             // The order of the server's tick: the early pass, then the landing.
@@ -3826,27 +3706,86 @@ mod tests {
         assert_eq!(land(&mut scene, 20.5, true).health.health(), 12.0);
     }
 
+    /// A server's player sinking in powder snow: `PowderSnowBlock.entityInside`
+    /// calls `makeStuckInBlock` while the block at its feet is powder snow,
+    /// which forgets the fall in the same early pass, so the fall that carried
+    /// it into the column is not counted (`fall_one_cm`) and the stone under
+    /// the column does not hurt. The same sink with no snow in it is hurt.
     #[test]
-    fn standing_in_a_wither_rose_asks_for_its_effect() {
-        let root = std::env::var_os("HORIZON_TEST_RESOURCES")
-            .map(std::path::PathBuf::from)
-            .unwrap_or_else(|| {
-                Path::new(env!("CARGO_MANIFEST_DIR"))
-                    .join("../../.local/horizon-client")
-                    .join(horizon_core::VANILLA_VERSION)
-            });
-        if !root.join("movement-properties.nbt").exists() {
+    #[ignore = "daily"]
+    fn a_server_player_sinking_in_powder_snow_takes_no_fall_damage() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.to_path_buf(),
-            ))
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
+        let mut scene = World::test_scene(assets, render, 1).unwrap();
+        let snow = assets
+            .registry
+            .default_state("minecraft:powder_snow")
             .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
-        let mut scene = World::test_scene(&assets, &render, 1).unwrap();
+        let stone = assets.registry.default_state("minecraft:stone").unwrap();
+        scene.set(20, 2, 20, stone).unwrap();
+        scene.set(20, 3, 20, snow).unwrap();
+        scene.set(20, 4, 20, snow).unwrap();
+        scene.set(24, 2, 20, stone).unwrap();
+        // The feet end on the stone, inside the column's bottom block.
+        let sink = |scene: &mut World, x: f64| {
+            let at = Vec3::new(x, 3.0, 20.5);
+            let mut player = PlayerMotion::new(resources, at).unwrap();
+            player.fall_distance = 10.0;
+            let from = Vec3::new(x, 4.5, 20.5);
+            let delta = at.subtract(from);
+            player
+                .history
+                .add(horizon_world::entity_move::MovementRecord {
+                    from,
+                    to: at,
+                    original: Some(delta),
+                });
+            let mut w = MotionWorld {
+                tag_items: None,
+                block_registries: None,
+                loop_context: crate::test_resources::server_loop_context(),
+                damage_hooks: &crate::health::DamageHooks::NONE,
+                entities: &[],
+                player: &mut player,
+                scene,
+                assets,
+                collision_binding: binding,
+                resources,
+                health: &resources.health,
+            };
+            w.server_stuck_in_blocks(from).unwrap();
+            let remembered = w.player.fall_distance;
+            let pos = BlockPos::new(x.floor() as i32, 2, 20);
+            let state = w.block(pos);
+            w.check_fall_damage(delta.y, true, state, pos).unwrap();
+            (player, remembered)
+        };
+        let (sunk, remembered) = sink(&mut scene, 20.5);
+        assert_eq!(remembered, 0.0, "the column forgets the fall");
+        assert_eq!(sunk.health.health(), 20.0, "no fall damage on the stone");
+        assert!(
+            !sunk.events.iter().any(|e| matches!(
+                e,
+                MotionEvent::Fall(
+                    crate::landing::FallEvent::Statistic(_)
+                        | crate::landing::FallEvent::Damage { .. }
+                )
+            )),
+            "no fall distance is counted and no fall damage is dealt"
+        );
+        assert_eq!(sink(&mut scene, 24.5).0.health.health(), 12.0, "bare stone");
+    }
+
+    #[test]
+    #[ignore = "daily"]
+    fn standing_in_a_wither_rose_asks_for_its_effect() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
+            return;
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
+        let mut scene = World::test_scene(assets, render, 1).unwrap();
         let rose = assets
             .registry
             .default_state("minecraft:wither_rose")
@@ -3859,7 +3798,7 @@ mod tests {
                 .filter(|e| matches!(e, MotionEvent::InsideWitherRose))
                 .count()
         };
-        let mut player = PlayerMotion::new(&resources, Vec3::new(20.5, 4.0, 20.5)).unwrap();
+        let mut player = PlayerMotion::new(resources, Vec3::new(20.5, 4.0, 20.5)).unwrap();
         MotionWorld {
             tag_items: None,
             block_registries: None,
@@ -3868,9 +3807,9 @@ mod tests {
             entities: &[],
             player: &mut player,
             scene: &mut scene,
-            assets: &assets,
-            collision_binding: &binding,
-            resources: &resources,
+            assets,
+            collision_binding: binding,
+            resources,
             health: &resources.health,
         }
         .controlled_simulation_tick(Default::default())
@@ -3887,16 +3826,16 @@ mod tests {
             entities: &[],
             player: &mut player,
             scene: &mut scene,
-            assets: &assets,
-            collision_binding: &binding,
-            resources: &resources,
+            assets,
+            collision_binding: binding,
+            resources,
             health: &resources.health,
         }
         .server_block_damage(from)
         .unwrap();
         assert_eq!(roses(&player), 1);
         // Two blocks away, nothing.
-        let mut away = PlayerMotion::new(&resources, Vec3::new(22.5, 4.0, 20.5)).unwrap();
+        let mut away = PlayerMotion::new(resources, Vec3::new(22.5, 4.0, 20.5)).unwrap();
         MotionWorld {
             tag_items: None,
             block_registries: None,
@@ -3905,9 +3844,9 @@ mod tests {
             entities: &[],
             player: &mut away,
             scene: &mut scene,
-            assets: &assets,
-            collision_binding: &binding,
-            resources: &resources,
+            assets,
+            collision_binding: binding,
+            resources,
             health: &resources.health,
         }
         .controlled_simulation_tick(Default::default())
@@ -3919,26 +3858,13 @@ mod tests {
     /// in powder snow and thaws out of it (`LivingEntity.aiStep`), or the frostbite overlay,
     /// which reads `ticks_frozen`, never shows.
     #[test]
+    #[ignore = "daily"]
     fn a_passenger_in_powder_snow_freezes_and_thaws() {
-        let root = std::env::var_os("HORIZON_TEST_RESOURCES")
-            .map(std::path::PathBuf::from)
-            .unwrap_or_else(|| {
-                Path::new(env!("CARGO_MANIFEST_DIR"))
-                    .join("../../.local/horizon-client")
-                    .join(horizon_core::VANILLA_VERSION)
-            });
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.to_path_buf(),
-            ))
-            .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
-        let mut scene = World::test_scene(&assets, &render, 1).unwrap();
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
+        let mut scene = World::test_scene(assets, render, 1).unwrap();
         let snow = assets
             .registry
             .default_state("minecraft:powder_snow")
@@ -3946,7 +3872,7 @@ mod tests {
         scene.set(20, 4, 20, snow).unwrap();
         let in_snow = Vec3::new(20.5, 4.0, 20.5);
         let clear = Vec3::new(30.5, 4.0, 30.5);
-        let mut player = PlayerMotion::new(&resources, in_snow).unwrap();
+        let mut player = PlayerMotion::new(resources, in_snow).unwrap();
         player.client_side = true;
         let tick = |player: &mut PlayerMotion, scene: &mut World| {
             MotionWorld {
@@ -3957,9 +3883,9 @@ mod tests {
                 entities: &[],
                 player,
                 scene,
-                assets: &assets,
-                collision_binding: &binding,
-                resources: &resources,
+                assets,
+                collision_binding: binding,
+                resources,
                 health: &resources.health,
             }
             .passenger_block_effects_tick()
@@ -4001,26 +3927,13 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "daily"]
     fn walking_through_powder_snow_asks_for_a_snowflake() {
-        let root = std::env::var_os("HORIZON_TEST_RESOURCES")
-            .map(std::path::PathBuf::from)
-            .unwrap_or_else(|| {
-                Path::new(env!("CARGO_MANIFEST_DIR"))
-                    .join("../../.local/horizon-client")
-                    .join(horizon_core::VANILLA_VERSION)
-            });
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.to_path_buf(),
-            ))
-            .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
-        let mut scene = World::test_scene(&assets, &render, 1).unwrap();
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
+        let mut scene = World::test_scene(assets, render, 1).unwrap();
         let snow = assets
             .registry
             .default_state("minecraft:powder_snow")
@@ -4035,7 +3948,7 @@ mod tests {
                 .filter(|e| matches!(e, MotionEvent::Snowflake { .. }))
                 .count()
         };
-        let mut player = PlayerMotion::new(&resources, at).unwrap();
+        let mut player = PlayerMotion::new(resources, at).unwrap();
         let mut found = 0;
         for seed in 0..64 {
             scene.random.set_seed(seed);
@@ -4048,9 +3961,9 @@ mod tests {
                 entities: &[],
                 player: &mut player,
                 scene: &mut scene,
-                assets: &assets,
-                collision_binding: &binding,
-                resources: &resources,
+                assets,
+                collision_binding: binding,
+                resources,
                 health: &resources.health,
             }
             .server_block_damage(from)
@@ -4083,9 +3996,9 @@ mod tests {
             entities: &[],
             player: &mut player,
             scene: &mut scene,
-            assets: &assets,
-            collision_binding: &binding,
-            resources: &resources,
+            assets,
+            collision_binding: binding,
+            resources,
             health: &resources.health,
         }
         .server_block_damage(at)
@@ -4101,9 +4014,9 @@ mod tests {
             entities: &[],
             player: &mut player,
             scene: &mut scene,
-            assets: &assets,
-            collision_binding: &binding,
-            resources: &resources,
+            assets,
+            collision_binding: binding,
+            resources,
             health: &resources.health,
         }
         .controlled_simulation_tick(Default::default())
@@ -4112,24 +4025,15 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "daily"]
     fn server_travel_moves_only_the_velocity() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../.local/horizon-client")
-            .join(horizon_core::VANILLA_VERSION);
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.to_path_buf(),
-            ))
-            .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
-        let mut scene = World::test_scene(&assets, &render, 1).unwrap();
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
+        let mut scene = World::test_scene(assets, render, 1).unwrap();
         let at = Vec3::new(20.5, 4.0, 20.5);
-        let mut player = PlayerMotion::new(&resources, at).unwrap();
+        let mut player = PlayerMotion::new(resources, at).unwrap();
         let mut travel = |player: &mut PlayerMotion| {
             MotionWorld {
                 tag_items: None,
@@ -4139,9 +4043,9 @@ mod tests {
                 entities: &[],
                 player,
                 scene: &mut scene,
-                assets: &assets,
-                collision_binding: &binding,
-                resources: &resources,
+                assets,
+                collision_binding: binding,
+                resources,
                 health: &resources.health,
             }
             .server_travel()
@@ -4185,22 +4089,13 @@ mod tests {
     /// (`handleMovePlayer` gives the server copy its delta movement), so the
     /// loss is the speed the glide actually flew at.
     #[test]
+    #[ignore = "daily"]
     fn a_glide_into_a_wall_hurts_by_the_speed_it_lost() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../.local/horizon-client")
-            .join(horizon_core::VANILLA_VERSION);
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.to_path_buf(),
-            ))
-            .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
-        let mut scene = World::test_scene(&assets, &render, 1).unwrap();
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
+        let mut scene = World::test_scene(assets, render, 1).unwrap();
         // A wall in the way of a glide along +x, at feet height.
         let stone = assets.registry.default_state("minecraft:stone").unwrap();
         for y in 4..=5 {
@@ -4208,7 +4103,7 @@ mod tests {
                 scene.set(23, y, z, stone).unwrap();
             }
         }
-        let mut player = PlayerMotion::new(&resources, Vec3::new(22.0, 4.0, 20.5)).unwrap();
+        let mut player = PlayerMotion::new(resources, Vec3::new(22.0, 4.0, 20.5)).unwrap();
         player.fall_flying = true;
         // Looking along +x (the `getLookAngle` of a flat -90 yaw) keeps the
         // glide on its course through `updateFallFlyingMovement`'s pull.
@@ -4223,9 +4118,9 @@ mod tests {
             entities: &[],
             player: &mut player,
             scene: &mut scene,
-            assets: &assets,
-            collision_binding: &binding,
-            resources: &resources,
+            assets,
+            collision_binding: binding,
+            resources,
             health: &resources.health,
         }
         .server_travel()
@@ -4245,22 +4140,13 @@ mod tests {
     /// it (`handleFallFlyingCollisions`' playSound runs on both sides, the
     /// hurt is the server's alone), so the glider hears it.
     #[test]
+    #[ignore = "daily"]
     fn a_clients_own_glide_into_a_wall_plays_the_fall_sound_and_does_not_hurt_it() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../.local/horizon-client")
-            .join(horizon_core::VANILLA_VERSION);
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.to_path_buf(),
-            ))
-            .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
-        let mut scene = World::test_scene(&assets, &render, 1).unwrap();
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
+        let mut scene = World::test_scene(assets, render, 1).unwrap();
         // A wall in the way of a glide along +x, at feet height.
         let stone = assets.registry.default_state("minecraft:stone").unwrap();
         for y in 4..=5 {
@@ -4268,7 +4154,7 @@ mod tests {
                 scene.set(23, y, z, stone).unwrap();
             }
         }
-        let mut player = PlayerMotion::new(&resources, Vec3::new(22.0, 4.0, 20.5)).unwrap();
+        let mut player = PlayerMotion::new(resources, Vec3::new(22.0, 4.0, 20.5)).unwrap();
         player.client_side = true;
         player.fall_flying = true;
         // Looking along +x keeps the glide on its course into the wall.
@@ -4286,9 +4172,9 @@ mod tests {
             entities: &[],
             player: &mut player,
             scene: &mut scene,
-            assets: &assets,
-            collision_binding: &binding,
-            resources: &resources,
+            assets,
+            collision_binding: binding,
+            resources,
             health: &resources.health,
         };
         w.travel_fall_flying(&mut MoveGate::new()).unwrap();
@@ -4314,25 +4200,16 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "daily"]
     fn spectator_scroll_speed_controls_horizontal_and_vertical_flight() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../.local/horizon-client")
-            .join(horizon_core::VANILLA_VERSION);
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.to_path_buf(),
-            ))
-            .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
         let run = |steps| {
-            let mut scene = World::test_scene(&assets, &render, 2).unwrap();
+            let mut scene = World::test_scene(assets, render, 2).unwrap();
             let start = Vec3::new(20.5, 12.0, 20.5);
-            let mut player = PlayerMotion::new(&resources, start).unwrap();
+            let mut player = PlayerMotion::new(resources, start).unwrap();
             player.spectator = true;
             player.flying_speed = crate::mouse::spectator_flying_speed(player.flying_speed, steps);
             MotionWorld {
@@ -4343,9 +4220,9 @@ mod tests {
                 entities: &[],
                 player: &mut player,
                 scene: &mut scene,
-                assets: &assets,
-                collision_binding: &binding,
-                resources: &resources,
+                assets,
+                collision_binding: binding,
+                resources,
                 health: &resources.health,
             }
             .controlled_simulation_tick(crate::sprint::Keys {
@@ -4366,23 +4243,14 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "daily"]
     fn resident_spectator_flight_ignores_solid_and_climbable_blocks() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../.local/horizon-client")
-            .join(horizon_core::VANILLA_VERSION);
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.to_path_buf(),
-            ))
-            .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
         let run = |name: &str, spectator: bool| {
-            let mut scene = World::test_scene(&assets, &render, 2).unwrap();
+            let mut scene = World::test_scene(assets, render, 2).unwrap();
             let state = assets.registry.default_state(name).unwrap();
             for x in 19..=23 {
                 for y in 10..=17 {
@@ -4391,7 +4259,7 @@ mod tests {
                     }
                 }
             }
-            let mut player = PlayerMotion::new(&resources, Vec3::new(20.5, 12.0, 20.5)).unwrap();
+            let mut player = PlayerMotion::new(resources, Vec3::new(20.5, 12.0, 20.5)).unwrap();
             player.spectator = spectator;
             player.flying = spectator;
             player.velocity = Vec3::new(0.4, 0.1, 0.4);
@@ -4410,9 +4278,9 @@ mod tests {
                     entities: &[],
                     player: &mut player,
                     scene: &mut scene,
-                    assets: &assets,
-                    collision_binding: &binding,
-                    resources: &resources,
+                    assets,
+                    collision_binding: binding,
+                    resources,
                     health: &resources.health,
                 }
                 .controlled_simulation_tick(keys)
@@ -4437,27 +4305,20 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "daily"]
     fn creative_and_spectator_preserve_hunger_when_switching_from_survival() {
         let mut test_level = crate::health::TestLevel::new(0);
         let level = &mut test_level.level();
-        let root = std::env::var_os("HORIZON_TEST_RESOURCES")
-            .map(std::path::PathBuf::from)
-            .unwrap_or_else(|| {
-                Path::new(env!("CARGO_MANIFEST_DIR"))
-                    .join("../../.local/horizon-client")
-                    .join(horizon_core::VANILLA_VERSION)
-            });
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             eprintln!("skipped hunger regression: prepared resources unavailable");
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
+        };
+        let resources = &v.motion;
         // Both abilities are set by creative/spectator mode changes for the
         // resident player and for LAN/dedicated guests.
         for spectator in [false, true] {
             for food in [0, 1, 20] {
-                let mut player = PlayerMotion::new(&resources, Vec3::ZERO).unwrap();
+                let mut player = PlayerMotion::new(resources, Vec3::ZERO).unwrap();
                 player.health.food.food = food;
                 player.health.food.saturation = 0.0;
                 player.health.food.exhaustion = 0.0;
@@ -4530,24 +4391,17 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "daily"]
     fn player_fire_damage_queues_hurt_sound_only_for_fresh_hits() {
         let mut test_level = crate::health::TestLevel::new(0);
         let level = &mut test_level.level();
-        let root = std::env::var_os("HORIZON_TEST_RESOURCES")
-            .map(std::path::PathBuf::from)
-            .unwrap_or_else(|| {
-                Path::new(env!("CARGO_MANIFEST_DIR"))
-                    .join("../../.local/horizon-client")
-                    .join(horizon_core::VANILLA_VERSION)
-            });
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             eprintln!("skipped damage regression: prepared resources unavailable");
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
+        };
+        let resources = &v.motion;
         for name in ["on_fire", "in_fire", "lava"] {
-            let mut player = PlayerMotion::new(&resources, Vec3::new(20.5, 4.0, 20.5)).unwrap();
+            let mut player = PlayerMotion::new(resources, Vec3::new(20.5, 4.0, 20.5)).unwrap();
             let source = resources
                 .health
                 .damage
@@ -4605,7 +4459,7 @@ mod tests {
                     .any(|e| matches!(e, MotionEvent::HurtSound(_)))
             );
         }
-        let mut player = PlayerMotion::new(&resources, Vec3::new(20.5, 4.0, 20.5)).unwrap();
+        let mut player = PlayerMotion::new(resources, Vec3::new(20.5, 4.0, 20.5)).unwrap();
         let source = resources.health.damage.id("minecraft:mob_attack").unwrap();
         assert!(
             player
@@ -4629,7 +4483,7 @@ mod tests {
             1
         );
         // A fatal hit plays the death sound rather than a hurt sound (#4570).
-        let mut dying = PlayerMotion::new(&resources, Vec3::new(20.5, 4.0, 20.5)).unwrap();
+        let mut dying = PlayerMotion::new(resources, Vec3::new(20.5, 4.0, 20.5)).unwrap();
         assert!(
             dying
                 .hurt(level, &resources.health, Default::default(), source, 100.0)
@@ -4645,7 +4499,7 @@ mod tests {
         // A shield that takes the whole arrow: onBlocked's sound, no damage
         // event, so the player hears no hurt sound.
         use horizon_world::blocking_rules::{BlockingRules, DamageReduction, ItemDamageFunction};
-        let mut player = PlayerMotion::new(&resources, Vec3::new(20.5, 4.0, 20.5)).unwrap();
+        let mut player = PlayerMotion::new(resources, Vec3::new(20.5, 4.0, 20.5)).unwrap();
         let source = resources.health.damage.id("minecraft:arrow").unwrap();
         let shield = crate::health::Blocking {
             rules: BlockingRules {
@@ -4720,7 +4574,7 @@ mod tests {
             player.health.hurt_animation_time, 9,
             "blocking must not erase or restart an existing animation"
         );
-        let mut starving = PlayerMotion::new(&resources, Vec3::ZERO).unwrap();
+        let mut starving = PlayerMotion::new(resources, Vec3::ZERO).unwrap();
         starving.health.food.food = 0;
         starving.health.food.timer = 79;
         starving
@@ -4739,21 +4593,12 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "daily"]
     fn a_glide_tick_matches_vanilla_to_the_bit() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../.local/horizon-client")
-            .join(horizon_core::VANILLA_VERSION);
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.to_path_buf(),
-            ))
-            .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
         // LivingEntity.updateFallFlyingMovement run on the 26.3 JVM from
         // (0.4, -0.3, 1.1): a climb (Mth.sin in the pull-up) and a dive.
         let cases = [
@@ -4777,8 +4622,8 @@ mod tests {
             ),
         ];
         for (pitch, yaw, want) in cases {
-            let mut scene = World::test_scene(&assets, &render, 2).unwrap();
-            let mut player = PlayerMotion::new(&resources, Vec3::new(20.5, 40.0, 20.5)).unwrap();
+            let mut scene = World::test_scene(assets, render, 2).unwrap();
+            let mut player = PlayerMotion::new(resources, Vec3::new(20.5, 40.0, 20.5)).unwrap();
             player.glider = true;
             player.fall_flying = true;
             player.pitch = pitch;
@@ -4792,9 +4637,9 @@ mod tests {
                 entities: &[],
                 player: &mut player,
                 scene: &mut scene,
-                assets: &assets,
-                collision_binding: &binding,
-                resources: &resources,
+                assets,
+                collision_binding: binding,
+                resources,
                 health: &resources.health,
             };
             w.travel_fall_flying(&mut MoveGate::new()).unwrap();
@@ -4808,25 +4653,16 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "daily"]
     fn a_glide_that_is_not_diving_keeps_the_fall_distance_at_one() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../.local/horizon-client")
-            .join(horizon_core::VANILLA_VERSION);
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.to_path_buf(),
-            ))
-            .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
         // Entity.checkFallDistanceAccumulation: capped above -0.5 a tick, not below.
         for (dy, capped) in [(-0.3, true), (-0.49, true), (-0.8, false)] {
-            let mut scene = World::test_scene(&assets, &render, 2).unwrap();
-            let mut player = PlayerMotion::new(&resources, Vec3::new(20.5, 20.0, 20.5)).unwrap();
+            let mut scene = World::test_scene(assets, render, 2).unwrap();
+            let mut player = PlayerMotion::new(resources, Vec3::new(20.5, 20.0, 20.5)).unwrap();
             player.glider = true;
             player.fall_flying = true;
             player.velocity = Vec3::new(0.0, dy, 0.6);
@@ -4839,9 +4675,9 @@ mod tests {
                 entities: &[],
                 player: &mut player,
                 scene: &mut scene,
-                assets: &assets,
-                collision_binding: &binding,
-                resources: &resources,
+                assets,
+                collision_binding: binding,
+                resources,
                 health: &resources.health,
             };
             w.player_movement_tick([0.0, 0.0], false).unwrap();
@@ -4865,23 +4701,14 @@ mod tests {
     /// none while standing (gravity still moves the player every tick), one
     /// per `nextStep` metre while walking.
     #[test]
+    #[ignore = "daily"]
     fn resident_water_landing_cancels_a_preset_fall() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../.local/horizon-client")
-            .join(horizon_core::VANILLA_VERSION);
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.to_path_buf(),
-            ))
-            .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
         for wet in [false, true] {
-            let mut scene = World::test_scene(&assets, &render, 2).unwrap();
+            let mut scene = World::test_scene(assets, render, 2).unwrap();
             if wet {
                 let water = assets.registry.default_state("minecraft:water").unwrap();
                 for x in 19..=21 {
@@ -4890,7 +4717,7 @@ mod tests {
                     }
                 }
             }
-            let mut player = PlayerMotion::new(&resources, Vec3::new(20.5, 20.0, 20.5)).unwrap();
+            let mut player = PlayerMotion::new(resources, Vec3::new(20.5, 20.0, 20.5)).unwrap();
             player.fall_distance = 30.0;
             let mut w = MotionWorld {
                 tag_items: None,
@@ -4900,9 +4727,9 @@ mod tests {
                 entities: &[],
                 player: &mut player,
                 scene: &mut scene,
-                assets: &assets,
-                collision_binding: &binding,
-                resources: &resources,
+                assets,
+                collision_binding: binding,
+                resources,
                 health: &resources.health,
             };
             w.move_self(&mut MoveGate::new(), Vec3::new(0.0, -30.0, 0.0))
@@ -4920,24 +4747,15 @@ mod tests {
     /// `Player.doWaterSplashEffect`: a spectator entering water makes no splash
     /// sound, particles or game event; everyone else does.
     #[test]
+    #[ignore = "daily"]
     fn a_spectator_entering_water_makes_no_splash() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../.local/horizon-client")
-            .join(horizon_core::VANILLA_VERSION);
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.to_path_buf(),
-            ))
-            .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
         for spectator in [false, true] {
-            let mut scene = World::test_scene(&assets, &render, 2).unwrap();
-            let mut player = PlayerMotion::new(&resources, Vec3::new(20.5, 20.0, 20.5)).unwrap();
+            let mut scene = World::test_scene(assets, render, 2).unwrap();
+            let mut player = PlayerMotion::new(resources, Vec3::new(20.5, 20.0, 20.5)).unwrap();
             player.spectator = spectator;
             let mut w = MotionWorld {
                 tag_items: None,
@@ -4947,9 +4765,9 @@ mod tests {
                 entities: &[],
                 player: &mut player,
                 scene: &mut scene,
-                assets: &assets,
-                collision_binding: &binding,
-                resources: &resources,
+                assets,
+                collision_binding: binding,
+                resources,
                 health: &resources.health,
             };
             horizon_world::entity_fluid_tick::EntityFluidTickWorld::water_splash(&mut w).unwrap();
@@ -4961,24 +4779,15 @@ mod tests {
     /// does (`Entity.hurt` on a client), so a server that cancels fall damage
     /// leaves the screen still.
     #[test]
+    #[ignore = "daily"]
     fn a_clients_own_fall_does_not_hurt_it() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../.local/horizon-client")
-            .join(horizon_core::VANILLA_VERSION);
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.to_path_buf(),
-            ))
-            .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
         for client_side in [false, true] {
-            let mut scene = World::test_scene(&assets, &render, 2).unwrap();
-            let mut player = PlayerMotion::new(&resources, Vec3::new(20.5, 20.0, 20.5)).unwrap();
+            let mut scene = World::test_scene(assets, render, 2).unwrap();
+            let mut player = PlayerMotion::new(resources, Vec3::new(20.5, 20.0, 20.5)).unwrap();
             player.client_side = client_side;
             player.fall_distance = 30.0;
             let mut w = MotionWorld {
@@ -4989,9 +4798,9 @@ mod tests {
                 entities: &[],
                 player: &mut player,
                 scene: &mut scene,
-                assets: &assets,
-                collision_binding: &binding,
-                resources: &resources,
+                assets,
+                collision_binding: binding,
+                resources,
                 health: &resources.health,
             };
             w.move_self(&mut MoveGate::new(), Vec3::new(0.0, -30.0, 0.0))
@@ -5024,24 +4833,15 @@ mod tests {
         }
     }
     #[test]
+    #[ignore = "daily"]
     fn slow_falling_clears_the_fall_distance_so_landing_does_not_hurt() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../.local/horizon-client")
-            .join(horizon_core::VANILLA_VERSION);
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.to_path_buf(),
-            ))
-            .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
         for slow_falling in [false, true] {
-            let mut scene = World::test_scene(&assets, &render, 2).unwrap();
-            let mut player = PlayerMotion::new(&resources, Vec3::new(20.5, 9.0, 20.5)).unwrap();
+            let mut scene = World::test_scene(assets, render, 2).unwrap();
+            let mut player = PlayerMotion::new(resources, Vec3::new(20.5, 9.0, 20.5)).unwrap();
             player.fall_distance = 30.0;
             player.status.slow_falling = slow_falling;
             let mut w = MotionWorld {
@@ -5052,9 +4852,9 @@ mod tests {
                 entities: &[],
                 player: &mut player,
                 scene: &mut scene,
-                assets: &assets,
-                collision_binding: &binding,
-                resources: &resources,
+                assets,
+                collision_binding: binding,
+                resources,
                 health: &resources.health,
             };
             for _ in 0..200 {
@@ -5073,23 +4873,14 @@ mod tests {
         }
     }
     #[test]
+    #[ignore = "daily"]
     fn a_server_copy_of_a_riptide_spin_counts_down_and_stands_again() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../.local/horizon-client")
-            .join(horizon_core::VANILLA_VERSION);
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.to_path_buf(),
-            ))
-            .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
-        let mut scene = World::test_scene(&assets, &render, 2).unwrap();
-        let mut player = PlayerMotion::new(&resources, Vec3::new(20.5, 10.0, 20.5)).unwrap();
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
+        let mut scene = World::test_scene(assets, render, 2).unwrap();
+        let mut player = PlayerMotion::new(resources, Vec3::new(20.5, 10.0, 20.5)).unwrap();
         player.auto_spin_attack_ticks = 2;
         player.auto_spin_attack_dmg = 8.0;
         let mut w = MotionWorld {
@@ -5100,9 +4891,9 @@ mod tests {
             entities: &[],
             player: &mut player,
             scene: &mut scene,
-            assets: &assets,
-            collision_binding: &binding,
-            resources: &resources,
+            assets,
+            collision_binding: binding,
+            resources,
             health: &resources.health,
         };
         w.update_player_pose().unwrap();
@@ -5127,23 +4918,14 @@ mod tests {
     /// tick the server checks the player's moves with a 0.06 × 0.18 box, not
     /// the 0.6 × 1.8 one that sent a small player back from every wall.
     #[test]
+    #[ignore = "daily"]
     fn a_server_copy_takes_its_new_scale_box_the_next_tick() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../.local/horizon-client")
-            .join(horizon_core::VANILLA_VERSION);
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.to_path_buf(),
-            ))
-            .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
-        let mut scene = World::test_scene(&assets, &render, 2).unwrap();
-        let mut player = PlayerMotion::new(&resources, Vec3::new(20.5, 10.0, 20.5)).unwrap();
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
+        let mut scene = World::test_scene(assets, render, 2).unwrap();
+        let mut player = PlayerMotion::new(resources, Vec3::new(20.5, 10.0, 20.5)).unwrap();
         let mut w = MotionWorld {
             tag_items: None,
             block_registries: None,
@@ -5152,9 +4934,9 @@ mod tests {
             entities: &[],
             player: &mut player,
             scene: &mut scene,
-            assets: &assets,
-            collision_binding: &binding,
-            resources: &resources,
+            assets,
+            collision_binding: binding,
+            resources,
             health: &resources.health,
         };
         w.server_player_pose_tick().unwrap();
@@ -5184,23 +4966,14 @@ mod tests {
     /// (`Entity.updateSwimming` needs `!isPassenger()`) and `updatePlayerPose`
     /// sits them up, eye at 1.62 instead of the swim's 0.4.
     #[test]
+    #[ignore = "daily"]
     fn a_passenger_stops_swimming_and_stands() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../.local/horizon-client")
-            .join(horizon_core::VANILLA_VERSION);
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.to_path_buf(),
-            ))
-            .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
-        let mut scene = World::test_scene(&assets, &render, 2).unwrap();
-        let mut player = PlayerMotion::new(&resources, Vec3::new(20.5, 10.0, 20.5)).unwrap();
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
+        let mut scene = World::test_scene(assets, render, 2).unwrap();
+        let mut player = PlayerMotion::new(resources, Vec3::new(20.5, 10.0, 20.5)).unwrap();
         player.sprinting = true;
         player.swimming = true;
         player.set_pose(crate::pose::Pose::Swimming).unwrap();
@@ -5213,9 +4986,9 @@ mod tests {
             entities: &[],
             player: &mut player,
             scene: &mut scene,
-            assets: &assets,
-            collision_binding: &binding,
-            resources: &resources,
+            assets,
+            collision_binding: binding,
+            resources,
             health: &resources.health,
         };
         w.passenger_pose_tick().unwrap();
@@ -5226,25 +4999,16 @@ mod tests {
     /// #4509: a cushion seat clips the feet into the floor, so `can_fit_pose`
     /// rejects standing and would leave a swim pose; sit up anyway.
     #[test]
+    #[ignore = "daily"]
     fn a_swimming_passenger_sits_up_even_when_standing_does_not_fit() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../.local/horizon-client")
-            .join(horizon_core::VANILLA_VERSION);
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.to_path_buf(),
-            ))
-            .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
-        let mut scene = World::test_scene(&assets, &render, 2).unwrap();
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
+        let mut scene = World::test_scene(assets, render, 2).unwrap();
         // Feet inside the floor block, as on a cushion seat (y - 0.35): away
         // from the pyramid the scene's floor tops out at y = 4.
-        let mut player = PlayerMotion::new(&resources, Vec3::new(20.5, 3.65, 20.5)).unwrap();
+        let mut player = PlayerMotion::new(resources, Vec3::new(20.5, 3.65, 20.5)).unwrap();
         player.swimming = true;
         player.set_pose(crate::pose::Pose::Swimming).unwrap();
         let mut w = MotionWorld {
@@ -5255,9 +5019,9 @@ mod tests {
             entities: &[],
             player: &mut player,
             scene: &mut scene,
-            assets: &assets,
-            collision_binding: &binding,
-            resources: &resources,
+            assets,
+            collision_binding: binding,
+            resources,
             health: &resources.health,
         };
         assert!(!w.can_fit_pose(crate::pose::Pose::Standing).unwrap());
@@ -5268,16 +5032,13 @@ mod tests {
     /// The movement prediction plays a tick again on a copy: what the copy
     /// does (sprinting edits the speed attribute) stays in the copy.
     #[test]
+    #[ignore = "daily"]
     fn a_copied_player_moves_on_its_own() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../.local/horizon-client")
-            .join(horizon_core::VANILLA_VERSION);
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
-        let mut player = PlayerMotion::new(&resources, Vec3::new(20.5, 10.0, 20.5)).unwrap();
+        };
+        let resources = &v.motion;
+        let mut player = PlayerMotion::new(resources, Vec3::new(20.5, 10.0, 20.5)).unwrap();
         let walking = player.attribute("minecraft:movement_speed").unwrap();
         let mut copy = player.clone();
         copy.set_sprinting(true).unwrap();
@@ -5305,31 +5066,22 @@ mod tests {
     /// boat drowned and suffocated a player whose own screen showed them
     /// sitting up. Getting out starts the swim again, so it cannot stick off.
     #[test]
+    #[ignore = "daily"]
     fn a_riding_guest_keeps_no_swim_in_the_fluid_phase() {
         // The boxes the flag picks, before the prepared resources below: the
         // swim's eye is the one at the waterline. Nothing here needs assets.
         assert_eq!(crate::pose::Pose::Swimming.dimensions(1.0).eye_height, 0.4);
         assert_eq!(crate::pose::Pose::Standing.dimensions(1.0).eye_height, 1.62);
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../.local/horizon-client")
-            .join(horizon_core::VANILLA_VERSION);
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.to_path_buf(),
-            ))
-            .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
-        let mut scene = World::test_scene(&assets, &render, 3).unwrap();
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
+        let mut scene = World::test_scene(assets, render, 3).unwrap();
         let water = assets.registry.default_state("minecraft:water").unwrap();
         for y in 4..=6 {
             scene.set(20, y, 20, water).unwrap();
         }
-        let mut player = PlayerMotion::new(&resources, Vec3::new(20.5, 4.0, 20.5)).unwrap();
+        let mut player = PlayerMotion::new(resources, Vec3::new(20.5, 4.0, 20.5)).unwrap();
         let mut w = MotionWorld {
             tag_items: None,
             block_registries: None,
@@ -5338,9 +5090,9 @@ mod tests {
             entities: &[],
             player: &mut player,
             scene: &mut scene,
-            assets: &assets,
-            collision_binding: &binding,
-            resources: &resources,
+            assets,
+            collision_binding: binding,
+            resources,
             health: &resources.health,
         };
         // `fluid_base_tick` samples `was_eye_in_water` before it updates the
@@ -5364,25 +5116,16 @@ mod tests {
         assert!(w.player.swimming);
     }
     #[test]
+    #[ignore = "daily"]
     fn a_riptide_spin_lies_flat_and_ends_on_the_first_entity_it_touches() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../.local/horizon-client")
-            .join(horizon_core::VANILLA_VERSION);
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.to_path_buf(),
-            ))
-            .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
-        let mut scene = World::test_scene(&assets, &render, 2).unwrap();
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
+        let mut scene = World::test_scene(assets, render, 2).unwrap();
         let ahead = Aabb::new(Vec3::new(20.2, 9.0, 21.5), Vec3::new(20.8, 11.0, 22.1));
         for target in [None, Some(ahead)] {
-            let mut player = PlayerMotion::new(&resources, Vec3::new(20.5, 10.0, 20.5)).unwrap();
+            let mut player = PlayerMotion::new(resources, Vec3::new(20.5, 10.0, 20.5)).unwrap();
             player.auto_spin_attack_ticks = 20;
             player.auto_spin_attack_dmg = 8.0;
             player.velocity = Vec3::new(0.0, 0.0, 1.0);
@@ -5395,9 +5138,9 @@ mod tests {
                 entities: &[],
                 player: &mut player,
                 scene: &mut scene,
-                assets: &assets,
-                collision_binding: &binding,
-                resources: &resources,
+                assets,
+                collision_binding: binding,
+                resources,
                 health: &resources.health,
             };
             w.simulation_tick([0.0, 0.0], false).unwrap();
@@ -5416,23 +5159,14 @@ mod tests {
         }
     }
     #[test]
+    #[ignore = "daily"]
     fn a_landing_glide_lasts_a_tick_so_a_jump_keeps_its_speed() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../.local/horizon-client")
-            .join(horizon_core::VANILLA_VERSION);
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.to_path_buf(),
-            ))
-            .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
-        let mut scene = World::test_scene(&assets, &render, 2).unwrap();
-        let mut player = PlayerMotion::new(&resources, Vec3::new(20.5, 4.2, 20.5)).unwrap();
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
+        let mut scene = World::test_scene(assets, render, 2).unwrap();
+        let mut player = PlayerMotion::new(resources, Vec3::new(20.5, 4.2, 20.5)).unwrap();
         let mut w = MotionWorld {
             tag_items: None,
             block_registries: None,
@@ -5441,9 +5175,9 @@ mod tests {
             entities: &[],
             player: &mut player,
             scene: &mut scene,
-            assets: &assets,
-            collision_binding: &binding,
-            resources: &resources,
+            assets,
+            collision_binding: binding,
+            resources,
             health: &resources.health,
         };
         w.move_self(&mut MoveGate::new(), Vec3::new(0.0, -1.0, 0.0))
@@ -5474,23 +5208,14 @@ mod tests {
     /// clear clears it before the server's `SetEntityData` and the movement of
     /// the tick after the landing is air travel where vanilla still glides.
     #[test]
+    #[ignore = "daily"]
     fn a_server_client_glides_until_the_servers_flag_clears() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../.local/horizon-client")
-            .join(horizon_core::VANILLA_VERSION);
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.to_path_buf(),
-            ))
-            .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
-        let mut scene = World::test_scene(&assets, &render, 2).unwrap();
-        let mut player = PlayerMotion::new(&resources, Vec3::new(20.5, 4.2, 20.5)).unwrap();
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
+        let mut scene = World::test_scene(assets, render, 2).unwrap();
+        let mut player = PlayerMotion::new(resources, Vec3::new(20.5, 4.2, 20.5)).unwrap();
         let mut w = MotionWorld {
             tag_items: None,
             block_registries: None,
@@ -5499,9 +5224,9 @@ mod tests {
             entities: &[],
             player: &mut player,
             scene: &mut scene,
-            assets: &assets,
-            collision_binding: &binding,
-            resources: &resources,
+            assets,
+            collision_binding: binding,
+            resources,
             health: &resources.health,
         };
         w.move_self(&mut MoveGate::new(), Vec3::new(0.0, -1.0, 0.0))
@@ -5543,28 +5268,15 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "daily"]
     fn resident_water_and_lava_are_not_treated_as_air() {
-        let root = std::env::var_os("HORIZON_TEST_RESOURCES")
-            .map(std::path::PathBuf::from)
-            .unwrap_or_else(|| {
-                Path::new(env!("CARGO_MANIFEST_DIR"))
-                    .join("../../.local/horizon-client")
-                    .join(horizon_core::VANILLA_VERSION)
-            });
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             eprintln!("skipping resident water/lava test: prepared resources unavailable");
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.to_path_buf(),
-            ))
-            .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
-        let mut scene = World::test_scene(&assets, &render, 3).unwrap();
-        let mut player = PlayerMotion::new(&resources, Vec3::new(20.5, 4.0, 20.5)).unwrap();
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
+        let mut scene = World::test_scene(assets, render, 3).unwrap();
+        let mut player = PlayerMotion::new(resources, Vec3::new(20.5, 4.0, 20.5)).unwrap();
         let water = assets.registry.default_state("minecraft:water").unwrap();
         for x in 19..=21 {
             for y in 3..=7 {
@@ -5581,9 +5293,9 @@ mod tests {
             entities: &[],
             player: &mut player,
             scene: &mut scene,
-            assets: &assets,
-            collision_binding: &binding,
-            resources: &resources,
+            assets,
+            collision_binding: binding,
+            resources,
             health: &resources.health,
         };
         w.controlled_simulation_tick(Default::default()).unwrap();
@@ -5790,7 +5502,7 @@ mod tests {
             ),
             (13.0, 11, 2.25)
         );
-        let mut respawn = PlayerMotion::new(&resources, Vec3::new(20.5, 4.0, 20.5)).unwrap();
+        let mut respawn = PlayerMotion::new(resources, Vec3::new(20.5, 4.0, 20.5)).unwrap();
         respawn.load_saved_state_once(&mut pending, &level).unwrap();
         assert_eq!((respawn.fire_ticks, respawn.air), (-20, 300));
         assert!(!respawn.flying);
@@ -5814,27 +5526,18 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "daily"]
     fn resident_swimming_uses_previous_eyes_and_requires_water_at_the_feet() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../.local/horizon-client")
-            .join(horizon_core::VANILLA_VERSION);
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.to_path_buf(),
-            ))
-            .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
-        let mut scene = World::test_scene(&assets, &render, 3).unwrap();
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
+        let mut scene = World::test_scene(assets, render, 3).unwrap();
         let water = assets.registry.default_state("minecraft:water").unwrap();
         for y in 4..=6 {
             scene.set(20, y, 20, water).unwrap();
         }
-        let mut player = PlayerMotion::new(&resources, Vec3::new(20.5, 4.0, 20.5)).unwrap();
+        let mut player = PlayerMotion::new(resources, Vec3::new(20.5, 4.0, 20.5)).unwrap();
         let mut w = MotionWorld {
             tag_items: None,
             block_registries: None,
@@ -5843,9 +5546,9 @@ mod tests {
             entities: &[],
             player: &mut player,
             scene: &mut scene,
-            assets: &assets,
-            collision_binding: &binding,
-            resources: &resources,
+            assets,
+            collision_binding: binding,
+            resources,
             health: &resources.health,
         };
         w.player.local_crouching = true;
@@ -5898,26 +5601,17 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "daily"]
     fn resident_fire_precedes_first_tick_lava_and_water_extinguishing() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../.local/horizon-client")
-            .join(horizon_core::VANILLA_VERSION);
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.to_path_buf(),
-            ))
-            .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
         for name in ["minecraft:lava", "minecraft:water"] {
-            let mut scene = World::test_scene(&assets, &render, 3).unwrap();
+            let mut scene = World::test_scene(assets, render, 3).unwrap();
             let fluid = assets.registry.default_state(name).unwrap();
             scene.set(20, 4, 20, fluid).unwrap();
-            let mut player = PlayerMotion::new(&resources, Vec3::new(20.5, 4.0, 20.5)).unwrap();
+            let mut player = PlayerMotion::new(resources, Vec3::new(20.5, 4.0, 20.5)).unwrap();
             player.fire_ticks = 160;
             player.fall_distance = 8.0;
             let mut w = MotionWorld {
@@ -5928,9 +5622,9 @@ mod tests {
                 entities: &[],
                 player: &mut player,
                 scene: &mut scene,
-                assets: &assets,
-                collision_binding: &binding,
-                resources: &resources,
+                assets,
+                collision_binding: binding,
+                resources,
                 health: &resources.health,
             };
             w.fluid_base_tick().unwrap();
@@ -5961,26 +5655,17 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "daily"]
     fn resident_bubble_columns_and_nautilus_preserve_their_air_rules() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../.local/horizon-client")
-            .join(horizon_core::VANILLA_VERSION);
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.to_path_buf(),
-            ))
-            .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
-        let mut scene = World::test_scene(&assets, &render, 3).unwrap();
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
+        let mut scene = World::test_scene(assets, render, 3).unwrap();
         let water = assets.registry.default_state("minecraft:water").unwrap();
         scene.set(20, 4, 20, water).unwrap();
         scene.set(20, 5, 20, water).unwrap();
-        let mut player = PlayerMotion::new(&resources, Vec3::new(20.5, 4.0, 20.5)).unwrap();
+        let mut player = PlayerMotion::new(resources, Vec3::new(20.5, 4.0, 20.5)).unwrap();
         let mut w = MotionWorld {
             tag_items: None,
             block_registries: None,
@@ -5989,9 +5674,9 @@ mod tests {
             entities: &[],
             player: &mut player,
             scene: &mut scene,
-            assets: &assets,
-            collision_binding: &binding,
-            resources: &resources,
+            assets,
+            collision_binding: binding,
+            resources,
             health: &resources.health,
         };
         for (extra_effect, expected_air) in [
@@ -6042,23 +5727,14 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "daily"]
     fn resident_mixed_fluids_use_lava_height_for_ground_jumps() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../.local/horizon-client")
-            .join(horizon_core::VANILLA_VERSION);
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.to_path_buf(),
-            ))
-            .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
         for (water_level, lava_level, ground_jump) in [(0, 6, true), (6, 0, false)] {
-            let mut scene = World::test_scene(&assets, &render, 3).unwrap();
+            let mut scene = World::test_scene(assets, render, 3).unwrap();
             for (name, level, x) in [
                 ("minecraft:water", water_level, 20),
                 ("minecraft:lava", lava_level, 21),
@@ -6073,7 +5749,7 @@ mod tests {
                     .set(x, 4, 20, assets.registry.id(&state).unwrap())
                     .unwrap();
             }
-            let mut player = PlayerMotion::new(&resources, Vec3::new(21.0, 4.0, 20.5)).unwrap();
+            let mut player = PlayerMotion::new(resources, Vec3::new(21.0, 4.0, 20.5)).unwrap();
             player.ground.on_ground = true;
             let mut w = MotionWorld {
                 tag_items: None,
@@ -6083,9 +5759,9 @@ mod tests {
                 entities: &[],
                 player: &mut player,
                 scene: &mut scene,
-                assets: &assets,
-                collision_binding: &binding,
-                resources: &resources,
+                assets,
+                collision_binding: binding,
+                resources,
                 health: &resources.health,
             };
             w.fluid_base_tick().unwrap();
@@ -6106,23 +5782,14 @@ mod tests {
     /// that surface less 4 deep in each fluid it touches, from its own bottom, as a mob is
     /// (`mobs::living::fluid_heights`): lava, water, both where they meet (a tie), or neither.
     #[test]
+    #[ignore = "daily"]
     fn resident_fluid_heights_are_measured_from_the_feet() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../.local/horizon-client")
-            .join(horizon_core::VANILLA_VERSION);
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             eprintln!("Prepared resources unavailable; the player fluid heights did not run");
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.to_path_buf(),
-            ))
-            .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
-        let mut scene = World::test_scene(&assets, &render, 3).unwrap();
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
+        let mut scene = World::test_scene(assets, render, 3).unwrap();
         for (name, x) in [("minecraft:lava", 20), ("minecraft:water", 21)] {
             let source = assets.registry.default_state(name).unwrap();
             for y in 4..=5 {
@@ -6138,7 +5805,7 @@ mod tests {
             (21.0, depth, depth),
             (25.5, 0.0, 0.0),
         ] {
-            let mut player = PlayerMotion::new(&resources, Vec3::new(x, 4.0, 20.5)).unwrap();
+            let mut player = PlayerMotion::new(resources, Vec3::new(x, 4.0, 20.5)).unwrap();
             player.ground.on_ground = true;
             let mut w = MotionWorld {
                 tag_items: None,
@@ -6148,9 +5815,9 @@ mod tests {
                 entities: &[],
                 player: &mut player,
                 scene: &mut scene,
-                assets: &assets,
-                collision_binding: &binding,
-                resources: &resources,
+                assets,
+                collision_binding: binding,
+                resources,
                 health: &resources.health,
             };
             w.fluid_base_tick().unwrap();
@@ -6165,23 +5832,15 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "daily"]
     fn footsteps_follow_the_walked_distance_not_the_tick() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../.local/horizon-client")
-            .join(horizon_core::VANILLA_VERSION);
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.to_path_buf(),
-            ))
-            .unwrap();
-        let mut scene = World::test_scene(&assets, &render, 3).unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
-        let mut player = PlayerMotion::new(&resources, Vec3::new(20.5, 4.0, 20.5)).unwrap();
+        };
+        let (assets, render) = (&v.assets, &v.render);
+        let mut scene = World::test_scene(assets, render, 3).unwrap();
+        let (binding, resources) = (&v.collision, &v.motion);
+        let mut player = PlayerMotion::new(resources, Vec3::new(20.5, 4.0, 20.5)).unwrap();
         let mut steps = |player: &mut PlayerMotion, keys: crate::sprint::Keys, ticks: usize| {
             let mut count = 0;
             for _ in 0..ticks {
@@ -6193,9 +5852,9 @@ mod tests {
                     entities: &[],
                     player: &mut *player,
                     scene: &mut scene,
-                    assets: &assets,
-                    collision_binding: &binding,
-                    resources: &resources,
+                    assets,
+                    collision_binding: binding,
+                    resources,
                     health: &resources.health,
                 }
                 .controlled_simulation_tick(keys)
@@ -6228,21 +5887,12 @@ mod tests {
     /// it with the sprint key and stops it only on a vanilla stop condition.
     /// Releasing the key while swimming keeps the sprint and its swim speed.
     #[test]
+    #[ignore = "daily"]
     fn a_sprint_survives_the_sprint_key_coming_up_while_swimming() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../.local/horizon-client")
-            .join(horizon_core::VANILLA_VERSION);
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.to_path_buf(),
-            ))
-            .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
         let water = assets.registry.default_state("minecraft:water").unwrap();
         let forward = crate::sprint::Keys {
             forward: true,
@@ -6256,7 +5906,7 @@ mod tests {
         // once the sprint has started: the speed must not change.
         let mut swims = Vec::new();
         for release in [false, true] {
-            let mut scene = World::test_scene(&assets, &render, 3).unwrap();
+            let mut scene = World::test_scene(assets, render, 3).unwrap();
             for x in 19..=21 {
                 for y in 4..=8 {
                     for z in 19..=31 {
@@ -6264,7 +5914,7 @@ mod tests {
                     }
                 }
             }
-            let mut player = PlayerMotion::new(&resources, Vec3::new(20.5, 4.0, 20.5)).unwrap();
+            let mut player = PlayerMotion::new(resources, Vec3::new(20.5, 4.0, 20.5)).unwrap();
             let mut w = MotionWorld {
                 tag_items: None,
                 block_registries: None,
@@ -6273,9 +5923,9 @@ mod tests {
                 entities: &[],
                 player: &mut player,
                 scene: &mut scene,
-                assets: &assets,
-                collision_binding: &binding,
-                resources: &resources,
+                assets,
+                collision_binding: binding,
+                resources,
                 health: &resources.health,
             };
             let mut speed = Vec::new();
@@ -6307,23 +5957,14 @@ mod tests {
     /// while the sprint state holds, so a jump taken after the sprint key
     /// comes up is still a sprint jump.
     #[test]
+    #[ignore = "daily"]
     fn a_sprint_jump_keeps_its_impulse_when_the_sprint_key_comes_up() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../.local/horizon-client")
-            .join(horizon_core::VANILLA_VERSION);
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.to_path_buf(),
-            ))
-            .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
-        let mut scene = World::test_scene(&assets, &render, 3).unwrap();
-        let mut player = PlayerMotion::new(&resources, Vec3::new(20.5, 4.0, 20.5)).unwrap();
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
+        let mut scene = World::test_scene(assets, render, 3).unwrap();
+        let mut player = PlayerMotion::new(resources, Vec3::new(20.5, 4.0, 20.5)).unwrap();
         let mut w = MotionWorld {
             tag_items: None,
             block_registries: None,
@@ -6332,9 +5973,9 @@ mod tests {
             entities: &[],
             player: &mut player,
             scene: &mut scene,
-            assets: &assets,
-            collision_binding: &binding,
-            resources: &resources,
+            assets,
+            collision_binding: binding,
+            resources,
             health: &resources.health,
         };
         let forward = crate::sprint::Keys {
@@ -6373,23 +6014,14 @@ mod tests {
     /// double-tap of forward, from starting a sprint; an item that allows it
     /// (a spear) does not.
     #[test]
+    #[ignore = "daily"]
     fn an_item_in_use_stops_a_sprint_from_starting_unless_it_allows_sprinting() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../.local/horizon-client")
-            .join(horizon_core::VANILLA_VERSION);
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.to_path_buf(),
-            ))
-            .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
-        let mut scene = World::test_scene(&assets, &render, 3).unwrap();
-        let mut player = PlayerMotion::new(&resources, Vec3::new(20.5, 4.0, 20.5)).unwrap();
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
+        let mut scene = World::test_scene(assets, render, 3).unwrap();
+        let mut player = PlayerMotion::new(resources, Vec3::new(20.5, 4.0, 20.5)).unwrap();
         let mut w = MotionWorld {
             tag_items: None,
             block_registries: None,
@@ -6398,9 +6030,9 @@ mod tests {
             entities: &[],
             player: &mut player,
             scene: &mut scene,
-            assets: &assets,
-            collision_binding: &binding,
-            resources: &resources,
+            assets,
+            collision_binding: binding,
+            resources,
             health: &resources.health,
         };
         let forward = crate::sprint::Keys {
@@ -6433,23 +6065,14 @@ mod tests {
     /// (`Player.isMobilityRestricted`) keeps the sprint key from starting a
     /// sprint and stops a running one (`shouldStopRunSprinting`).
     #[test]
+    #[ignore = "daily"]
     fn blindness_stops_a_sprint_and_keeps_one_from_starting() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../.local/horizon-client")
-            .join(horizon_core::VANILLA_VERSION);
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.to_path_buf(),
-            ))
-            .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
-        let mut scene = World::test_scene(&assets, &render, 3).unwrap();
-        let mut player = PlayerMotion::new(&resources, Vec3::new(20.5, 4.0, 20.5)).unwrap();
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
+        let mut scene = World::test_scene(assets, render, 3).unwrap();
+        let mut player = PlayerMotion::new(resources, Vec3::new(20.5, 4.0, 20.5)).unwrap();
         let mut w = MotionWorld {
             tag_items: None,
             block_registries: None,
@@ -6458,9 +6081,9 @@ mod tests {
             entities: &[],
             player: &mut player,
             scene: &mut scene,
-            assets: &assets,
-            collision_binding: &binding,
-            resources: &resources,
+            assets,
+            collision_binding: binding,
+            resources,
             health: &resources.health,
         };
         let sprint_key = crate::sprint::Keys {
@@ -6486,25 +6109,16 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "daily"]
     fn server_forced_flight_survives_without_permission_to_toggle_it() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../.local/horizon-client")
-            .join(horizon_core::VANILLA_VERSION);
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             eprintln!("skipped forced flight: prepared resources unavailable");
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.to_path_buf(),
-            ))
-            .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
-        let mut scene = World::test_scene(&assets, &render, 3).unwrap();
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
+        let mut scene = World::test_scene(assets, render, 3).unwrap();
         let start = Vec3::new(20.5, 20.0, 20.5);
-        let mut player = PlayerMotion::new(&resources, start).unwrap();
+        let mut player = PlayerMotion::new(resources, start).unwrap();
         player.may_fly = false;
         player.flying = true;
         player.flying_speed = 0.0;
@@ -6516,9 +6130,9 @@ mod tests {
             entities: &[],
             player: &mut player,
             scene: &mut scene,
-            assets: &assets,
-            collision_binding: &binding,
-            resources: &resources,
+            assets,
+            collision_binding: binding,
+            resources,
             health: &resources.health,
         };
         // Idle, movement in all directions, and repeated jump presses must
@@ -6552,23 +6166,14 @@ mod tests {
     /// speed, doubled while the sprint state holds. The sprint key starts the
     /// state; releasing it does not change the speed.
     #[test]
+    #[ignore = "daily"]
     fn the_flight_speed_follows_the_sprint_state_not_the_sprint_key() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../.local/horizon-client")
-            .join(horizon_core::VANILLA_VERSION);
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.to_path_buf(),
-            ))
-            .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
-        let mut scene = World::test_scene(&assets, &render, 3).unwrap();
-        let mut player = PlayerMotion::new(&resources, Vec3::new(20.5, 10.0, 20.5)).unwrap();
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
+        let mut scene = World::test_scene(assets, render, 3).unwrap();
+        let mut player = PlayerMotion::new(resources, Vec3::new(20.5, 10.0, 20.5)).unwrap();
         let mut w = MotionWorld {
             tag_items: None,
             block_registries: None,
@@ -6577,9 +6182,9 @@ mod tests {
             entities: &[],
             player: &mut player,
             scene: &mut scene,
-            assets: &assets,
-            collision_binding: &binding,
-            resources: &resources,
+            assets,
+            collision_binding: binding,
+            resources,
             health: &resources.health,
         };
         w.player.may_fly = true;
@@ -6621,23 +6226,14 @@ mod tests {
     /// `updateFallFlying` sees last tick's count plus one: the glider wears
     /// on the 20th glide tick, not the 19th.
     #[test]
+    #[ignore = "daily"]
     fn a_glider_wears_on_the_twentieth_glide_tick() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../.local/horizon-client")
-            .join(horizon_core::VANILLA_VERSION);
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.to_path_buf(),
-            ))
-            .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
-        let mut scene = World::test_scene(&assets, &render, 2).unwrap();
-        let mut player = PlayerMotion::new(&resources, Vec3::new(20.5, 100.0, 20.5)).unwrap();
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
+        let mut scene = World::test_scene(assets, render, 2).unwrap();
+        let mut player = PlayerMotion::new(resources, Vec3::new(20.5, 100.0, 20.5)).unwrap();
         player.glider = true;
         player.fall_flying = true;
         let mut w = MotionWorld {
@@ -6648,9 +6244,9 @@ mod tests {
             entities: &[],
             player: &mut player,
             scene: &mut scene,
-            assets: &assets,
-            collision_binding: &binding,
-            resources: &resources,
+            assets,
+            collision_binding: binding,
+            resources,
             health: &resources.health,
         };
         for tick in 1..=19 {
@@ -6669,30 +6265,21 @@ mod tests {
     /// chunk below is not loaded skips gravity and falls at 0.1 a tick
     /// (above `getMinY`), before the 0.98 vertical drag.
     #[test]
+    #[ignore = "daily"]
     fn a_client_over_an_unloaded_chunk_falls_at_a_tenth() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../.local/horizon-client")
-            .join(horizon_core::VANILLA_VERSION);
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.to_path_buf(),
-            ))
-            .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
         for (client_side, want) in [
             (true, -0.1 * f64::from(0.98_f32)),
             (false, -0.0784000015258789),
         ] {
-            let mut scene = World::test_scene(&assets, &render, 2).unwrap();
+            let mut scene = World::test_scene(assets, render, 2).unwrap();
             // Far outside the test scene's chunks.
             let at = Vec3::new(10_000.5, 20.0, 10_000.5);
             assert!(!scene.chunks.contains_key(&(10_000 >> 4, 10_000 >> 4)));
-            let mut player = PlayerMotion::new(&resources, at).unwrap();
+            let mut player = PlayerMotion::new(resources, at).unwrap();
             player.client_side = client_side;
             MotionWorld {
                 tag_items: None,
@@ -6702,9 +6289,9 @@ mod tests {
                 entities: &[],
                 player: &mut player,
                 scene: &mut scene,
-                assets: &assets,
-                collision_binding: &binding,
-                resources: &resources,
+                assets,
+                collision_binding: binding,
+                resources,
                 health: &resources.health,
             }
             .controlled_simulation_tick(Default::default())
@@ -6717,21 +6304,12 @@ mod tests {
     /// ladder whether it sneaks or not. The server's player (`ServerPlayer` has no override) only
     /// looks at the sneak.
     #[test]
+    #[ignore = "daily"]
     fn a_flying_client_does_not_stop_sliding_down_a_ladder_by_sneaking() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../.local/horizon-client")
-            .join(horizon_core::VANILLA_VERSION);
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets
-            .reload(&horizon_assets::resource_source::ResourceRoot::directory(
-                root.to_path_buf(),
-            ))
-            .unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
         // (client_side, flying, sneaking, suppressing)
         for (client_side, flying, sneaking, want) in [
             (true, false, true, true),
@@ -6742,8 +6320,8 @@ mod tests {
             (false, true, true, true),
             (false, true, false, false),
         ] {
-            let mut scene = World::test_scene(&assets, &render, 2).unwrap();
-            let mut player = PlayerMotion::new(&resources, Vec3::new(0.5, 64.0, 0.5)).unwrap();
+            let mut scene = World::test_scene(assets, render, 2).unwrap();
+            let mut player = PlayerMotion::new(resources, Vec3::new(0.5, 64.0, 0.5)).unwrap();
             player.client_side = client_side;
             player.flying = flying;
             player.shift_key_down = sneaking;
@@ -6755,9 +6333,9 @@ mod tests {
                 entities: &[],
                 player: &mut player,
                 scene: &mut scene,
-                assets: &assets,
-                collision_binding: &binding,
-                resources: &resources,
+                assets,
+                collision_binding: binding,
+                resources,
                 health: &resources.health,
             };
             assert_eq!(
@@ -6766,5 +6344,50 @@ mod tests {
                 "client_side={client_side} flying={flying} sneaking={sneaking}"
             );
         }
+    }
+
+    /// `Player.getBlockSpeedFactor`: `!abilities.flying && !isFallFlying() ?
+    /// super.getBlockSpeedFactor() : 1.0F` (#16176). A creative player flying
+    /// at y -59.8 over soul sand (its top at -60.125) or gliding there moves as
+    /// it does over grass; walking on the soul sand it keeps 0.4 of its speed.
+    #[test]
+    #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
+    fn a_flying_or_gliding_player_is_not_slowed_by_soul_sand() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
+            return;
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
+        let mut scene = World::test_scene(assets, render, 2).unwrap();
+        // How much of a 0.1 step east the move leaves in the velocity.
+        let mut kept = |floor: &str, y: f64, flying: bool, gliding: bool| {
+            let state = assets.registry.default_state(floor).unwrap();
+            scene.set(20, -61, 20, state).unwrap();
+            let mut player = PlayerMotion::new(resources, Vec3::new(20.5, y, 20.5)).unwrap();
+            (player.may_fly, player.flying) = (flying, flying);
+            (player.glider, player.fall_flying) = (gliding, gliding);
+            player.velocity = Vec3::new(0.1, 0.0, 0.0);
+            let mut w = MotionWorld {
+                tag_items: None,
+                block_registries: None,
+                loop_context: crate::test_resources::server_loop_context(),
+                damage_hooks: &crate::health::DamageHooks::NONE,
+                entities: &[],
+                player: &mut player,
+                scene: &mut scene,
+                assets,
+                collision_binding: binding,
+                resources,
+                health: &resources.health,
+            };
+            w.move_self(&mut MoveGate::new(), Vec3::new(0.1, 0.0, 0.0))
+                .unwrap();
+            w.player.velocity.x / 0.1
+        };
+        let (soul_sand, grass) = ("minecraft:soul_sand", "minecraft:grass_block");
+        assert_eq!(kept(grass, -59.8, true, false), 1.0);
+        assert_eq!(kept(soul_sand, -59.8, true, false), 1.0, "flying");
+        assert_eq!(kept(soul_sand, -59.8, false, true), 1.0, "gliding");
+        let walking = kept(soul_sand, -60.125, false, false);
+        assert!((walking - 0.4).abs() < 1.0e-6, "walking: {walking}");
     }
 }

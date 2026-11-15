@@ -13,8 +13,11 @@ ORIGINAL_JDK_TOOLS = {
     # Original observer of public Paper API events, with no server implementation code.
     "tools/fixtures/paper-trace-plugin/PaperTrace.java",
     "tools/JfrSummary.java",
+    # Original generator of the Java character tables: calls only the public Character API and prints ranges; no JDK implementation source.
+    "tools/JavaCharacterTables.java",
     "tests/java/JfrFixture.java",
-    # Our own comparison driver; it calls the player's pinned vanilla jars at run time and carries none of their code.
+    # HISTORY-ONLY: this original comparison driver is no longer in the current tree.
+    # Keep its old path allowed so --history/--pre-push accept its legitimate historical addition.
     "tools/refactors/api-pr3/JsonNbtOracle.java",
 }
 # The prepared folder's files in one file (crates/horizon-core/src/prepared_files.rs): Mojang's data.

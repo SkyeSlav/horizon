@@ -194,6 +194,11 @@ fn sprite(name: &str) -> String {
 }
 
 impl Game<'_> {
+    /// A viewer's transfer of a recipe by id, into a mod menu or a grid.
+    pub(in crate::game) fn transfer_recipe_id(&mut self, recipe: &str, max: bool) {
+        self.transfer_viewer_recipe_id(recipe, max);
+    }
+
     /// The vanilla book the open screen has, if any.
     pub(super) fn active_book(&self) -> Option<BookType> {
         if self.screen != Screen::Inventory || self.station.is_some() {
@@ -204,7 +209,14 @@ impl Game<'_> {
             return None;
         }
         match self.container_kind() {
-            None if self.container.is_none() => Some(BookType::Crafting),
+            None if self.container.is_none()
+                && self
+                    .remote
+                    .as_ref()
+                    .is_none_or(|r| r.menu.as_ref().is_none()) =>
+            {
+                Some(BookType::Crafting)
+            }
             Some(BlockEntity::Furnace(f)) => Some(match f.kind {
                 FurnaceKind::Furnace => BookType::Furnace,
                 FurnaceKind::BlastFurnace => BookType::BlastFurnace,
@@ -702,8 +714,23 @@ impl Game<'_> {
     // ---- geometry ----
 
     /// `RecipeBookComponent.getXOrigin` / `getYOrigin` (`widthTooNarrow`
-    /// centres the book over the menu).
+    /// centres the book over the menu), moved left with the window by the
+    /// room the mods ask beside it (`screen_room`).
     fn book_origin(&self, batch: &HudBatch) -> (f32, f32) {
+        let (x, y) = self.book_origin_in_place(batch);
+        (x - self.screen_room_shift(batch), y)
+    }
+    /// The visible left edge, including the selected tab, of the book beside
+    /// the window before room moves it; none while no book is open or it covers the
+    /// window of a narrow screen.
+    pub(super) fn open_book_left(&self, batch: &HudBatch) -> Option<f32> {
+        if !self.mod_book_open() {
+            self.active_book().filter(|b| self.book_open(*b))?;
+        }
+        (!self.book_covers_menu(batch.width)).then(|| self.book_origin_in_place(batch).0 - 32.0)
+    }
+    /// `book_origin` before the mods' room moves it.
+    fn book_origin_in_place(&self, batch: &HudBatch) -> (f32, f32) {
         let narrow = if self.native_screen_book().is_some() {
             self.mod_book_overlay(batch.width)
         } else {
@@ -1316,6 +1343,92 @@ impl Game<'_> {
         self.recipe_ui.ghost.clear();
         self.place_book_recipe(BookType::Crafting, index, all);
     }
+    /// Whether the open menu is a content mod's menu type (a machine's, with or without a grid):
+    /// the server's menu on a server, the block's own in a solo world or on a LAN host.
+    fn mod_menu_open(&self) -> bool {
+        self.remote_menu_type()
+            .and_then(horizon_client::containers::mod_menu_type)
+            .is_some()
+            || self.local_mod_menu().is_some()
+    }
+    /// The content mod menu type and block of the menu this player has open when the game is
+    /// its own server (a solo world, a LAN host's own player): the block container's menu type.
+    fn local_mod_menu(&self) -> Option<(&'static str, [i32; 3])> {
+        if self.remote.is_some() {
+            return None;
+        }
+        let k = self.container?;
+        Some((self.mod_menu_at(k)?, [k.0, k.1, k.2]))
+    }
+    /// `menu_transfer` for this player's own mod menu when the game is its own server: the same
+    /// server-side ask a guest's transfer gets (`guest_menu_transfer`), on the same thread.
+    /// None when no part listens (vanilla menus never ask) or no mod menu is open here.
+    fn local_menu_transfer(
+        &mut self,
+        recipe: &str,
+        max: bool,
+        dry_run: bool,
+    ) -> Option<RecipeTransferResult> {
+        if !mod_api::__private::has_part_hook(mod_api::HookId::MenuTransfer) {
+            return None;
+        }
+        let (menu, pos) = self.local_mod_menu()?;
+        if !mod_api::__private::menu_listens(mod_api::HookId::MenuTransfer, menu) {
+            return None;
+        }
+        let mut result = None;
+        self.native_menu_transfer(mod_api::__private::MenuTransferCall {
+            player: self.own_uuid(),
+            menu,
+            pos: Some(pos),
+            recipe,
+            max,
+            dry_run,
+            result: &mut result,
+        });
+        result
+    }
+    /// A viewer's transfer of a recipe by id (`transfer_recipe_id`): sent to the server, whose
+    /// `menu_transfer` parts on a mod menu answer first, then its grid transfer. Only a server
+    /// that takes viewer transfers is asked: elsewhere it shows as not into this menu.
+    pub(super) fn transfer_viewer_recipe_id(&mut self, recipe: &str, max: bool) {
+        self.panel.transfer_warning = None;
+        let open = self.screen == Screen::Inventory
+            && !self.spectator()
+            && (self.mod_menu_open() || self.mod_recipe_screen());
+        if !open {
+            self.show_transfer_result(RecipeTransferResult::NotIntoMenu);
+            return;
+        }
+        if self.remote.is_none() {
+            // The game is its own server: the mod menu's part answers first, as on a server,
+            // then the grid transfer.
+            if let Some(answer) = self.local_menu_transfer(recipe, max, false) {
+                self.show_transfer_result(answer);
+                return;
+            }
+            self.local_grid_transfer(recipe, max);
+            return;
+        }
+        if !self
+            .remote
+            .as_ref()
+            .is_some_and(|r| r.recipe_viewer.transfer)
+        {
+            self.show_transfer_result(RecipeTransferResult::NotIntoMenu);
+            return;
+        }
+        let mut request = horizon_protocol::buf::Writer::new();
+        request.varint(self.remote_menu_id());
+        request.string(recipe);
+        request.u8(u8::from(max));
+        self.send(horizon_protocol::packets::play::Serverbound::CustomPayload(
+            horizon_protocol::packets::configuration::CustomPayload {
+                channel: horizon_client::lan::recipes::TRANSFER_CHANNEL.into(),
+                data: request.data,
+            },
+        ));
+    }
     /// A viewer's transfer of one set of ingredients.
     pub(super) fn transfer_viewer_recipe(&mut self, display_id: i32) {
         self.panel.transfer_warning = None;
@@ -1366,10 +1479,20 @@ impl Game<'_> {
             ));
             return;
         }
+        // The game is its own server: a mod menu's part answers first, as on a server.
+        if let Some(answer) = self.local_menu_transfer(&id, false, false) {
+            self.show_transfer_result(answer);
+            return;
+        }
+        self.local_grid_transfer(&id, false);
+    }
+    /// The game's own grid transfer of `id` into this player's menu when the game is its own
+    /// server (what a server runs when no `menu_transfer` part answers).
+    fn local_grid_transfer(&mut self, id: &str, max: bool) {
         use horizon_client::menu::place::TransferError;
         let mut result = Err(TransferError::Unavailable);
         self.menu_session(|menu, env, _| {
-            result = menu.transfer_recipe(env, &id, false);
+            result = menu.transfer_recipe(env, id, max);
             Some(result.is_ok())
         });
         self.show_transfer_result(horizon_client::lan::recipes::transfer_result(result));
@@ -1403,7 +1526,7 @@ impl Game<'_> {
         if let Ok(Some((container, result))) =
             horizon_client::lan::recipes::decode_transfer_reply(data)
             && container == self.remote_menu_id()
-            && self.mod_recipe_screen()
+            && (self.mod_recipe_screen() || self.mod_menu_open())
             && self.panel.recipes.is_some()
         {
             match horizon_client::lan::recipes::byte_result(result) {
@@ -1444,8 +1567,22 @@ impl Game<'_> {
         &mut self,
         display_id: i32,
     ) -> Option<RecipeTransferCheck> {
-        if !self.mod_recipe_screen() || !self.remote.as_ref().is_some_and(|r| r.recipe_viewer.check)
-        {
+        // The game is its own server: a mod menu's part answers the dry run, as
+        // `horizon:recipe_check` asks it on a server; with none the check is as before.
+        if self.remote.is_none() && self.mod_menu_open() {
+            self.ensure_book();
+            let id = (self.recipe_ui.book.as_ref())
+                .and_then(|book| book.entries.iter().find(|e| e.display_id == display_id))
+                .map(|e| e.id.clone())?;
+            let result = self.local_menu_transfer(&id, false, true)?;
+            return Some(RecipeTransferCheck {
+                result,
+                missing_cells: Vec::new(),
+            });
+        }
+        let eligible_menu = self.mod_recipe_screen()
+            || (self.screen == Screen::Inventory && !self.spectator() && self.mod_menu_open());
+        if !eligible_menu || !self.remote.as_ref().is_some_and(|r| r.recipe_viewer.check) {
             return None;
         }
         let now = Instant::now();
@@ -1991,9 +2128,7 @@ impl Game<'_> {
         let text_width = |s: &str| HudBatch::text_width(atlas, s) as i32;
         let layout = Layout {
             book: book_type,
-            width: batch.width as i32,
-            height: batch.height as i32,
-            narrow: batch.width < NARROW,
+            origin: (xo as i32, yo as i32),
             mouse: (cursor.0.floor() as i32, cursor.1.floor() as i32),
             index: self.swap_index(),
             filtering: self.book_filtering(book_type),
@@ -2212,5 +2347,85 @@ mod tests {
         assert!(super::escape_closes_book(super::NARROW - 1.0, true));
         assert!(!super::escape_closes_book(super::NARROW, true));
         assert!(!super::escape_closes_book(super::NARROW - 1.0, false));
+    }
+}
+
+#[cfg(test)]
+#[path = "recipe_book/check_mod_menu_tests.rs"]
+mod check_mod_menu_tests;
+
+#[cfg(test)]
+mod screen_room_tests {
+    use super::*;
+    #[test]
+    #[ignore = "daily"]
+    fn shifted_book_painter_and_input_share_the_absolute_origin() {
+        use mod_api::{ClientHost, Hooks, ModEntry, ScreenRoomEvent};
+        use std::sync::{
+            Arc,
+            atomic::{AtomicUsize, Ordering},
+        };
+        struct Panel(Arc<AtomicUsize>);
+        #[mod_api::__subscriptions]
+        impl Hooks for Panel {
+            fn screen_room(&self, _: &dyn ClientHost, event: &mut ScreenRoomEvent<'_>) {
+                event.right = event.right.max(self.0.load(Ordering::Relaxed) as f32);
+            }
+        }
+        let room = Arc::new(AtomicUsize::new(100));
+        let mods: mod_api::Mods =
+            vec![ModEntry::new("panel", Box::new(Panel(room.clone())))].into();
+        mod_platform::testing::with_mods(mods, || {
+            crate::game::native_entity_refs::tests::with_client_game(|game| {
+                game.screen = Screen::Inventory;
+                game.container = None;
+                game.craft_size = 2;
+                game.settings.gui_scale = 1;
+                game.level.recipe_book.open[BookType::Crafting.index()] = true;
+                let batch = HudBatch::new([640, 240], game.settings.gui_scale_inputs());
+                let (x, y) = game.book_origin(&batch);
+                assert_eq!((x, y), (110.0, 37.0));
+                assert_eq!(game.tab_pos(x, y, 0), (80.0, 40.0));
+                assert_eq!(Game::button_pos(x, y, 0), (121.0, 68.0));
+                assert_eq!(game.inventory_origin(&batch), (259.0, 37.0));
+                let search = Search::default();
+                let tabs = [screen::TabView {
+                    icons: ("minecraft:stone".into(), None),
+                    selected: true,
+                    anim: 0.0,
+                }];
+                let layout = Layout {
+                    book: BookType::Crafting,
+                    origin: (x as i32, y as i32),
+                    mouse: (221, 50),
+                    index: 0,
+                    filtering: false,
+                    search: &search,
+                    tabs: &tabs,
+                    buttons: &[],
+                    page: 0,
+                    pages: 1,
+                    overlay: None,
+                    ghost: None,
+                    translate: &str::to_owned,
+                    text_width: &|s| s.len() as i32,
+                };
+                let calls = screen::draw(&layout);
+                assert!(matches!(calls[0].call, Call::Blit { x: 110, y: 37, .. }));
+                assert!(calls.iter().any(|c| matches!(&c.call, Call::Sprite { id, x: 78, y: 40, .. } if id == "recipe_book/tab_selected")));
+                assert!(calls.iter().any(|c| matches!(&c.call, Call::Sprite { id, x: 220, y: 49, .. } if id == "recipe_book/filter_disabled_highlighted")));
+                // A panel-only fit at 510 must be refused because the selected tab would clip.
+                let batch = HudBatch::new([510, 240], game.settings.gui_scale_inputs());
+                room.store(180, Ordering::Relaxed);
+                game.frames += 1;
+                assert_eq!(game.open_book_left(&batch), Some(63.0));
+                assert_eq!(game.book_origin(&batch), (95.0, 37.0));
+                assert_eq!(game.inventory_origin(&batch), (244.0, 37.0));
+                room.store(100, Ordering::Relaxed);
+                game.frames += 1;
+                assert_eq!(game.book_origin(&batch), (45.0, 37.0));
+                assert_eq!(game.inventory_origin(&batch), (194.0, 37.0));
+            });
+        });
     }
 }

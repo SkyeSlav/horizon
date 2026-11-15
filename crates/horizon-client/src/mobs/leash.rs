@@ -330,16 +330,22 @@ pub fn can_be_leashed(m: &Mob) -> bool {
         | S::Pufferfish
         | S::Tadpole => false,
         S::Wolf => !super::tame::angry(m),
-        // Nautilus.canBeLeashed and ZombieNautilus.canBeLeashed: never while
-        // it is aggravated. The zombie also refuses while a mob is riding it
-        // (`isMobControlled`), which a mob alone cannot see.
-        // shortcut: isMobControlled, when a mob can ride a zombie nautilus.
-        S::Nautilus | S::ZombieNautilus => !super::nautilus::aggravated(m),
+        // Nautilus.canBeLeashed: never while it is aggravated.
+        S::Nautilus => !super::nautilus::aggravated(m),
+        // ZombieNautilus.canBeLeashed: also not while a mob rides it
+        // (`isMobControlled`; `extra.rider` is the mob passenger).
+        S::ZombieNautilus => !super::nautilus::aggravated(m) && m.extra.rider.is_none(),
         // SulfurCube.canBeLeashed: `hasBodyItem()`, so only a cube with a
         // block in its body takes a lead. Its category is a monster's, which
         // `Mob.canBeLeashed`'s `!(this instanceof Enemy)` rule would refuse.
         S::SulfurCube => super::sulfur_cube::has_body(m),
-        _ => !m.hostile() && !m.removed,
+        // CamelHusk.canBeLeashed and ZombieHorse.canBeLeashed: neither is an
+        // `Enemy`, though both are in the monster category, so
+        // `Mob.canBeLeashed` allows them; a mob riding one (`isMobControlled`)
+        // refuses the lead, but a tamed zombie horse takes it anyway.
+        S::CamelHusk => m.extra.rider.is_none(),
+        S::ZombieHorse => m.extra.tame || m.extra.rider.is_none(),
+        _ => !m.is_enemy() && !m.removed,
     }
 }
 
@@ -810,6 +816,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "daily"]
     fn mob_tick_selects_quad_only_when_both_live_ends_support_it() {
         let ran = crate::mobs::world::with_test_world(&[], |world, types| {
             for (kind, holder_kind, quad) in [
@@ -864,6 +871,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "daily"]
     fn a_players_leash_does_not_pull_toward_a_different_player() {
         crate::mobs::world::with_test_world(&[], |world, types| {
             let mut w = world.clone();
@@ -917,6 +925,7 @@ mod tests {
     /// rope hangs at a share of the eye height, and the copper golem's on the
     /// centre instead of the default `bbWidth / 2` in front.
     #[test]
+    #[ignore = "daily"]
     fn a_golem_or_a_fox_hangs_its_lead_where_vanilla_does() {
         let _ = crate::mobs::world::with_test_world(&[], |_, types| {
             for (kind, factor, forwards) in [
@@ -945,6 +954,7 @@ mod tests {
     /// happy ghast's rope at the origin, against the default eye-height
     /// height the fallthrough gave them.
     #[test]
+    #[ignore = "daily"]
     fn a_pig_a_rabbit_a_parrot_an_ocelot_and_a_ghast_hang_their_lead_where_vanilla_does() {
         let _ = crate::mobs::world::with_test_world(&[], |_, types| {
             for (kind, factor) in [
@@ -979,6 +989,7 @@ mod tests {
     /// aggravated nautilus, one holding an `ANGRY_AT` or an `ATTACK_TARGET`
     /// memory, cannot be put on a lead.
     #[test]
+    #[ignore = "daily"]
     fn an_aggravated_nautilus_cannot_be_leashed() {
         let ran = crate::mobs::world::with_test_world(&[], |_, types| {
             let new = |kind: &str| {
@@ -1001,8 +1012,47 @@ mod tests {
                 can_be_leashed(&new("minecraft:zombie_nautilus")),
                 "a calm zombie nautilus"
             );
+            let mut jockey = new("minecraft:zombie_nautilus");
+            jockey.extra.rider = Some(2);
+            assert!(!can_be_leashed(&jockey), "isMobControlled");
+            let mut ridden = new("minecraft:nautilus");
+            ridden.extra.rider = Some(2);
+            assert!(can_be_leashed(&ridden), "a plain nautilus has no check");
         });
-        let _ = ran;
+        assert!(ran, "vanilla data is missing");
+    }
+
+    /// `CamelHusk.canBeLeashed` is `!isMobControlled()` and
+    /// `ZombieHorse.canBeLeashed` is `isTamed() || !isMobControlled()`: a
+    /// riderless husk and a wild zombie horse take a lead even though both are
+    /// in the monster category, and a mob on a husk's back refuses it.
+    #[test]
+    #[ignore = "daily"]
+    fn a_camel_husk_takes_a_lead_until_a_mob_rides_it() {
+        let ran = crate::mobs::world::with_test_world(&[], |_, types| {
+            let new = |kind: &str| {
+                Mob::new(
+                    1,
+                    std::sync::Arc::new(types.types[kind].clone()),
+                    horizon_core::geometry::Vec3::ZERO,
+                    0.0,
+                )
+            };
+            let husk = new("minecraft:camel_husk");
+            assert!(can_be_leashed(&husk), "a riderless camel husk");
+            let mut ridden = new("minecraft:camel_husk");
+            ridden.extra.rider = Some(2);
+            assert!(!can_be_leashed(&ridden), "a mob rides the husk");
+            assert!(can_be_leashed(&new("minecraft:zombie_horse")), "wild");
+            let mut tamed = new("minecraft:zombie_horse");
+            tamed.extra.tame = true;
+            tamed.extra.rider = Some(2);
+            assert!(can_be_leashed(&tamed), "a tamed zombie horse");
+            let mut wild = new("minecraft:zombie_horse");
+            wild.extra.rider = Some(2);
+            assert!(!can_be_leashed(&wild), "a mob rides the wild horse");
+        });
+        assert!(ran, "vanilla data is missing");
     }
 
     #[test]
@@ -1109,6 +1159,7 @@ mod tests {
         assert!((following[0] - still[0] * 0.3_f32 as f64).abs() < 1e-9);
     }
     #[test]
+    #[ignore = "daily"]
     fn a_leads_spin_uses_the_friction_of_the_block_under_the_mob() {
         // Leashable.angularFriction on the ground is
         // `getBlockState(getBlockPosBelowThatAffectsMyMovement()).getBlock()
@@ -1181,6 +1232,7 @@ mod tests {
     /// half of `getBbHeight`, on the cube's centre rather than the default
     /// `bbWidth / 2` in front.
     #[test]
+    #[ignore = "daily"]
     fn a_sulfur_cube_is_leashed_by_its_block_and_hangs_at_its_middle() {
         // `with_test_world` answers false when the prepared data is absent, and
         // the edits are inside the closure, so a skip needs no early return.

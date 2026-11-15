@@ -37,6 +37,17 @@ pub(in crate::game) fn server_sources(
     item_data: &ItemData,
     overlay: &horizon_world::loot::PackOverlay,
 ) -> std::io::Result<Arc<ResolvedSources>> {
+    server_sources_with(root, item_data, overlay, || {
+        server_data_load(root, item_data)
+    })
+}
+
+fn server_sources_with(
+    root: &std::path::Path,
+    item_data: &ItemData,
+    overlay: &horizon_world::loot::PackOverlay,
+    load: impl FnOnce() -> std::io::Result<horizon_world::native_load_context::LoadContext>,
+) -> std::io::Result<Arc<ResolvedSources>> {
     let generation = item_data.defaults().generation();
     let key = overlay_key(overlay);
     let mut slot = SOURCES.lock().unwrap_or_else(|e| e.into_inner());
@@ -46,8 +57,9 @@ pub(in crate::game) fn server_sources(
     {
         return Ok(held.sources.clone());
     }
+    let context = load()?;
     let sources = Arc::new(
-        ResolvedSources::load(root, overlay, &server_data_load(root, item_data)?)
+        ResolvedSources::load(root, overlay, &context)
             .map_err(|error| std::io::Error::other(error.to_string()))?,
     );
     *slot = Some(ServerSources {
@@ -57,6 +69,26 @@ pub(in crate::game) fn server_sources(
         sources: sources.clone(),
     });
     Ok(sources)
+}
+
+/// Initial tables borrow the settings already captured with their item data.
+/// Servers retain the existing single-flight recipe cache; later owning loads
+/// still enter through `server_sources`/`load_sources` and capture fresh inputs.
+pub(in crate::game) fn initial_sources(
+    root: &std::path::Path,
+    item_data: &ItemData,
+    overlay: &horizon_world::loot::PackOverlay,
+) -> std::io::Result<Arc<ResolvedSources>> {
+    use horizon_world::native_load_context::DataLoadOrigin;
+    let context = item_data.context();
+    if context.origin() == DataLoadOrigin::ServerDataLoad {
+        server_sources_with(root, item_data, overlay, || Ok(context.clone()))
+    } else {
+        Ok(Arc::new(
+            ResolvedSources::load(root, overlay, context)
+                .map_err(|error| std::io::Error::other(error.to_string()))?,
+        ))
+    }
 }
 
 /// Build server recipes privately so a refused reload leaves the current cache intact.
@@ -392,5 +424,26 @@ impl SyncPreload {
                 });
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod initial_source_tests {
+    use super::*;
+    use horizon_world::native_load_context::{DataLoadOrigin, LoadContext, LoadInputs};
+
+    #[test]
+    fn client_preload_propagates_source_errors_instead_of_empty_tables() {
+        let root = tempfile::tempdir().unwrap();
+        std::fs::write(root.path().join("items.json"), "{}").unwrap();
+        std::fs::create_dir_all(root.path().join("data/minecraft")).unwrap();
+        // A file where the recipe directory belongs is an owning-load error.
+        std::fs::write(root.path().join("data/minecraft/recipe"), "not a directory").unwrap();
+        let inputs = Arc::new(LoadInputs::new(Default::default(), Default::default()));
+        let context = LoadContext::new(DataLoadOrigin::ClientPreload, inputs, [] as [&str; 0]);
+        let data = ItemData::load(root.path(), context).unwrap();
+        assert!(
+            initial_sources(root.path(), &data, &horizon_world::loot::PackOverlay::NONE).is_err()
+        );
     }
 }

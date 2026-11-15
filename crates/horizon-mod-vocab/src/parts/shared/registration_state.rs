@@ -21,6 +21,7 @@ pub(crate) struct Installed {
     pub(crate) attribute_widenings: Vec<super::attributes::AttributeBoundsWidening>,
     pub(crate) general_entity_types: Vec<crate::parts::entity_types::GeneralEntityTypeDeclaration>,
     pub(crate) spawn_placements: Vec<SpawnPlacementDeclaration>,
+    pub(crate) entity_part_states: Vec<crate::entity::part_state::EntityPartStateDeclaration>,
     pub(crate) biome_modifiers: Vec<BiomeModifierDeclaration>,
     pub(crate) biome_regions: Vec<BiomeRegionDeclaration>,
     pub(crate) datapack_registries:
@@ -30,6 +31,7 @@ pub(crate) struct Installed {
     pub(crate) resolved_block_entity_types: OnceLock<horizon_mod_runtime::registry_keys::Names>,
     pub(crate) fluids: OnceLock<horizon_mod_runtime::registry_keys::Names>,
     pub(crate) resolved_items: OnceLock<horizon_mod_runtime::registry_keys::Names>,
+    pub(crate) resolved_game_events: OnceLock<horizon_mod_runtime::registry_keys::Names>,
     pub(crate) resolved_entity_types: OnceLock<horizon_mod_runtime::registry_keys::Names>,
     pub(crate) resolved_blocks: OnceLock<horizon_mod_runtime::block_definitions::Blocks>,
     pub(crate) particles: OnceLock<horizon_mod_runtime::registry_keys::Particles>,

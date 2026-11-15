@@ -562,6 +562,52 @@ impl Mob {
     pub fn height(&self) -> f32 {
         self.dims().1 as f32
     }
+    /// `EntityAttachment.NAME_TAG` of the current pose, before
+    /// `SubmitNodeCollector.submitNameTag` lifts it 0.5: the box height
+    /// (`EntityAttachment.Fallback.AT_HEIGHT`), unless the type attaches the
+    /// tag elsewhere, scaled like the box (`EntityDimensions.scale`).
+    pub fn name_tag_height(&self) -> f64 {
+        if self.kind.species == super::Species::Sniffer {
+            // `EntityTypes.SNIFFER`: `.nameTagOffset(2.05F)` over a 1.75 box.
+            // `Sniffer.DIGGING_DIMENSIONS` is built without the attachment, so
+            // a digging sniffer falls back to its 1.75 - 0.4 box.
+            let height = if super::sniffer::digging(self) {
+                1.75_f32 - 0.4
+            } else {
+                2.05_f32
+            };
+            // `getAgeScale()` (a baby sniffer is `Baby::Scale(0.5)`), then
+            // `getScale()`; `EntityAttachments.scale` multiplies the point in
+            // `Vec3`'s doubles, so these are double products.
+            let age = match super::species::def(self.kind.species).baby {
+                super::species::Baby::Scale(s, _) if self.is_baby() => s as f32,
+                _ => 1.0,
+            };
+            f64::from(height) * f64::from(age) * f64::from(self.model_scale())
+        } else {
+            f64::from(self.height())
+        }
+    }
+    /// `Entity.saveWithoutId`'s `CustomName`: the whole component as
+    /// `ComponentSerialization.CODEC` writes it (a name tag's `custom_name`
+    /// keeps its colour), else the plain text. `None` without a name.
+    pub fn custom_name_tag(&self) -> Option<horizon_core::nbt::Tag> {
+        let name = self.custom_name.as_ref()?;
+        Some(match &self.custom_name_text {
+            Some(text) => crate::scoreboard::component_tag(&text.component()),
+            None => horizon_core::nbt::Tag::String(name.as_str().into()),
+        })
+    }
+    /// Whether the save's `CustomName` is not this mob's name, style included:
+    /// a rename to the same text with another colour still changes it.
+    pub fn custom_name_changed(&self, saved: Option<&horizon_core::nbt::Tag>) -> bool {
+        match (&self.custom_name_text, saved) {
+            (Some(current), Some(saved)) => crate::entity_nbt::name_text(saved) != *current,
+            (Some(_), None) => true,
+            // A plain name with no component (a mod's) still compares as text.
+            (None, _) => saved.and_then(crate::entity_nbt::custom_name) != self.custom_name,
+        }
+    }
     /// `AgeableMob.isBaby`: `canBeABaby() && getAge() < 0`. The age alone is
     /// not enough — a frog, a parrot, a zombie nautilus, a camel husk, a slime,
     /// a magma cube, a piglin brute, a tadpole, or anything that is not an
@@ -1485,9 +1531,19 @@ impl Mob {
         &mut self,
         w: &MobWorld,
         level: &mut DamageLevel<'_>,
-        input: Vec3,
+        mut input: Vec3,
         events: &mut Vec<MobEvent>,
     ) {
+        // Camel.travel: on the ground, a camel that sits or changes pose keeps
+        // the vertical part of its motion and drops the horizontal input.
+        if super::camel::is_camel(self.species())
+            && self.on_ground
+            && super::camel::refuse_to_move(self)
+        {
+            let vertical = Vec3::new(0.0, 1.0, 0.0);
+            self.velocity = self.velocity.multiply(vertical);
+            input = input.multiply(vertical);
+        }
         if super::ai::custom_travel(self, w, level, input, events) {
             return;
         }
@@ -1562,7 +1618,8 @@ impl Mob {
     }
     /// LivingEntity.travelFlying: no gravity, `0.91F` drag in the air,
     /// `0.8F` in water and 0.5 in lava. A happy ghast swims as fast as it
-    /// flies (`HappyGhast.travel`); the others at 0.02.
+    /// flies (`HappyGhast.travel`, at its `flying_speed` attribute); the others
+    /// at 0.02.
     fn travel_flying(
         &mut self,
         w: &MobWorld,
@@ -1570,20 +1627,13 @@ impl Mob {
         input: Vec3,
         events: &mut Vec<MobEvent>,
     ) {
-        let fluid_speed = if self.species() == super::Species::HappyGhast {
-            self.kind.air_speed
+        let (fluid_speed, air_speed) = if self.species() == super::Species::HappyGhast {
+            let speed = super::happy_ghast::travel_speed(self);
+            (speed, speed)
         } else {
-            0.02
+            (0.02, self.kind.air_speed)
         };
-        self.travel_flying_speeds(
-            w,
-            level,
-            input,
-            events,
-            fluid_speed,
-            fluid_speed,
-            self.kind.air_speed,
-        );
+        self.travel_flying_speeds(w, level, input, events, fluid_speed, fluid_speed, air_speed);
     }
     /// `LivingEntity.travelFlying(input, waterSpeed, lavaSpeed, airSpeed)`:
     /// the speeds vary per mob (an allay flies at the speed its move control
@@ -2449,6 +2499,7 @@ mod tests {
     /// `LivingEntity.getJumpPower` multiplies the jump strength by the block jump factor of the
     /// block the mob stands on: honey halves a pig's jump, stone leaves it exactly its strength.
     #[test]
+    #[ignore = "daily"]
     fn a_mob_jumps_by_the_jump_factor_of_the_block_under_it() {
         let build = |world: &mut crate::world::World,
                      registry: &horizon_world::registry::BlockRegistry| {
@@ -3067,6 +3118,7 @@ mod tests {
     /// two blocks of water takes the plain water velocity from `travel`, and
     /// the lift (0.06 for each column block its box touches) on top of it.
     #[test]
+    #[ignore = "daily"]
     fn a_bubble_column_lifts_a_mob_after_travel_not_inside_it() {
         let mut test_level = crate::health::TestLevel::new(0);
         let level = &mut test_level.level();
@@ -3132,6 +3184,7 @@ mod tests {
     /// sand (0.4) or honey (0.4) keeps 40% of its horizontal speed each move,
     /// on stone it keeps all of it, and its vertical speed is untouched.
     #[test]
+    #[ignore = "daily"]
     fn a_mob_on_soul_sand_or_honey_is_slowed_by_the_move() {
         let mut test_level = crate::health::TestLevel::new(0);
         let level = &mut test_level.level();
@@ -3174,6 +3227,7 @@ mod tests {
     /// as it stops the player's (#7080). A border of size 10 around (8, 8)
     /// has its east wall at x = 13.
     #[test]
+    #[ignore = "daily"]
     fn the_world_border_stops_a_mob() {
         let mut test_level = crate::health::TestLevel::new(0);
         let level = &mut test_level.level();
@@ -3332,6 +3386,7 @@ mod tests {
     /// the move control did not ask to move, and every other species keep the
     /// hop they had.
     #[test]
+    #[ignore = "daily"]
     fn a_sniffers_hop_from_a_standstill_carries_it_forward() {
         use crate::mobs::Species;
         let sniffer = |speed: f64, sideways: f64| {
@@ -3390,6 +3445,7 @@ mod tests {
     /// 0.98); in vines each move down from the third on is held to 0.15F,
     /// and the fall distance, reset before each move, is that one move.
     #[test]
+    #[ignore = "daily"]
     fn a_mob_in_vines_slides_down_slowly() {
         let mut test_level = crate::health::TestLevel::new(0);
         let level = &mut test_level.level();
@@ -3472,6 +3528,7 @@ mod tests {
     /// climbable test; a ladder is not in that tag, so a glider still holds
     /// on to it.
     #[test]
+    #[ignore = "daily"]
     fn a_gliding_mob_passes_through_vines_but_not_a_ladder() {
         let build = |world: &mut crate::world::World,
                      registry: &horizon_world::registry::BlockRegistry| {
@@ -3495,6 +3552,7 @@ mod tests {
         });
     }
     #[test]
+    #[ignore = "daily"]
     fn damaging_mob_fall_plays_block_fall_sound() {
         let ran = crate::mobs::world::with_built_test_world(
             &[],
@@ -3532,7 +3590,7 @@ mod tests {
         );
         // Without the vanilla data under .local/horizon-client the world
         // cannot be built: the test has nothing to check.
-        let _ = ran;
+        assert!(ran, "vanilla data is missing");
     }
 
     /// `Entity.applyMovementEmissionAndPlaySound` asks `getMovementEmission`:
@@ -3543,6 +3601,7 @@ mod tests {
     /// `entity.silverfish.step` and is never heard either, and a shulker, whose
     /// emission is `NONE`, sends nothing at all.
     #[test]
+    #[ignore = "daily"]
     fn a_squid_and_a_bat_step_without_a_sound() {
         let build = |world: &mut crate::world::World,
                      registry: &horizon_world::registry::BlockRegistry| {
@@ -3761,6 +3820,7 @@ pub mod teleports;
 mod farmland_event_tests {
     use super::*;
     #[test]
+    #[ignore = "daily"]
     fn a_mob_trampling_farmland_posts_block_change_from_it() {
         let ran = crate::mobs::world::with_built_test_world(
             &[],
@@ -3804,7 +3864,7 @@ mod farmland_event_tests {
         );
         // Without the vanilla data under .local/horizon-client the world
         // cannot be built: the test has nothing to check.
-        let _ = ran;
+        assert!(ran, "vanilla data is missing");
     }
 }
 
@@ -3825,3 +3885,7 @@ fn fall_reset_hit(w: &MobWorld, from: Vec3, moved: Vec3) -> bool {
         moved,
     )
 }
+
+#[cfg(test)]
+#[path = "name_tag_nbt_tests.rs"]
+mod name_tag_nbt_tests;

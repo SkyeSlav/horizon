@@ -118,8 +118,8 @@ def touched_crates(paths, packages):
         if "horizon-client-lib" in packages and path.startswith("crates/horizon-client/"):
             relative = path.removeprefix("crates/horizon-client/")
             gameplay = relative in {"Cargo.toml", "build.rs", "windows-segment-heap.manifest",
-                                    "src/lib.rs", "src/main.rs", "src/entry.rs", "src/game.rs", "tests/launch_api.rs"} \
-                or relative.startswith("src/game/")
+                                    "src/lib.rs", "src/main.rs", "src/entry.rs", "src/game.rs"} \
+                or relative.startswith(("src/game/", "tests/it/"))
             crates.add("horizon-client" if gameplay else "horizon-client-lib")
             continue
         owners = [name for name, directory in packages.items() if path.startswith(directory.rstrip("/") + "/")]
@@ -206,12 +206,6 @@ def duration(seconds):
 
 def git(*arguments):
     return subprocess.run(["git", *arguments], cwd=ROOT, capture_output=True, check=True).stdout.decode("utf-8")
-
-
-def shallow_clone():
-    """A checkout without full history (outside a repository, `git` fails and this says no)."""
-    return subprocess.run(["git", "rev-parse", "--is-shallow-repository"], cwd=ROOT, capture_output=True,
-                          text=True).stdout.strip() == "true"
 
 
 def line_counts(base, changed):
@@ -400,9 +394,6 @@ def plan(args, base, changed, crates_of, libraries, dependencies):
         # docs/layers.md: a crate depends only on its own layer or a lower one, and the exceptions only shrink.
         Step("Layers", f"python3 tools/check_layers.py --base {shlex.quote(base)}", where="here"),
         Step("Addresses", f"python3 tools/check_addresses.py --base {shlex.quote(base)}", where="here"),
-        # The provenance check needs full history and fails closed on a shallow clone; CI checks a full one.
-        Step("File size", f"python3 tools/check_file_size.py --base {shlex.quote(base)}", where="here",
-             skip="not checked on a shallow clone" if shallow_clone() else None),
         # tools/hotspots/README.md: export brace lists stay at 12 names or under; longer ones only shrink.
         Step("Export lists", "python3 tools/hotspots/check_lists.py", where="here"),
         # tools/hotspots/check_stand_ins.py: test stand-ins keep up with the hooks and traits they mirror.
@@ -571,8 +562,6 @@ def run_windows(steps, verbose, environment=None):
             command = [sys.executable, "tools/check_layers.py", *command[2:]]
         elif step.name == "Addresses":
             command = [sys.executable, "tools/check_addresses.py", *command[2:]]
-        elif step.name == "File size":
-            command = [sys.executable, "tools/check_file_size.py", *command[2:]]
         elif step.name == "Export lists":
             command = [sys.executable, "tools/hotspots/check_lists.py"]
         elif step.name == "Test stand-ins":

@@ -230,7 +230,7 @@ class PrReadyTests(unittest.TestCase):
             self.assertEqual(pr_ready.touched_crates({f"crates/horizon-client/{path}"}, packages),
                              ["horizon-client-lib"])
         for path in ["src/lib.rs", "src/main.rs", "src/entry.rs", "src/game.rs", "src/game/items/combat.rs",
-                     "tests/launch_api.rs", "Cargo.toml", "build.rs"]:
+                     "tests/it/mod_api_hooks.rs", "Cargo.toml", "build.rs"]:
             self.assertEqual(pr_ready.touched_crates({f"crates/horizon-client/{path}"}, packages),
                              ["horizon-client"])
 
@@ -260,21 +260,6 @@ class PrReadyTests(unittest.TestCase):
                          "cargo test --locked -p horizon-client --tests")
         self.assertEqual(by_name["doc tests"].command, "cargo test --locked -p horizon-client --doc")
         self.assertIsNone(by_name["doc tests"].status)
-
-    def test_file_size_is_skipped_only_on_a_shallow_clone(self):
-        def file_size_step(shallow):
-            with mock.patch.object(pr_ready, "affected_here", return_value=[]), \
-                    mock.patch.object(pr_ready.subprocess, "run",
-                                      return_value=subprocess.CompletedProcess([], 0, stdout=shallow)) as run:
-                steps = pr_ready.plan(args(quick=True), "origin/main", {"tools/pr_ready.py"}, PACKAGES, LIBRARIES, DEPENDENCIES)
-            run.assert_called_once_with(["git", "rev-parse", "--is-shallow-repository"], cwd=pr_ready.ROOT,
-                                        capture_output=True, text=True)
-            return {step.name: step for step in steps}["File size"]
-        shallow = file_size_step("true\n")
-        self.assertEqual((shallow.status, shallow.detail), ("skip", "not checked on a shallow clone"))
-        full = file_size_step("false\n")
-        self.assertIsNone(full.status)
-        self.assertEqual(full.command, "python3 tools/check_file_size.py --base origin/main")
 
     def test_content_root_tests_run_only_when_what_they_load_changes(self):
         def content_step(path):
