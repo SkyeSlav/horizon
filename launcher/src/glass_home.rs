@@ -158,7 +158,7 @@ impl Launcher {
             .border_1()
             .border_color(white(ui::edge::REST))
             .child(ui::pill_origin(&origin));
-        for (i, (label, mark)) in [("Rust Edition", horizon), ("Java Edition", grass)]
+        for (i, (label, mark)) in [("Horizon", horizon), ("Java Edition", grass)]
             .into_iter()
             .enumerate()
         {
