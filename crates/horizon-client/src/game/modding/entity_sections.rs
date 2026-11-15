@@ -363,6 +363,19 @@ impl Game<'_> {
             moves.clear();
             return;
         };
+        // Saves need each crossing, but no listener needs a temporarily restored row.
+        // Keep the unsubscribed path free of the delivery index's allocation and scans.
+        if !mod_api::__private::listened(mod_api::HookId::EntityEnteringSection) {
+            for write in moves.drain(..).filter(|write| !write.delivered) {
+                sections.moved(
+                    scope,
+                    write.id,
+                    write.from.map(|from| [from.x, from.y, from.z]),
+                    [write.to.x, write.to.y, write.to.z],
+                );
+            }
+            return;
+        }
         let mut indices = horizon_client::fast_hash::FxHashMap::default();
         indices.extend(
             self.mobs
