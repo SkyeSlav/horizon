@@ -55,7 +55,7 @@ impl ResourceHandler<ItemResource> for Storage {
     ) -> u32 {
         panic!("a hopper push must use the handler's indexless insert")
     }
-    fn insert_any(
+    fn insert_resource(
         &self,
         host: &mut dyn ServerHost,
         tx: &Transaction,

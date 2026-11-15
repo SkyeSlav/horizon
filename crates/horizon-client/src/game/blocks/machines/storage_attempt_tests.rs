@@ -85,7 +85,7 @@ impl ResourceHandler<ItemResource> for Storage {
     ) -> u32 {
         panic!("automation must use the storage's indexless insertion")
     }
-    fn insert_any(
+    fn insert_resource(
         &self,
         host: &mut dyn ServerHost,
         tx: &Transaction,
@@ -118,7 +118,7 @@ impl ResourceHandler<ItemResource> for Storage {
         };
         if accept && forward {
             let sink = self.at.level.capability(host, &ITEMS, SINK, None).unwrap();
-            return sink.insert_any(host, tx, resource, amount);
+            return sink.insert_resource(host, tx, resource, amount);
         }
         let entity = self.entity(host);
         if accept {
@@ -224,7 +224,7 @@ impl BlockPart for Probe {
                 host.transaction(|host, tx| {
                     if let Some(resource) = source.resource(host, 0) {
                         let taken = source.extract(host, tx, 0, &resource, 1);
-                        assert_eq!(sink.insert_any(host, tx, &resource, taken), taken);
+                        assert_eq!(sink.insert_resource(host, tx, &resource, taken), taken);
                     }
                     if self.rules.lock().unwrap().replace_source_on_notice {
                         let stick = ItemResource::of(
@@ -279,7 +279,7 @@ impl BlockPart for CommitMover {
             let other = event.level.capability(host, &ITEMS, OTHER, None).unwrap();
             host.transaction(|host, tx| {
                 assert_eq!(source.extract(host, tx, 0, &resource, 1), 1);
-                assert_eq!(other.insert_any(host, tx, &resource, 1), 1);
+                assert_eq!(other.insert_resource(host, tx, &resource, 1), 1);
                 Ok::<_, ()>(())
             })
             .unwrap();

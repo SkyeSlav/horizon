@@ -73,7 +73,7 @@ impl Game<'_> {
             game.journal_block_entity_slot(pos, index);
             // Reserve the offered item before writable insertion notices can re-enter.
             let reserved = game.take_one(source, slot).ok_or(())?;
-            let went = part.insert_any(game, tx, &resource, 1);
+            let went = part.insert_resource(game, tx, &resource, 1);
             let accepted = part.checked(went, 1, &at) == Some(1);
             if !accepted {
                 match game.slot_mut_at(source, slot).ok_or(())? {

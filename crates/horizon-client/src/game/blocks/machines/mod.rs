@@ -1386,7 +1386,7 @@ impl Game<'_> {
                 let Some(mut one) = game.take_one(hopper, slot) else {
                     continue;
                 };
-                let went = part.insert_any(game, tx, &resource, 1);
+                let went = part.insert_resource(game, tx, &resource, 1);
                 let accepted = part.checked(went, 1, &at);
                 if accepted == Some(1) {
                     return Ok(());
