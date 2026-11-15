@@ -36,6 +36,9 @@ def main():
                 continue
             if crate.name == "horizon-client" and source.stem in lib_tests:
                 continue
+            # These fork-only tests each install the same process-wide render slots.
+            if crate.name == "horizon-client-render" and source.stem in {"render_slots", "world_view_slots"}:
+                continue
             if source.name == "main.rs":
                 # Upstream's generated module list replaces the old list and its source-text test.
                 git("rm", source)
