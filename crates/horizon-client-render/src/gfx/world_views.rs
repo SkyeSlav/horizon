@@ -407,6 +407,25 @@ mod tests {
     /// A view at the frame's camera sees as a screen view would; one elsewhere sees a point
     /// where its own camera-relative matrix does.
     #[test]
+    fn full_light_is_explicit_for_each_camera() {
+        let view = native_render::WorldView::new(1, DVec3::ZERO, 0.0, 0.0, 70.0, [64, 64]);
+        for view in [
+            view.clone(),
+            view.clone().with_mirror(),
+            view.with_clip_plane([0.0, 0.0, 1.0, -1.0]),
+        ] {
+            assert_eq!(
+                ViewCamera::new(&view, DVec3::ZERO, 512.0).world_view[3],
+                0.0
+            );
+            assert_eq!(
+                ViewCamera::new(&view.with_full_light(), DVec3::ZERO, 512.0).world_view[3],
+                1.0
+            );
+        }
+    }
+
+    #[test]
     fn a_view_sees_the_world_from_its_own_camera() {
         let frame_camera = DVec3::new(100.5, 70.0, -20.25);
         let at = |camera, yaw, pitch| {
