@@ -351,7 +351,7 @@ fn fixture(window: Arc<Window>) -> Result<(), Box<dyn std::error::Error>> {
         origin: [48, 96, 0],
         revision: 1,
         entities: 1,
-        vertices: quad(upright([61.0, 103.5, 62.0, 104.5], 6.0), 0xffff_8040)
+        vertices: quad(upright([61.0, 103.5, 62.0, 104.5], 6.0), 0xff40_80ff)
             .map(|v| Vertex {
                 pos: [v.pos[0] - 40.0, v.pos[1] + 8.0, v.pos[2] + 0.5],
                 light: 0,
@@ -525,13 +525,7 @@ fn fixture(window: Arc<Window>) -> Result<(), Box<dyn std::error::Error>> {
     write_png(&out.join("view_12.png"), drawn[1].1, &drawn[1].2)?;
     let middle = |pixels: &[[u8; 4]]| pixels[32 * 64 + 32];
     let (unlit, lit) = (middle(&drawn[0].2), middle(&drawn[1].2));
-    let blue = |pixels: &[[u8; 4]]| {
-        pixels
-            .chunks_exact(64)
-            .flat_map(|row| &row[24..40])
-            .filter(|p| p[..3] == [64, 128, 255])
-            .count()
-    };
+    let blue = |pixels: &[[u8; 4]]| count(pixels, [64, 128, 255]);
     assert_eq!(
         blue(&drawn[0].2),
         0,
@@ -545,7 +539,7 @@ fn fixture(window: Arc<Window>) -> Result<(), Box<dyn std::error::Error>> {
     );
     assert_eq!(
         &drawn[1].2[32 * 64 + 9][..3],
-        &[64, 128, 255],
+        &[255, 128, 64],
         "static block entity is fully lit"
     );
     assert_eq!(
