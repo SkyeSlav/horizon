@@ -39,18 +39,7 @@ fn the_difficulty_bonus_makes_bigger_slimes_and_magma_cubes() {
             let trials = 3000;
             for seed in 0..i64::from(trials) {
                 let mut m = cube(types, id, seed);
-<<<<<<< ours
                 run_finalize(&mut m, full());
-||||||| base
-                spawning::finalize(&mut m, &BiomeFacts::default(), &full());
-=======
-                spawning::finalize(
-                    &mut m,
-                    &BiomeFacts::default(),
-                    &full(),
-                    &mut LegacyRandom::new(seed),
-                );
->>>>>>> theirs
                 match m.extra.size {
                     1 => one += 1,
                     2 => two += 1,
@@ -72,18 +61,7 @@ fn the_difficulty_bonus_makes_bigger_slimes_and_magma_cubes() {
             let (mut one, mut two, mut four) = (0, 0, 0);
             for seed in 0..i64::from(trials) {
                 let mut m = cube(types, id, seed);
-<<<<<<< ours
                 run_finalize(&mut m, none());
-||||||| base
-                spawning::finalize(&mut m, &BiomeFacts::default(), &none());
-=======
-                spawning::finalize(
-                    &mut m,
-                    &BiomeFacts::default(),
-                    &none(),
-                    &mut LegacyRandom::new(seed),
-                );
->>>>>>> theirs
                 match m.extra.size {
                     1 => one += 1,
                     2 => two += 1,

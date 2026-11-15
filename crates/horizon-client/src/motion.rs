@@ -1716,7 +1716,6 @@ impl MotionWorld<'_, '_, '_> {
             mod_api::EntityWrite::Push(v) => {
                 self.player.velocity = self.player.velocity.add_vector(triple(v));
             }
-<<<<<<< ours
             mod_api::EntityWrite::SetMovement(v) => self.player.velocity = triple(v),
             mod_api::EntityWrite::StuckIn(v) => {
                 self.make_stuck_in_block(triple(v));
@@ -1739,232 +1738,6 @@ impl MotionWorld<'_, '_, '_> {
                         duration,
                         amplifier,
                     });
-||||||| base
-            let inside = !(powder_snow || content_top.is_some()) || {
-                let context = self.context();
-                let binding = self.collision_binding;
-                let shape = binding.collision_shape_with_context(
-                    &mut self.collisions(),
-                    state,
-                    p,
-                    &context,
-                )?;
-                powder_snow && (shape.is_empty() || shape.boxes() == VoxelShape::block().boxes())
-                    || {
-                        let offset = Vec3::new(f64::from(p.x), f64::from(p.y), f64::from(p.z));
-                        let mut boxes: Vec<_> = shape.moved(offset).boxes().to_vec();
-                        if let Some(top) = content_top {
-                            // The cauldron's shape or its content,
-                            // Block.column(12, 4, top).
-                            boxes.push(Aabb::new(
-                                Vec3::new(2.0 / 16.0, 4.0 / 16.0, 2.0 / 16.0).add_vector(offset),
-                                Vec3::new(14.0 / 16.0, top, 14.0 / 16.0).add_vector(offset),
-                            ));
-                        }
-                        self.player
-                            .dimensions
-                            .bounds(from)
-                            .collided_along_vector(to.subtract(from), &boxes)
-                    }
-            };
-            if inside && visited.insert(p.pack()) {
-                // The server's early pass: only what `makeStuckInBlock` does
-                // there, before the landing is checked.
-                if pass == BlockPass::ServerStuck {
-                    if matches!(name, "minecraft:cobweb" | "minecraft:sweet_berry_bush") {
-                        self.server_stuck_in_block();
-                    }
-                    continue;
-                }
-                crate::block_contact::emit(crate::block_contact::Event::Inside(
-                    crate::block_contact::Contact {
-                        entity: self.player.entity_id,
-                        kind: "minecraft:player",
-                        block: name,
-                        state,
-                        position: p,
-                    },
-                ));
-                // CactusBlock, CampfireBlock and the cauldrons' entityInside
-                // (`entity.hurt`, the fire and the fill level), and
-                // WitherRoseBlock's server-side effect.
-                match name {
-                    "minecraft:cactus" => self.environment_hurt("minecraft:cactus", 1.0)?,
-                    "minecraft:lava_cauldron" => self.lava_cauldron_inside()?,
-                    "minecraft:water_cauldron" | "minecraft:powder_snow_cauldron" => {
-                        self.layered_cauldron_inside(p);
-                    }
-                    "minecraft:wither_rose" => {
-                        self.player.events.push(MotionEvent::InsideWitherRose);
-                    }
-                    "minecraft:campfire" | "minecraft:soul_campfire" => {
-                        let lit = self
-                            .assets
-                            .registry
-                            .state(state)
-                            .and_then(|s| s.properties.get("lit"))
-                            .is_some_and(|v| v == "true");
-                        let damage = if name == "minecraft:campfire" {
-                            1.0
-                        } else {
-                            2.0
-                        };
-                        if lit {
-                            self.environment_hurt("minecraft:campfire", damage)?;
-                        }
-                    }
-                    "minecraft:sweet_berry_bush" if damage_only => {
-                        self.sweet_berry_bush_damage(state)?;
-                    }
-                    // HoneyBlock.entityInside: a server's player slides too, so
-                    // its fall distance resets (its client moves it).
-                    "minecraft:honey_block" => self.honey_block_inside(p)?,
-                    // PowderSnowBlock.entityInside's FREEZE and its server
-                    // snowflake (`ServerLevel.sendParticles`). The slowing is
-                    // the client's (`makeStuckInBlock`).
-                    "minecraft:powder_snow" if damage_only => {
-                        self.powder_snow_snowflake(p);
-                        entered.push((step, p));
-                    }
-                    _ => {}
-                }
-                // ServerPlayer.onInsideBlock: the server's pass reports it too,
-                // as the enter_block trigger is the server's to fire.
-                self.player.events.push(MotionEvent::EnterBlock { state });
-                if damage_only {
-                    continue;
-                }
-                match name {
-                    "minecraft:powder_snow" => {
-                        self.powder_snow_inside(p)?;
-                        entered.push((step, p));
-                    }
-                    "minecraft:cobweb" => self.web_inside(),
-                    "minecraft:sweet_berry_bush" => self.sweet_berry_bush_inside(state)?,
-                    "minecraft:bubble_column" => {
-                        let precise = moved_far || deflated.intersects(Aabb::block(p));
-                        self.bubble_column_inside(state, p, precise)?
-                    }
-                    "minecraft:nether_portal" => self
-                        .player
-                        .events
-                        .push(MotionEvent::InsidePortal { pos: p }),
-                    _ => {}
-=======
-            let inside = !(powder_snow || content_top.is_some()) || {
-                let context = self.context();
-                let binding = self.collision_binding;
-                let shape = binding.collision_shape_with_context(
-                    &mut self.collisions(),
-                    state,
-                    p,
-                    &context,
-                )?;
-                powder_snow && (shape.is_empty() || shape.boxes() == VoxelShape::block().boxes())
-                    || {
-                        let offset = Vec3::new(f64::from(p.x), f64::from(p.y), f64::from(p.z));
-                        let mut boxes: Vec<_> = shape.moved(offset).boxes().to_vec();
-                        if let Some(top) = content_top {
-                            // The cauldron's shape or its content,
-                            // Block.column(12, 4, top).
-                            boxes.push(Aabb::new(
-                                Vec3::new(2.0 / 16.0, 4.0 / 16.0, 2.0 / 16.0).add_vector(offset),
-                                Vec3::new(14.0 / 16.0, top, 14.0 / 16.0).add_vector(offset),
-                            ));
-                        }
-                        self.player
-                            .dimensions
-                            .bounds(from)
-                            .collided_along_vector(to.subtract(from), &boxes)
-                    }
-            };
-            if inside && visited.insert(p.pack()) {
-                // The server's early pass: only what `makeStuckInBlock` does
-                // there, before the landing is checked.
-                if pass == BlockPass::ServerStuck {
-                    // `PowderSnowBlock.entityInside` sticks a living entity only
-                    // while the block at its own feet is powder snow.
-                    let snow = name == "minecraft:powder_snow" && self.feet_in_powder_snow();
-                    if snow || matches!(name, "minecraft:cobweb" | "minecraft:sweet_berry_bush") {
-                        self.server_stuck_in_block();
-                    }
-                    continue;
-                }
-                crate::block_contact::emit(crate::block_contact::Event::Inside(
-                    crate::block_contact::Contact {
-                        entity: self.player.entity_id,
-                        kind: "minecraft:player",
-                        block: name,
-                        state,
-                        position: p,
-                    },
-                ));
-                // CactusBlock, CampfireBlock and the cauldrons' entityInside
-                // (`entity.hurt`, the fire and the fill level), and
-                // WitherRoseBlock's server-side effect.
-                match name {
-                    "minecraft:cactus" => self.environment_hurt("minecraft:cactus", 1.0)?,
-                    "minecraft:lava_cauldron" => self.lava_cauldron_inside()?,
-                    "minecraft:water_cauldron" | "minecraft:powder_snow_cauldron" => {
-                        self.layered_cauldron_inside(p);
-                    }
-                    "minecraft:wither_rose" => {
-                        self.player.events.push(MotionEvent::InsideWitherRose);
-                    }
-                    "minecraft:campfire" | "minecraft:soul_campfire" => {
-                        let lit = self
-                            .assets
-                            .registry
-                            .state(state)
-                            .and_then(|s| s.properties.get("lit"))
-                            .is_some_and(|v| v == "true");
-                        let damage = if name == "minecraft:campfire" {
-                            1.0
-                        } else {
-                            2.0
-                        };
-                        if lit {
-                            self.environment_hurt("minecraft:campfire", damage)?;
-                        }
-                    }
-                    "minecraft:sweet_berry_bush" if damage_only => {
-                        self.sweet_berry_bush_damage(state)?;
-                    }
-                    // HoneyBlock.entityInside: a server's player slides too, so
-                    // its fall distance resets (its client moves it).
-                    "minecraft:honey_block" => self.honey_block_inside(p)?,
-                    // PowderSnowBlock.entityInside's FREEZE and its server
-                    // snowflake (`ServerLevel.sendParticles`). The slowing is
-                    // the client's (`makeStuckInBlock`).
-                    "minecraft:powder_snow" if damage_only => {
-                        self.powder_snow_snowflake(p);
-                        entered.push((step, p));
-                    }
-                    _ => {}
-                }
-                // ServerPlayer.onInsideBlock: the server's pass reports it too,
-                // as the enter_block trigger is the server's to fire.
-                self.player.events.push(MotionEvent::EnterBlock { state });
-                if damage_only {
-                    continue;
-                }
-                match name {
-                    "minecraft:powder_snow" => {
-                        self.powder_snow_inside(p)?;
-                        entered.push((step, p));
-                    }
-                    "minecraft:cobweb" => self.web_inside(),
-                    "minecraft:sweet_berry_bush" => self.sweet_berry_bush_inside(state)?,
-                    "minecraft:bubble_column" => {
-                        let precise = moved_far || deflated.intersects(Aabb::block(p));
-                        self.bubble_column_inside(state, p, precise)?
-                    }
-                    "minecraft:nether_portal" => self
-                        .player
-                        .events
-                        .push(MotionEvent::InsidePortal { pos: p }),
-                    _ => {}
->>>>>>> theirs
                 }
             }
         }
@@ -2604,33 +2377,7 @@ impl EntityMoveWorld for MotionWorld<'_, '_, '_> {
         emission::apply_movement_emission(self, kind, movement, position, state)
     }
     fn block_speed_factor(&mut self) -> Result<f32> {
-<<<<<<< ours
-        let efficiency = self.player.attribute("minecraft:movement_efficiency")? as f32;
-        let location = self.location();
-        let context = self.loop_context;
-        let block = movement_support::block_speed_factor(
-            &mut RegistryMovementWorld {
-                properties: &self.resources.blocks,
-                world: self,
-                edits: &ModBlockFactors(context),
-            },
-            location,
-        )?;
-        Ok(block + efficiency * (1.0 - block))
-||||||| base
-        let efficiency = self.player.attribute("minecraft:movement_efficiency")? as f32;
-        let location = self.location();
-        let block = movement_support::block_speed_factor(
-            &mut RegistryMovementWorld {
-                properties: &self.resources.blocks,
-                world: self,
-            },
-            location,
-        )?;
-        Ok(block + efficiency * (1.0 - block))
-=======
         self.player_block_speed_factor()
->>>>>>> theirs
     }
 }
 // The player's footsteps and swim sounds. Flapping and the step game event
@@ -3253,7 +3000,8 @@ impl crate::block_contact::InsideWalk for PlayerInside<'_, '_, '_, '_> {
         // its one contact a tick, vanilla's `entityInside` count, comes from
         // the passes that follow.
         if self.pass == BlockPass::ServerStuck {
-            if matches!(name, "minecraft:cobweb" | "minecraft:sweet_berry_bush") {
+            let snow = name == "minecraft:powder_snow" && self.m.feet_in_powder_snow();
+            if snow || matches!(name, "minecraft:cobweb" | "minecraft:sweet_berry_bush") {
                 self.m.server_stuck_in_block();
             }
             return Ok(());

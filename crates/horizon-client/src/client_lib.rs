@@ -13,13 +13,9 @@ pub mod api_text;
 pub mod arrows;
 pub mod bed_geometry;
 pub mod block_contact;
-<<<<<<< ours
 pub mod block_sounds;
 pub mod item_damage;
-||||||| base
-=======
 pub mod packet_source;
->>>>>>> theirs
 pub mod parallel;
 pub mod powder_snow;
 #[cfg(test)]

@@ -211,14 +211,8 @@ impl FoodWorld for TickWorld<'_> {
             dead: self.dead,
             sync_velocity: self.sync_velocity,
             game_time: self.game_time,
-<<<<<<< ours
-            status: Default::default(),
-            helmet: false,
-||||||| base
-            status: Default::default(),
-=======
             status: self.status.clone(),
->>>>>>> theirs
+            helmet: false,
             blocking: None,
             blocked: 0.0,
             shield_damage: 0,

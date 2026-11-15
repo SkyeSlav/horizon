@@ -1562,14 +1562,8 @@ struct ReferenceParams { peak: f32, unused: f32, world: f32, debug: f32, share: 
     /// reaches them: the scene's up to a display at it, so there nothing differs; above it the
     /// display's, up to `SUN_CAP`.
     #[test]
-<<<<<<< ours
-    fn the_writers_light_is_the_same_on_every_display() {
-        let _gpu = crate::gfx::test_gpu::lock();
-||||||| base
-    fn the_writers_light_is_the_same_on_every_display() {
-=======
     fn the_writers_light_is_the_same_on_every_display_but_the_suns_disc() {
->>>>>>> theirs
+        let _gpu = crate::gfx::test_gpu::lock();
         let Some((device, queue)) = gpu() else {
             return;
         };
@@ -2296,6 +2290,7 @@ struct ReferenceParams { peak: f32, unused: f32, world: f32, debug: f32, share: 
 
     #[test]
     fn hdr_shaders_validate() {
+        let _gpu = crate::gfx::test_gpu::lock();
         let entity = super::super::entity_shader();
         for source in [
             &super::shader(),
@@ -2329,6 +2324,7 @@ struct ReferenceParams { peak: f32, unused: f32, world: f32, debug: f32, share: 
 
     #[test]
     fn hdr10_first_then_scrgb() {
+        let _gpu = crate::gfx::test_gpu::lock();
         let both = caps(&[
             (F::Bgra8UnormSrgb, S::SRGB),
             (F::Rgb10a2Unorm, S::BT2100_PQ | S::BT2100_HLG),
@@ -2344,6 +2340,7 @@ struct ReferenceParams { peak: f32, unused: f32, world: f32, debug: f32, share: 
 
     #[test]
     fn offscreen_offers_only_the_named_output() {
+        let _gpu = crate::gfx::test_gpu::lock();
         assert_eq!(named(Some("pq")), Some(Output::Pq));
         assert_eq!(named(Some("scrgb")), Some(Output::ScRgb));
         assert_eq!(named(Some("hdr10")), None);

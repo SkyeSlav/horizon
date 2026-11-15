@@ -2494,28 +2494,9 @@ fn push_entities(
         return;
     }
     let bounds = m.bounds();
-<<<<<<< ours
-    // The pusher's own isPushable, checked by `e.push(this)` before moving it.
-    let self_pushable = m.alive()
-        && m.species() != Species::Shulker
-        && !m.on_climbable
-        && (m.species() != Species::Creaking || super::creaking::can_move(m))
-        && (m.species() != Species::Warden || !super::warden::digging_or_emerging(m))
-        && !super::equine::is_vehicle(m);
-    // Each with whether it rides a vehicle (`Entity.isPassenger`) and
-    // whether it shares this one's root vehicle (`isPassengerOfSameVehicle`).
-||||||| base
-    // The pusher's own isPushable, checked by `e.push(this)` before moving it.
-    let self_pushable = m.alive()
-        && m.species() != Species::Shulker
-        && !m.on_climbable
-        && (m.species() != Species::Creaking || super::creaking::can_move(m))
-        && (m.species() != Species::Warden || !super::warden::digging_or_emerging(m))
-        && !super::equine::is_vehicle(m);
-=======
     // The pusher's own isPushable and isVehicle, checked by `e.push(this)`.
     let self_pushable = m.pushable() && !super::equine::is_vehicle(m);
->>>>>>> theirs
+    // Each passenger with whether it shares this one's root vehicle.
     let mut targets = super::world::take_push_targets();
     if let Some(p) = w.selected_player()
         // Entity.push: passengers of the same vehicle never push each other.
@@ -6075,23 +6056,11 @@ mod age_up_tests {
             let kind = Arc::new(types.types["minecraft:goat"].clone());
             let mut m = Mob::new(1, kind, Vec3::ZERO, 0.0);
             // As a natural spawn leaves it, then on its last baby tick.
-<<<<<<< ours
-            super::super::finalize::goat_spawn(&mut m);
+            super::super::finalize::goat_spawn(&mut m, &mut LegacyRandom::new(0));
             super::super::finalize::set_age(&mut m, -1, None);
             let (mut test_level, mut events) = (crate::health::TestLevel::new(0), Vec::new());
             let level = &mut test_level.level();
             tick(&mut m, w, level, &mut events);
-||||||| base
-            super::super::finalize::goat_spawn(&mut m);
-            super::super::finalize::set_age(&mut m, -1);
-            let (mut lr, mut events) = (LegacyRandom::new(0), Vec::new());
-            tick(&mut m, w, &mut lr, &mut events);
-=======
-            super::super::finalize::goat_spawn(&mut m, &mut LegacyRandom::new(0));
-            super::super::finalize::set_age(&mut m, -1);
-            let (mut lr, mut events) = (LegacyRandom::new(0), Vec::new());
-            tick(&mut m, w, &mut lr, &mut events);
->>>>>>> theirs
             out = Some((m.is_baby(), m.attrs.attack_damage));
         });
         let Some((baby, damage)) = out else {

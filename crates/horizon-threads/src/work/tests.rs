@@ -126,52 +126,6 @@ fn spans_nest_and_restore_the_outer_one() {
             || format!("outer {outer} inner {inner} none {none}"),
         )
     });
-<<<<<<< ours
-||||||| base
-    let samples: Vec<_> = records.iter().filter(|r| r.kind == Kind::Cpu).collect();
-    let share = |n: Option<&str>| {
-        let hits = samples
-            .iter()
-            .filter(|r| name(Space::Span, r.ctx.span) == n)
-            .count();
-        hits as f64 / samples.len() as f64
-    };
-    assert!(samples.len() > 50, "{} samples", samples.len());
-    assert!(
-        (share(Some("p-test-outer")) - 0.5).abs() < 0.15,
-        "{}",
-        share(Some("p-test-outer"))
-    );
-    assert!(
-        (share(Some("p-test-inner")) - 0.25).abs() < 0.15,
-        "{}",
-        share(Some("p-test-inner"))
-    );
-    assert!((share(None) - 0.25).abs() < 0.15, "{}", share(None));
-=======
-    let samples: Vec<_> = records.iter().filter(|r| r.kind == Kind::Cpu).collect();
-    let share = |n: Option<&str>| {
-        let hits = samples
-            .iter()
-            .filter(|r| name(Space::Span, r.ctx.span) == n)
-            .count();
-        hits as f64 / samples.len() as f64
-    };
-    // ~80 signals for 80 ms of CPU at 1 kHz; a loaded runner merges SIGPROFs while one is pending
-    // (41 on pull request #16483's run). 30 still gives each span's share a few samples.
-    assert!(samples.len() > 30, "{} samples", samples.len());
-    assert!(
-        (share(Some("p-test-outer")) - 0.5).abs() < 0.15,
-        "{}",
-        share(Some("p-test-outer"))
-    );
-    assert!(
-        (share(Some("p-test-inner")) - 0.25).abs() < 0.15,
-        "{}",
-        share(Some("p-test-inner"))
-    );
-    assert!((share(None) - 0.25).abs() < 0.15, "{}", share(None));
->>>>>>> theirs
 }
 
 #[test]

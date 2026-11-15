@@ -1022,22 +1022,10 @@ pub fn goat_spawn(m: &mut Mob, r: &mut impl RandomSource) {
     set_memory(m, "long_jump_cooling_down", i64::from(jump), i64::MAX);
     let ram = r.next_int_between_inclusive(600, 6000).unwrap_or(600);
     set_memory(m, "ram_cooldown_ticks", i64::from(ram), i64::MAX);
-<<<<<<< ours
-    m.extra.screaming = m.random.next_double() < 0.02;
-    age_boundary_reached(m, None);
-    if !m.is_baby() && m.random.next_float() < 0.1 {
-        let left = m.random.next_boolean();
-||||||| base
-    m.extra.screaming = m.random.next_double() < 0.02;
-    age_boundary_reached(m);
-    if !m.is_baby() && m.random.next_float() < 0.1 {
-        let left = m.random.next_boolean();
-=======
     m.extra.screaming = r.next_double() < 0.02;
-    age_boundary_reached(m);
+    age_boundary_reached(m, None);
     if !m.is_baby() && r.next_float() < 0.1 {
         let left = r.next_boolean();
->>>>>>> theirs
         m.extra.lost_horns[usize::from(!left)] = true;
     }
 }

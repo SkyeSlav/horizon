@@ -20,16 +20,9 @@ pub use mod_platform::content::crash::{clear_detail, enter_native_mod, set_detai
 use std::cell::{Cell, RefCell};
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
-<<<<<<< ours
-use std::sync::atomic::{AtomicBool, Ordering};
-||||||| base
-use std::sync::Mutex;
-use std::sync::atomic::{AtomicBool, Ordering};
-=======
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::time::{Duration, Instant};
->>>>>>> theirs
 
 use chrono::{DateTime, Local};
 use horizon_system::{command_output, machine_arch};

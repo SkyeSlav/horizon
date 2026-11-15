@@ -910,18 +910,9 @@ fn float_stars_keep_the_original_rgb_with_brightness_as_coverage() {
     }
 }
 
-<<<<<<< ours
-#[test]
-fn float_material_wrappers_keep_rgb_and_coverage_including_displacement() {
-    let _gpu = crate::gfx::test_gpu::lock();
-||||||| base
-#[test]
-fn float_material_wrappers_keep_rgb_and_coverage_including_displacement() {
-=======
 /// A device for the real material layout, which binds the terrain arrays and the pack's frame
 /// together.
 fn material_gpu() -> Option<(wgpu::Device, wgpu::Queue)> {
->>>>>>> theirs
     let instance = super::super::test_gpu::instance();
     let adapter = pollster::block_on(instance.request_adapter(&Default::default())).ok()?;
     if adapter.limits().max_sampled_textures_per_shader_stage < 19 {
@@ -939,6 +930,7 @@ fn material_gpu() -> Option<(wgpu::Device, wgpu::Queue)> {
 
 #[test]
 fn float_material_wrappers_keep_rgb_and_coverage_including_displacement() {
+    let _gpu = crate::gfx::test_gpu::lock();
     let Some((device, queue)) = material_gpu() else {
         return;
     };
@@ -982,6 +974,7 @@ fn float_material_wrappers_keep_rgb_and_coverage_including_displacement() {
 
 #[test]
 fn material_coverage_is_the_texture_s_unless_the_pack_declares_its_own() {
+    let _gpu = crate::gfx::test_gpu::lock();
     let Some((device, queue)) = material_gpu() else {
         eprintln!("material coverage GPU unavailable");
         return;
@@ -1178,6 +1171,7 @@ fn actual_translucent_writers_blend_their_own_light() {
 /// gains.
 #[test]
 fn lit_surfaces_stay_at_their_sdr_light() {
+    let _gpu = crate::gfx::test_gpu::lock();
     let Some((device, queue)) = gpu() else {
         eprintln!("HDR lit surface GPU unavailable");
         return;

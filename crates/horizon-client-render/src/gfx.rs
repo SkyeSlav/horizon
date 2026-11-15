@@ -6775,29 +6775,13 @@ impl Renderer {
     /// Whether ordinary entity models may be posed on the GPU (`Frame::skin`, `entity_skin::poses`).
     pub fn skins_entities(&self) -> bool {
         self.entity_skin.is_some()
-<<<<<<< ours
-            && !self.frame_gen.on
-            && self.pack_post.as_ref().is_none_or(|(_, post)| {
-                post.as_ref().is_some_and(|post| post.skins_entities())
-                    && !native_render::needs().entity_spans
-            })
-            && self.native.is_none()
-||||||| base
-            && !self.frame_gen.on
-            && self.pack_post.as_ref().is_none_or(|(_, post)| {
-                post.as_ref().is_some_and(|post| post.skins_entities())
-                    && !native_render::render_needs().entity_spans
-            })
-            && self.native.is_none()
-=======
             && entity_skin::poses(
                 self.frame_gen.on,
                 (self.pack_post.as_ref())
                     .map(|(_, p)| p.as_ref().is_some_and(|p| p.skins_entities())),
                 self.native.is_some(),
-                || native_render::render_needs().entity_spans,
+                || native_render::needs().entity_spans,
             )
->>>>>>> theirs
     }
 
     /// Whether the layers tagged `OIT_ENTITY` (the eyes render type's, horse

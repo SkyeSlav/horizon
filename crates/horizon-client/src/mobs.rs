@@ -3841,40 +3841,9 @@ impl Mob {
     pub fn damage(&mut self, level: &mut DamageLevel<'_>, amount: f32, source: Damage) -> bool {
         self.damage_with(level, amount, source, None)
     }
-<<<<<<< ours
-    /// `LivingEntity.isInvulnerableTo` and dead or removed: only #bypasses_invulnerability gets
-    /// past the flag. Fire-immune mobs also refuse fire, except a ghast's reflected fireball.
-    /// The guard every damage hook runs after (`LivingIncomingDamageEvent`).
-    pub fn refuses_damage(&self, source: &Damage) -> bool {
-        self.extra.client_side
-            || !self.alive()
-            || self.removed
-            || (self.is_invulnerable() && !source.kind.bypasses_invulnerability())
-            || (source.is_fire() && self.kind.flags.fire_immune && !self.reflected_fireball(source))
-    }
-    /// `Ghast.isReflectedFireball`: its fire immunity does not refuse a
-    /// player's return hit.
-    fn reflected_fireball(&self, source: &Damage) -> bool {
-        &*self.kind.id == "minecraft:ghast"
-            && source.kind == DamageKind::Fireball
-            && source.attacker == Some(Who::Player)
-||||||| base
-    /// `LivingEntity.isInvulnerableTo` and dead or removed: only #bypasses_invulnerability gets
-    /// past the flag. The guard every damage hook runs after (`LivingIncomingDamageEvent`).
-    pub fn refuses_damage(&self, source: &Damage) -> bool {
-        self.extra.client_side
-            || !self.alive()
-            || self.removed
-            || (self.is_invulnerable() && !source.kind.bypasses_invulnerability())
-    }
     /// `Entity.isInvulnerable`: `Invulnerable`, or `invulnerable_time` left.
     pub fn is_invulnerable(&self) -> bool {
         self.invulnerable_flag || self.invulnerable_time > 0
-=======
-    /// `Entity.isInvulnerable`: `Invulnerable`, or `invulnerable_time` left.
-    pub fn is_invulnerable(&self) -> bool {
-        self.invulnerable_flag || self.invulnerable_time > 0
->>>>>>> theirs
     }
     /// `LivingEntity.hurtServer`'s partial mob adapter, with health reductions inline.
     /// `damage` by a source with a weapon: `armor_effectiveness` runs the
@@ -4302,16 +4271,8 @@ impl Mob {
         let cloud = self.species() == Species::Enderman
             && direct == "minecraft:area_effect_cloud"
             && !self.removed
-<<<<<<< ours
-            && !(self.is_invulnerable() && !source.kind.bypasses_invulnerability());
-        let hurt = self.damage(level, amount, source);
-||||||| base
-            && !(self.is_invulnerable() && !source.kind.bypasses_invulnerability());
-        let hurt = self.damage(amount, source);
-=======
             && !self.is_invulnerable_to(&source);
-        let hurt = self.damage(amount, source);
->>>>>>> theirs
+        let hurt = self.damage(level, amount, source);
         if cloud {
             enderman::teleport_chance(self, &source);
         }

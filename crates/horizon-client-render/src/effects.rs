@@ -214,12 +214,19 @@ pub fn scaled_duration(duration: i32, scale: f32) -> i32 {
         ((duration as f32 * scale).floor() as i32).max(1)
     }
 }
-/// `MobEffect.particleFactory`: the omens have particles of their own, any
-/// other effect an entity effect in its colour, faint when ambient.
+/// `MobEffect.particleFactory`: the omens and the four effects `MobEffects`
+/// registers with a particle of their own (Wind Charged `SMALL_GUST`,
+/// Weaving `ITEM_COBWEB`, Oozing `ITEM_SLIME`, Infested `INFESTED`) show
+/// that one; any other effect an entity effect in its colour, faint when
+/// ambient.
 pub fn effect_particle(effect: &str, ambient: bool) -> Option<ParticleOptions> {
     Some(match effect.trim_start_matches("minecraft:") {
         "trial_omen" => ParticleOptions::simple(ParticleType::TrialOmen),
         "raid_omen" => ParticleOptions::simple(ParticleType::RaidOmen),
+        "wind_charged" => ParticleOptions::simple(ParticleType::SmallGust),
+        "weaving" => ParticleOptions::simple(ParticleType::ItemCobweb),
+        "oozing" => ParticleOptions::simple(ParticleType::ItemSlime),
+        "infested" => ParticleOptions::simple(ParticleType::Infested),
         other => {
             let color = potions::effect(other)?.color;
             let channel = |shift: u32| ((color >> shift) & 255) as f32 / 255.0;

@@ -674,47 +674,6 @@ fn corner_vertex(c: ArenaCorner, origin: vec4<f32>) -> TerrainOut {
     if opaque_quad(corner_layer(s.c), origin.w) { return to_wire(left_out()); }
     return to_wire(corner_vertex(s.c, origin));
 }
-<<<<<<< ours
-// HDR lighting: how far a surface's light carries it above paper white, 0 to 1. Only the
-// strongest light does, so dark stays as dark as in SDR; sky light by how the face meets the sun.
-fn hdr_scene(block: f32, sky: f32, facing: f32) -> f32 {
-    let b = smoothstep(11.0, 15.0, block);
-    let s = smoothstep(11.0, 15.0, sky) * globals.hdr_light.x * facing;
-    return max(b, s);
-}
-// The frame's alpha for it, between 1 (none) and the light sources' marks below 0.75.
-fn hdr_scene_alpha(scene: f32) -> f32 {
-    return 1.0 - 0.24 * scene;
-}
-// The face's normal, from the fragment's derivatives, for how it faces the sun.
-var<private> hdr_normal: vec3<f32>;
-// The normal of the face through `dx` and `dy` (the position's screen derivatives): a mirrored
-// world view's x runs the other way, which would turn it round.
-fn screen_normal(dx: vec3<f32>, dy: vec3<f32>) -> vec3<f32> {
-    return normalize(cross(dy, dx)) * select(1.0, -1.0, globals.world_view.x < 0.0);
-}
-fn hdr_facing() -> f32 {
-    return mix(0.45, 1.0, max(dot(hdr_normal, globals.sun.xyz), 0.0));
-}
-||||||| base
-// HDR lighting: how far a surface's light carries it above paper white, 0 to 1. Only the
-// strongest light does, so dark stays as dark as in SDR; sky light by how the face meets the sun.
-fn hdr_scene(block: f32, sky: f32, facing: f32) -> f32 {
-    let b = smoothstep(11.0, 15.0, block);
-    let s = smoothstep(11.0, 15.0, sky) * globals.hdr_light.x * facing;
-    return max(b, s);
-}
-// The frame's alpha for it, between 1 (none) and the light sources' marks below 0.75.
-fn hdr_scene_alpha(scene: f32) -> f32 {
-    return 1.0 - 0.24 * scene;
-}
-// The face's normal, from the fragment's derivatives, for how it faces the sun.
-var<private> hdr_normal: vec3<f32>;
-fn hdr_facing() -> f32 {
-    return mix(0.45, 1.0, max(dot(hdr_normal, globals.sun.xyz), 0.0));
-}
-=======
->>>>>>> theirs
 fn terrain_vertex(position: vec3<f32>, uv: vec2<f32>, layer: u32, color: vec4<f32>,
     light: vec2<u32>, origin: vec3<f32>, w: f32) -> TerrainOut {
     let pos = position + origin;
@@ -784,16 +743,6 @@ fn hdr_mark(tier: u32, y: f32) -> f32 {
 // `fs_solid` for the opaque pass (`opaque_quad`): no fade, no cutout, no discard.
 @fragment fn fs_opaque(wire: TerrainWire) -> @location(0) vec4<f32> {
     let in = from_wire(wire);
-<<<<<<< ours
-    if HDR_LIGHTING && globals.hdr_light.z != 0.0 {
-        hdr_normal = screen_normal(dpdx(in.local), dpdy(in.local));
-    }
-||||||| base
-    if HDR_LIGHTING && globals.hdr_light.z != 0.0 {
-        hdr_normal = normalize(cross(dpdy(in.local), dpdx(in.local)));
-    }
-=======
->>>>>>> theirs
     let texel = sprite(in.uv, in.layer & 0x7fffu);
     var color = texel * in.color;
     color = mix(globals.fog_color * vec4(1.0, 1.0, 1.0, color.a), color, in.visibility);
@@ -809,16 +758,6 @@ fn hdr_mark(tier: u32, y: f32) -> f32 {
 fn solid_color(in: TerrainOut) -> vec4<f32> {
     let dx = dpdx(in.local);
     let dy = dpdy(in.local);
-<<<<<<< ours
-    if HDR_LIGHTING && globals.hdr_light.z != 0.0 {
-        hdr_normal = screen_normal(dx, dy);
-    }
-||||||| base
-    if HDR_LIGHTING && globals.hdr_light.z != 0.0 {
-        hdr_normal = normalize(cross(dy, dx));
-    }
-=======
->>>>>>> theirs
     if faded(in.fade, in.local, dx, dy) { discard; }
     // Bit 15 of the layer marks opaque leaves (forceOpaque): no alpha cutout.
     let texel = sprite(in.uv, in.layer & 0x7fffu);
@@ -883,16 +822,6 @@ fn solid_finish_at(in: TerrainOut, texel: vec4<f32>, color: vec4<f32>, du: vec2<
 // behind it, light sources included, alone.
 @fragment fn fs_translucent_mark(wire: TerrainWire) -> @location(0) vec4<f32> {
     let in = from_wire(wire);
-<<<<<<< ours
-    let dx = dpdx(in.local);
-    let dy = dpdy(in.local);
-    hdr_normal = screen_normal(dx, dy);
-||||||| base
-    let dx = dpdx(in.local);
-    let dy = dpdy(in.local);
-    hdr_normal = normalize(cross(dy, dx));
-=======
->>>>>>> theirs
     if sprite(in.uv, in.layer & 0x7fffu).a < 0.6 { discard; }
     return vec4(0.0, 0.0, 0.0, 1.0);
 }
@@ -901,16 +830,6 @@ fn solid_finish_at(in: TerrainOut, texel: vec4<f32>, color: vec4<f32>, du: vec2<
 // pixels showed the layer behind through the one in front, twice the water.
 @fragment fn fs_translucent(wire: TerrainWire) -> @location(0) vec4<f32> {
     let in = from_wire(wire);
-<<<<<<< ours
-    if HDR_WRITE_LIGHT && globals.hdr_light.w != 0.0 {
-        hdr_normal = screen_normal(dpdx(in.local), dpdy(in.local));
-    }
-||||||| base
-    if HDR_WRITE_LIGHT && globals.hdr_light.w != 0.0 {
-        hdr_normal = normalize(cross(dpdy(in.local), dpdx(in.local)));
-    }
-=======
->>>>>>> theirs
     let texel = sprite(in.uv, in.layer & 0x7fffu);
     var color = texel * in.color;
     color = mix(globals.fog_color * vec4(1.0, 1.0, 1.0, color.a), color, in.visibility);

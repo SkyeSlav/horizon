@@ -292,13 +292,7 @@ pub trait SpawnerExt: Sized {
         l: &L,
         random: &mut R,
         pos: [i32; 3],
-<<<<<<< ours
-        spawn: &mut dyn FnMut(&L, &SpawnerSpawn, &mut R) -> Option<SpawnerAdded>,
-||||||| base
-        spawn: &mut dyn FnMut(&L, &SpawnerSpawn) -> Option<SpawnerAdded>,
-=======
         spawn: &mut dyn FnMut(&L, &mut R, &SpawnerSpawn) -> Option<SpawnerAdded>,
->>>>>>> theirs
         events: &mut Vec<SpawnerEvent>,
     );
     /// `clientTick`: with a player near and a mob to show, a smoke and flame
@@ -470,13 +464,7 @@ impl SpawnerExt for Spawner {
         l: &L,
         random: &mut R,
         pos: [i32; 3],
-<<<<<<< ours
-        spawn: &mut dyn FnMut(&L, &SpawnerSpawn, &mut R) -> Option<SpawnerAdded>,
-||||||| base
-        spawn: &mut dyn FnMut(&L, &SpawnerSpawn) -> Option<SpawnerAdded>,
-=======
         spawn: &mut dyn FnMut(&L, &mut R, &SpawnerSpawn) -> Option<SpawnerAdded>,
->>>>>>> theirs
         events: &mut Vec<SpawnerEvent>,
     ) {
         if !self.near_player(l, pos) || !l.spawner_blocks_work() {
@@ -615,13 +603,7 @@ impl SpawnerExt for Spawner {
                 equipment: data.equipment.as_ref(),
                 trial: false,
             };
-<<<<<<< ours
-            let Some(result) = spawn(l, &request, random) else {
-||||||| base
-            let Some(result) = spawn(l, &request) else {
-=======
             let Some(result) = spawn(l, random, &request) else {
->>>>>>> theirs
                 self.delay(random, events);
                 return;
             };

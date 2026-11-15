@@ -294,10 +294,12 @@ impl MotionWorld<'_, '_, '_> {
         let efficiency = self.player.attribute("minecraft:movement_efficiency")? as f32;
         let flying = self.player.flying || self.player.fall_flying;
         let location = self.location();
+        let context = self.loop_context;
         Ok(movement_support::player_block_speed_factor(
             &mut RegistryMovementWorld {
                 properties: &self.resources.blocks,
                 world: self,
+                edits: &ModBlockFactors(context),
             },
             location,
             flying,

@@ -105,27 +105,13 @@ impl RandomSequences {
         self.sequences.insert(id, random);
     }
     /// `RandomSequences.CODEC` (`random_sequences.dat`'s data).
-<<<<<<< ours
     pub fn to_nbt(&self) -> horizon_core::nbt::Tag {
         use horizon_core::nbt::Tag;
-        let sequences = self
-            .sequences
-            .iter()
-||||||| base
-    pub fn to_nbt(&self) -> horizon_world::nbt::Tag {
-        use horizon_world::nbt::Tag;
-        let sequences = self
-            .sequences
-            .iter()
-=======
-    pub fn to_nbt(&self) -> horizon_world::nbt::Tag {
-        use horizon_world::nbt::Tag;
         let mut all: BTreeMap<&str, &XoroshiroRandom> =
             self.lent.iter().map(|(id, r)| (id.as_str(), r)).collect();
         all.extend(self.sequences.iter().map(|(id, r)| (id.as_str(), r)));
         let sequences = all
             .into_iter()
->>>>>>> theirs
             .map(|(id, r)| {
                 let (lo, hi) = r.state_words();
                 (
