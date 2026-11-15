@@ -5927,7 +5927,7 @@ mod merchant_packet_tests {
                     dragging: false,
                     focused: None,
                     mob: Some(77),
-                    name: Some("Packet timing".into()),
+                    name: Some(crate::text::Text::literal("Packet timing")),
                 },
             );
             fn packets(
@@ -6069,7 +6069,7 @@ mod merchant_packet_tests {
                     dragging: false,
                     focused: None,
                     mob: Some(77),
-                    name: Some("Level-up packet timing".into()),
+                    name: Some(crate::text::Text::literal("Level-up packet timing")),
                 },
             );
             let opened = packets(&rx).0;
