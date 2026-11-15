@@ -933,9 +933,9 @@ pub enum PanelEvent {
         /// The item the pointer was on.
         stack: Stack,
     },
-    /// A click on a slot of a recipe the panel shows: the recipe's index in
-    /// `native_panel_recipes`' list and the slot's in it (the results come
-    /// after the slots), and the stack it showed then.
+    /// A click on a slot of a recipe the panel shows (`panel_recipes`): the
+    /// recipe's index in the page's `recipes` and the slot's in it (the results
+    /// come after the slots), and the stack it showed then.
     SlotClicked {
         /// The recipe's index in the panel's list.
         recipe: u32,
@@ -946,14 +946,17 @@ pub enum PanelEvent {
         /// Whether it was a right click.
         right: bool,
     },
-    /// The action button of the recipe at this index.
+    /// The action button of the recipe at this index of the `panel_recipes`
+    /// page.
     Action(u32),
-    /// The player turned the recipes' page: the index of the first recipe
-    /// now shown.
+    /// The player turned the `panel_recipes` page: the index of the first
+    /// recipe now shown.
     Page(u32),
-    /// The recipe page's back button.
+    /// The `panel_recipes` page's back button; the mod decides what follows
+    /// (`panel_recipes(mod_id, None)` shows the items again).
     Back,
-    /// The player picked the tab at this index.
+    /// The player picked the tab at this index of the `panel_recipes` page's
+    /// `tabs`.
     Tab(u32),
 }
 

@@ -86,6 +86,17 @@ pub trait RecipesClientHost {
     #[access(WorldOnly)]
     fn panel_style(&mut self, mod_id: &str, style: PanelStyle);
     /// Side: client.
+    /// Shows `page` in mod `mod_id`'s item panel instead of its items, drawn by
+    /// the game with its own slots (`RecipePage`, `RecipeView`): a title and a
+    /// back button, tabs, and the recipes paged to the panel's height. `None`,
+    /// or a page without recipes, shows the items again. The renderer's limits
+    /// are cut, never refused: 256 recipes and 16 tabs a page, 27 slots, 4
+    /// results and 8 fluids each way a recipe, 64 stacks a slot. The same title
+    /// and tab again keep the page the player turned to. Clicks on its slots,
+    /// actions, page turns, the back button and tabs come back as `panel_event`.
+    #[access(WorldOnly)]
+    fn panel_recipes(&mut self, mod_id: &str, page: Option<RecipePage>);
+    /// Side: client.
     /// Places a recipe in the open screen's grid as a click in the recipe
     /// book does (`ServerboundPlaceRecipePacket`): the inventory's grid or a
     /// crafting table's. `all` places as many as the items allow, as with

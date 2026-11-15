@@ -54,6 +54,7 @@ pub mod particles;
 #[doc(hidden)]
 pub mod player_chat;
 pub(crate) mod posed_parts;
+pub(crate) mod recipe_page;
 pub(crate) mod render_pipeline;
 pub(crate) mod scene;
 pub(crate) mod screenshot;
