@@ -283,7 +283,6 @@ impl Game<'_> {
         }
     }
 }
-<<<<<<< ours
 
 #[cfg(test)]
 mod stack_limit_tests {
@@ -297,8 +296,6 @@ mod stack_limit_tests {
         assert!(super::accepts(Some(10), Some(&stack)));
     }
 }
-||||||| base
-=======
 
 /// `ShelfBlockEntity.getVisualRotationYInDegrees`: `facing.getOpposite().toYRot()`,
 /// where `Direction.toYRot` is `(data2d & 3) * 90` and `data2d` is north 2, south 0,
@@ -313,6 +310,5 @@ fn shelf_owner_yaw(facing: &str) -> f32 {
 }
 
 #[cfg(test)]
-#[path = "shelf_compass_tests.rs"]
+#[path = "tests/shelf_compass_tests.rs"]
 mod shelf_compass_tests;
->>>>>>> theirs

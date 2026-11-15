@@ -88,19 +88,6 @@ impl Game<'_> {
         if !occupied {
             return Some(Answer::Consume);
         }
-<<<<<<< ours
-        let retrieved = self.bookshelf_items(pos)?[slot].take();
-        self.chiseled_bookshelf_update_state(pos, slot);
-        let sound = if retrieved
-            .as_ref()
-            .is_some_and(|s| &*s.item == "minecraft:enchanted_book")
-        {
-||||||| base
-        // removeBook: the book goes to the inventory, or is dropped.
-        let retrieved = self.bookshelf_items(pos)?[slot].take()?;
-        self.chiseled_bookshelf_update_state(pos, slot);
-        let sound = if &*retrieved.item == "minecraft:enchanted_book" {
-=======
         // removeBook: the book goes to the inventory, or is dropped. A slot the
         // state calls occupied but that holds nothing still plays the pickup
         // and posts `BLOCK_CHANGE`; only `removeItem`'s update needs a book.
@@ -112,23 +99,14 @@ impl Game<'_> {
             .as_ref()
             .is_some_and(|book| &*book.item == "minecraft:enchanted_book")
         {
->>>>>>> theirs
             "minecraft:block.chiseled_bookshelf.pickup.enchanted"
         } else {
             "minecraft:block.chiseled_bookshelf.pickup"
         };
         self.audio.play(sound, Some(centre), 1.0, 1.0);
-<<<<<<< ours
-        if let Some(retrieved) = retrieved {
-            self.give_or_drop(retrieved);
-        }
-||||||| base
-        self.give_or_drop(retrieved);
-=======
         if let Some(book) = retrieved {
             self.give_or_drop(book);
         }
->>>>>>> theirs
         self.post_block_game_event("minecraft:block_change", pos, Some(Who::Player), None);
         Some(Answer::Success)
     }
@@ -217,5 +195,5 @@ impl Game<'_> {
 }
 
 #[cfg(test)]
-#[path = "chiseled_bookshelf_tests.rs"]
+#[path = "tests/chiseled_bookshelf_tests.rs"]
 mod tests;

@@ -75,83 +75,10 @@ impl Game<'_> {
             inserted.push(slot);
         }
     }
-<<<<<<< ours
     /// `EnchantmentsByCostWithDifficulty.enchant` on the stack the mob holds
     /// in a `finalize` slot: nothing is drawn when the slot is empty.
     pub(super) fn enchant_item(&mut self, id: u32, slot: usize, special: f32) {
         let Some(stack) = self
-||||||| base
-    /// `Mob.populateDefaultEquipmentEnchantments`: the weapon one time in
-    /// four and each piece of armour one time in two, scaled by the local
-    /// difficulty, enchanted as if at an enchanting table of cost 5 to 22.
-    pub(super) fn enchant_spawn_equipment(&mut self, id: u32) {
-        let Some(m) = self.mobs.iter().find(|m| m.id == id) else {
-            return;
-        };
-        let species = m.species();
-        if !enchants_spawn_gear(species) {
-            return;
-        }
-        let special = self
-            .local_difficulty([m.position.x, m.position.y, m.position.z])
-            .special();
-        self.enchant_slot(id, MAIN, 0.25, special);
-        for slot in ARMOR {
-            self.enchant_slot(id, slot, 0.5, special);
-        }
-        // Pillager.enchantSpawnedWeapon: one crossbow in 300 pierces.
-        if species == Species::Pillager && self.world.random.next_int_bound(300).unwrap_or(1) == 0 {
-            self.enchant_single(id, MAIN, "minecraft:piercing", 1, "minecraft:crossbow");
-        }
-    }
-    /// `Zombie` / `AbstractSkeleton` halloween pumpkin after spawn gear.
-    pub(super) fn halloween_spawn_head(&mut self, id: u32) {
-        let halloween = horizon_client::mobs::finalize::is_halloween();
-        let Some(i) = self.mobs.iter().position(|m| m.id == id) else {
-            return;
-        };
-        let mut random = self.mobs[i].random.clone();
-        horizon_client::mobs::finalize::halloween_head(&mut self.mobs[i], &mut random, halloween);
-        self.mobs[i].random = random;
-    }
-    fn enchant_slot(&mut self, id: u32, slot: usize, chance: f32, special: f32) {
-        let Some(item) = self
-=======
-    /// `Mob.populateDefaultEquipmentEnchantments`: the weapon one time in
-    /// four and each piece of armour one time in two, scaled by the local
-    /// difficulty, enchanted as if at an enchanting table of cost 5 to 22.
-    pub(super) fn enchant_spawn_equipment(&mut self, id: u32) {
-        let Some(m) = self.mobs.iter().find(|m| m.id == id) else {
-            return;
-        };
-        let species = m.species();
-        if !enchants_spawn_gear(species) {
-            return;
-        }
-        let special = self
-            .local_difficulty([m.position.x, m.position.y, m.position.z])
-            .special();
-        self.enchant_slot(id, MAIN, 0.25, special);
-        for slot in ARMOR {
-            self.enchant_slot(id, slot, 0.5, special);
-        }
-        // Pillager.enchantSpawnedWeapon: one crossbow in 300 pierces.
-        if species == Species::Pillager && self.world.random.next_int_bound(300).unwrap_or(1) == 0 {
-            self.enchant_single(id, MAIN, "minecraft:piercing", 1, "minecraft:crossbow");
-        }
-    }
-    /// `Zombie` / `AbstractSkeleton` halloween pumpkin after spawn gear.
-    pub(super) fn halloween_spawn_head(&mut self, id: u32) {
-        let halloween = horizon_client::mobs::finalize::is_halloween();
-        let Some(i) = self.mobs.iter().position(|m| m.id == id) else {
-            return;
-        };
-        let random = &mut self.world.random;
-        horizon_client::mobs::finalize::halloween_head(&mut self.mobs[i], random, halloween);
-    }
-    fn enchant_slot(&mut self, id: u32, slot: usize, chance: f32, special: f32) {
-        let Some(item) = self
->>>>>>> theirs
             .mobs
             .iter()
             .find(|m| m.id == id)

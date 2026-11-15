@@ -133,13 +133,8 @@ impl Game<'_> {
                             origin[1] + dir[1] * t,
                             origin[2] + dir[2] * t,
                         ],
-<<<<<<< ours
                         // No face entered: the eyes are in the shape.
                         inside: face == [0; 3],
-||||||| base
-=======
-                        inside: false,
->>>>>>> theirs
                     });
                 }
             }
@@ -156,14 +151,9 @@ impl Game<'_> {
                         origin[1] + dir[1] * t,
                         origin[2] + dir[2] * t,
                     ],
-<<<<<<< ours
-                    inside: face == [0; 3],
-||||||| base
-=======
                     // A fluid hit's inside flag is never read: a placement
                     // onto a fluid aims at the block above it.
                     inside: false,
->>>>>>> theirs
                 });
             }
             let axis = if t_max[0] < t_max[1] {

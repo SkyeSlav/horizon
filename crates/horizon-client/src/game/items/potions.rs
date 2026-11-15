@@ -115,7 +115,6 @@ fn thrown_left_owner(ridden: &[Aabb], position: Vec3, velocity: Vec3) -> bool {
 pub(super) const LINGERING_WAIT: i32 = 10;
 /// `AreaEffectCloud.DEFAULT_REAPPLICATION_DELAY`.
 const REAPPLICATION_DELAY: i32 = 20;
-<<<<<<< ours
 /// `AreaEffectCloud.readAdditionalSaveData` for the fields a client cloud keeps:
 /// its position, lifetime, radius and use settings, and the potion it carries.
 /// The custom particle and the owner reference are not modelled on a client
@@ -277,16 +276,8 @@ pub(super) fn potion_cloud_to_nbt(c: &Breath, uuid: [i32; 4], raw: Option<&Tag>)
     tag
 }
 
-||||||| base
-mod cloud_nbt;
 mod cloud_particle;
-pub(in crate::game) use cloud_nbt::{potion_cloud_from_nbt, potion_cloud_to_nbt};
-=======
-mod cloud_nbt;
-mod cloud_particle;
-pub(in crate::game) use cloud_nbt::{potion_cloud_from_nbt, potion_cloud_to_nbt};
 pub(in crate::game) use cloud_particle::particle_options;
->>>>>>> theirs
 /// An entity a cloud has affected (`AreaEffectCloud.victims`).
 #[derive(Clone, Copy, PartialEq)]
 pub(super) enum Victim {
@@ -496,7 +487,6 @@ impl Game<'_> {
             );
         }
         if effects.contains(&"wind_charged") {
-<<<<<<< ours
             // A burst centred at half the height, radius 3 to 5.
             let center = [feet.x, feet.y + bounds.size().y / 2.0, feet.z];
             let r = random.unwrap_or(&mut self.world.random);
@@ -511,16 +501,13 @@ impl Game<'_> {
                 source: bearer,
                 owner: bearer,
             };
-            let _ = self.wind_burst(center, radius, 1.0, false, false, cause);
-||||||| base
-            // A burst centred at half the height, radius 3 to 5.
-            let center = [feet.x, feet.y + bounds.size().y / 2.0, feet.z];
-            let r = random.unwrap_or(&mut self.world.random);
-            let radius = 3.0 + r.next_float() * 2.0;
-            let _ = self.wind_burst(center, radius, 1.0, false, false);
-=======
-            let _ = self.wind_charged_burst(bounds, player, silent, random);
->>>>>>> theirs
+            let _ = self.wind_burst(
+                center,
+                radius,
+                1.0,
+                super::wind::Source::wind_charged(player, silent),
+                cause,
+            );
         }
     }
     /// `WeavingMobEffect.spawnCobwebsRandomlyAround`: two or three cobwebs in

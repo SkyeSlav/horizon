@@ -1,19 +1,6 @@
 //! `/execute` (ExecuteCommand): walk the parsed redirect chain, forking and
 //! filtering command sources, then run the final command once per source,
 //! reporting each result to the `store` callbacks of its source.
-<<<<<<< ours
-use super::{Arg, Context, Dim, Game, R, Target, data::DataRef, err};
-use horizon_client::{command::CommandError, nbt_path::NbtPath, text::Text};
-use horizon_core::nbt::Tag;
-||||||| base
-use super::{Arg, Context, Dim, Game, R, Target, data::DataRef, err};
-use horizon_client::{
-    command::{CommandError, vanilla},
-    nbt_path::NbtPath,
-    text::Text,
-};
-use horizon_world::{dimension_type::DimensionFacts, nbt::Tag};
-=======
 use super::{Arg, Context, Dim, Game, R, Target, data::DataRef, err, wrap_degrees};
 use horizon_client::{
     command::{CommandError, vanilla},
@@ -22,7 +9,6 @@ use horizon_client::{
 };
 use horizon_core::geometry::trig;
 use horizon_world::{dimension_type::DimensionFacts, nbt::Tag};
->>>>>>> theirs
 
 /// `CommandSourceStack` fields Horizon models: the executing entity (None for
 /// the server), position, rotation, anchor, whether feedback is suppressed

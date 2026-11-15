@@ -98,16 +98,11 @@ fn matches_name(pattern: &str, name: &str) -> bool {
 impl Game<'_> {
     /// The item's default `minecraft:rarity` ("common" when it has none).
     pub(in crate::game) fn item_rarity(&self, item: &str) -> String {
-        static RARITY: std::sync::OnceLock<std::collections::HashMap<String, String>> =
-            std::sync::OnceLock::new();
-        let map = RARITY.get_or_init(|| {
-            horizon_world::item_defaults::read(&self.options.resources)
-                .unwrap_or_default()
-                .into_iter()
-                .filter_map(|(k, c)| c["minecraft:rarity"].as_str().map(|r| (k, r.to_owned())))
-                .collect()
-        });
-        map.get(item).cloned().unwrap_or_else(|| "common".into())
+        self.items()
+            .enchantments
+            .props
+            .get(item)
+            .map_or_else(|| "common".into(), |props| props.rarity.clone())
     }
     fn owner_of(&mut self, ctx: &Context, prefix: &str, many: bool) -> R<Vec<Owner>> {
         let kind = ctx
@@ -255,25 +250,6 @@ impl Game<'_> {
     }
     /// `ItemCommands.getSlotsFromProvider`: evaluate inline sources against
     /// the accessor's live owner. Named ranges retain their existing adapter.
-<<<<<<< ours
-    fn command_slots(&mut self, owner: &Owner, raw: &str) -> Vec<Slot> {
-        if raw.starts_with('{') || raw.starts_with('[') {
-            let Ok((tag, _)) = horizon_core::nbt::parse_snbt(raw) else {
-                return Vec::new();
-            };
-            self.inline_slots(owner, &horizon_client::scoreboard::tag_to_json(&tag))
-        } else {
-            self.slots_named(owner, raw)
-||||||| base
-    fn command_slots(&mut self, owner: &Owner, raw: &str) -> Vec<Slot> {
-        if raw.starts_with('{') || raw.starts_with('[') {
-            let Ok((tag, _)) = horizon_world::nbt::parse_snbt(raw) else {
-                return Vec::new();
-            };
-            self.inline_slots(owner, &horizon_client::scoreboard::tag_to_json(&tag))
-        } else {
-            self.slots_named(owner, raw)
-=======
     fn command_slots(&mut self, owner: &Owner, raw: &str) -> R<Vec<Slot>> {
         if let Owner::Block(p) = owner
             && self.block_container_size(*p).is_none()
@@ -282,7 +258,6 @@ impl Game<'_> {
                 "commands.item.source.not_a_container",
                 &[&p[0], &p[1], &p[2]],
             ));
->>>>>>> theirs
         }
         Ok(match self.resolved_slot_source(raw)? {
             Some(source) => self.inline_slots(owner, &source),
@@ -350,19 +325,6 @@ impl Game<'_> {
     /// live stack when visited. Limits share the command's TrackingSelector
     /// count across owners and group terms, and count selected empty slots
     /// only for replacement (not modification).
-<<<<<<< ours
-    fn command_slot_candidates(&mut self, owner: &Owner, raw: &str) -> Vec<SlotCandidate> {
-        let source = horizon_core::nbt::parse_snbt(raw)
-            .ok()
-            .map(|(tag, _)| horizon_client::scoreboard::tag_to_json(&tag));
-        if raw.starts_with('{') || raw.starts_with('[') {
-||||||| base
-    fn command_slot_candidates(&mut self, owner: &Owner, raw: &str) -> Vec<SlotCandidate> {
-        let source = horizon_world::nbt::parse_snbt(raw)
-            .ok()
-            .map(|(tag, _)| horizon_client::scoreboard::tag_to_json(&tag));
-        if raw.starts_with('{') || raw.starts_with('[') {
-=======
     fn command_slot_candidates(&mut self, owner: &Owner, raw: &str) -> R<Vec<SlotCandidate>> {
         if let Owner::Block(p) = owner
             && self.block_container_size(*p).is_none()
@@ -373,7 +335,6 @@ impl Game<'_> {
             ));
         }
         if let Some(source) = self.resolved_slot_source(raw)? {
->>>>>>> theirs
             let mut out = Vec::new();
             self.slot_candidates(owner, &source, &[], usize::MAX, &mut out);
             Ok(out)
@@ -501,40 +462,18 @@ impl Game<'_> {
                 .find(|a| a.id == *id)?
                 .equipment
                 .get(*i)
-<<<<<<< ours
                 .cloned(),
-            Slot::Dragon(id, i) => self
-                .dragon
-                .as_ref()
-                .filter(|d| d.id == *id)?
-                .equipment
-||||||| base
-                .cloned()
-                .flatten(),
-            Slot::Frame(id) => self.item_frames.iter().find(|f| f.id == *id)?.item.clone(),
-            Slot::Cart(id, i) => self.cart_slots(*id)?.get(*i).cloned().flatten(),
-            Slot::Block(p, i) => self
-                .world
-                .block_entities
-                .get(&(p[0], p[1], p[2]))?
-                .slots()
-=======
-                .cloned()
-                .flatten(),
-            Slot::Frame(id) => self.item_frames.iter().find(|f| f.id == *id)?.item.clone(),
             Slot::Item(id) => self
                 .dropped
                 .iter()
                 .find(|e| e.id == *id)
                 .map(|e| e.stack.clone())
                 .filter(|s| &*s.item != "minecraft:air" && s.count > 0),
-            Slot::Cart(id, i) => self.cart_slots(*id)?.get(*i).cloned().flatten(),
-            Slot::Block(p, i) => self
-                .world
-                .block_entities
-                .get(&(p[0], p[1], p[2]))?
-                .slots()
->>>>>>> theirs
+            Slot::Dragon(id, i) => self
+                .dragon
+                .as_ref()
+                .filter(|d| d.id == *id)?
+                .equipment
                 .get(*i)
                 .cloned(),
             Slot::Frame(id) => self.item_frames.iter().find(|f| f.id == *id)?.item.clone(),
@@ -848,14 +787,11 @@ impl Game<'_> {
                 }
                 true
             }
-<<<<<<< ours
             Slot::Dragon(id, i) => self
                 .dragon
                 .as_mut()
                 .filter(|d| d.id == *id)
                 .is_some_and(|d| d.equipment.set(*i, stack)),
-||||||| base
-=======
             Slot::Item(id) => match self.dropped.iter_mut().find(|e| e.id == *id) {
                 Some(entity) => {
                     // `ItemEntity.setItem`: the stack is the entity's.
@@ -867,7 +803,6 @@ impl Game<'_> {
                 }
                 None => false,
             },
->>>>>>> theirs
             Slot::Frame(id) => match self.item_frames.iter().position(|f| f.id == *id) {
                 Some(i) => {
                     self.set_frame_item(i, stack);
@@ -2968,16 +2903,9 @@ mod registered_slot_source_preservation_tests {
 
     #[test]
     #[ignore = "needs prepared resources and isolated homes/cwd"]
-<<<<<<< ours
-    fn admitted_item_arguments_still_fail_without_writing_or_player_fallback() {
+    fn admitted_absent_executor_sources_fail_without_player_fallback() {
         let mut resources = None;
         let (mut game, _) = scene(&mut resources, "slot-source-unsupported-world");
-||||||| base
-    fn admitted_item_arguments_still_fail_without_writing_or_player_fallback() {
-        let (mut game, _) = scene("slot-source-unsupported-world");
-=======
-    fn admitted_absent_executor_sources_fail_without_player_fallback() {
-        let (mut game, _) = scene("slot-source-unsupported-world");
         let path = game
             .world_root
             .join("datapacks/parity/data/parity/slot_source/this.json");
@@ -2987,7 +2915,6 @@ mod registered_slot_source_preservation_tests {
         )
         .unwrap();
         game.reload_datapacks(true);
->>>>>>> theirs
         let before = game.block_entity_nbt([0, 100, 0]).unwrap();
         let clock = game.world.game_time;
         count(&mut game, 3);

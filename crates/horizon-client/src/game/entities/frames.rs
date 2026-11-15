@@ -104,7 +104,6 @@ fn center(f: &ItemFrame) -> [f64; 3] {
     let (lo, hi) = f.bounds();
     std::array::from_fn(|i| (lo[i] + hi[i]) / 2.0)
 }
-<<<<<<< ours
 /// `HangingEntity.spawnAtLocation`: drops sit 0.15 out from the wall.
 pub(super) fn hanging_drop_position(center: [f64; 3], step: [i32; 3]) -> [f64; 3] {
     [
@@ -113,8 +112,6 @@ pub(super) fn hanging_drop_position(center: [f64; 3], step: [i32; 3]) -> [f64; 3
         center[2] + f64::from(step[2]) * 0.15,
     ]
 }
-||||||| base
-=======
 /// A frame's item, waiting for its model: the frames' borrow of `self` ends
 /// before `resolve_item` reads the pack.
 struct FramedItem {
@@ -150,7 +147,6 @@ fn visual_rotation_y_degrees(f: &ItemFrame) -> f32 {
         180.0 + (two_d * 90) as f32 + f32::from(f.rotation) * 45.0 + correction as f32,
     )
 }
->>>>>>> theirs
 impl Game<'_> {
     /// `ItemFrame.survives` (not fixed): no collision, a solid block behind
     /// (or a diode for wall frames), no overlapping hanging entity.
@@ -1136,5 +1132,5 @@ mod game_event_tests {
 }
 
 #[cfg(test)]
-#[path = "lodestone_compass_tests.rs"]
+#[path = "tests/lodestone_compass_tests.rs"]
 mod lodestone_compass_tests;

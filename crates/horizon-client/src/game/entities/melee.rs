@@ -3,7 +3,7 @@
 use super::*;
 
 #[cfg(test)]
-#[path = "melee_hit_tests.rs"]
+#[path = "tests/melee_hit_tests.rs"]
 mod hit_tests;
 
 impl Game<'_> {
@@ -224,16 +224,8 @@ impl Game<'_> {
         let attack = self.attack_of(self.player.as_ref().map_or(0, |p| p.entity_id));
         let target_kind = self.mobs[index].kind.id.clone();
         let target_kind = format!("minecraft:{}", target_kind.trim_start_matches("minecraft:"));
-<<<<<<< ours
-        let (amount, scale, crit, magic) =
-            self.melee_damage(&target_kind, true, Some(self.mobs[index].id));
-        let sweep = self.sweep_attack_position(scale, crit, &target_kind);
-||||||| base
-        let (amount, scale, crit, magic) = self.melee_damage(&target_kind, true);
-        let sweep = self.sweep_attack_position(scale, crit);
-=======
         let ((amount, scale, crit, magic), admitted) =
-            self.melee_damage_with_admission(&target_kind, true);
+            self.melee_damage_with_admission(&target_kind, true, Some(self.mobs[index].id));
         // Player.onAttack: the hit starts the attack strength again, hurt or not.
         self.attack_ticks = 0;
         if !admitted {
@@ -242,8 +234,7 @@ impl Game<'_> {
             // no hurt, no `causeExtraKnockback`, no `setLastHurtMob`, no exhaustion.
             return;
         }
-        let sweep = self.sweep_attack_position(scale, crit);
->>>>>>> theirs
+        let sweep = self.sweep_attack_position(scale, crit, &target_kind);
         let (knockback, knockback_attack) = self.extra_knockback(&target_kind, scale);
         let player = self.player.as_ref();
         let from = player.map(|p| [p.position.x, p.position.y, p.position.z]);

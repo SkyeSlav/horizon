@@ -3,14 +3,8 @@
 //! decodes its options with the same function.
 
 use horizon_client::particles::{ParticleOptions, ParticleType};
-<<<<<<< ours
-use horizon_core::nbt::Tag;
-||||||| base
-use horizon_world::nbt::Tag;
-=======
+use horizon_core::nbt::{Compound, Tag};
 use horizon_protocol::entity_data::PositionSource;
-use horizon_world::nbt::{Compound, Tag};
->>>>>>> theirs
 
 /// A number tag as a float.
 fn tag_f32(tag: &Tag) -> Option<f32> {

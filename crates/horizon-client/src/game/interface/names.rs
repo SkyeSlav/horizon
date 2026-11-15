@@ -11,15 +11,7 @@ use horizon_client::{
     block_entity_render::vertex_light,
     hud::{HudAtlas, HudBatch, HudVertex},
     mesher::Vertex,
-<<<<<<< ours
-    mobs::Mob,
-||||||| base
-    mobs::Mob,
-    mod_api,
-=======
     mobs::{Mob, Who},
-    mod_api,
->>>>>>> theirs
     save::uuid_text,
     scoreboard as sb,
     text::Text,
@@ -973,7 +965,7 @@ pub(super) fn name_component(m: &Mob, name: &str) -> horizon_core::nbt::Tag {
 }
 
 #[cfg(test)]
-#[path = "name_tag_tests.rs"]
+#[path = "tests/name_tag_tests.rs"]
 mod name_tag_tests;
 
 #[cfg(test)]

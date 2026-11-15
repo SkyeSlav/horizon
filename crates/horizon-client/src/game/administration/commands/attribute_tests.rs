@@ -4,47 +4,17 @@
 //! `getModifierValue`; all three use the cached instance or the type's supplier,
 //! so a failed lookup leaves the entity's attribute map — and the `attributes`
 //! list `LivingEntity.addAdditionalSaveData` writes — untouched.
-use crate::game::{Audio, Game, Options, Progress, Settings, load_resources};
+use crate::game::Game;
 use horizon_client::motion::PlayerMotion;
 use horizon_core::geometry::Vec3;
-use horizon_world::nbt::Tag;
-use std::path::PathBuf;
+use horizon_core::nbt::Tag;
 
 fn with_game(test: impl FnOnce(&mut Game<'_>)) {
-    let root = PathBuf::from(std::env::var_os("HORIZON_TEST_RESOURCES").unwrap());
-    let settings = Settings::default();
-    let loaded = load_resources(
-        root.clone(),
-        None,
-        &root,
-        &settings,
-        std::time::Instant::now(),
-        false,
-        true,
-        &Progress::new(),
-        &mut |_, _| unreachable!(),
-    )
-    .unwrap();
-    let mut options = Options::parse(std::iter::empty()).unwrap().unwrap();
-    options.resources = root.clone();
-    options.game_dir = Some(
-        PathBuf::from(std::env::var_os("HORIZON_HOME").unwrap())
-            .join(format!("h-attrs-{:?}", std::thread::current().id())),
-    );
-    options.execution_role = crate::game::execution_role::ExecutionRole::IntegratedServer;
-    let mut game = Game::new(
-        &loaded.resources,
-        loaded.pack,
-        loaded.gui.unwrap(),
-        options,
-        settings,
-        Audio::silent(&root),
-        None,
-    )
-    .unwrap();
-    game.build_registries();
-    game.set_allow_commands(true);
-    test(&mut game);
+    crate::game::native_entity_refs::tests::with_game(|game| {
+        game.build_registries();
+        game.set_allow_commands(true);
+        test(game);
+    });
 }
 
 /// What a command says, and whether it succeeded.

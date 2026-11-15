@@ -25,19 +25,8 @@ pub(super) struct BossState {
     loaded: bool,
     /// What each viewer was last sent, so a change becomes one packet.
     sent: HashMap<u128, HashMap<u128, Offer>>,
-<<<<<<< ours
-||||||| base
-    /// The bars server mods show single players (`native_boss_bar`): by
-    /// player UUID, each bar's id and bar, in the order they were added.
-    pub(super) native: HashMap<u128, Vec<(u128, horizon_client::mod_api::NativeBossBar)>>,
-=======
-    /// The bars server mods show single players (`native_boss_bar`): by
-    /// player UUID, each bar's id and bar, in the order they were added.
-    pub(super) native: HashMap<u128, Vec<(u128, horizon_client::mod_api::NativeBossBar)>>,
-    /// `EnderDragonFight.dragonEvent`'s name: the last custom name its
-    /// dragon had (`updateDragon`), else the type's name.
+    /// The last custom name of the fight dragon.
     dragon_name: Option<Tag>,
->>>>>>> theirs
 }
 
 impl BossState {
@@ -807,7 +796,6 @@ struct Offer {
 }
 
 #[cfg(test)]
-<<<<<<< ours
 pub(super) mod audience_tests {
     use horizon_client::lan::{Joined, NetConfig, PlayerSender, guest::Guest, hub::HubConfig};
     use horizon_protocol::packets::configuration::ClientInformation;
@@ -890,13 +878,10 @@ pub(super) mod audience_tests {
 }
 
 #[cfg(test)]
-||||||| base
-=======
-#[path = "bossbar_names_tests.rs"]
+#[path = "tests/bossbar_names_tests.rs"]
 mod bossbar_names_tests;
 
 #[cfg(test)]
->>>>>>> theirs
 mod listing_tests {
     use super::*;
 
@@ -956,5 +941,5 @@ mod listing_tests {
 }
 
 #[cfg(test)]
-#[path = "bossbar_store_tests.rs"]
+#[path = "tests/bossbar_store_tests.rs"]
 mod bossbar_store_tests;

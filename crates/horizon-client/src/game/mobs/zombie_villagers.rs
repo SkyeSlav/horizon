@@ -169,12 +169,7 @@ impl Game<'_> {
         let Some(v) = self.mobs.iter_mut().find(|m| m.id == vid) else {
             return;
         };
-<<<<<<< ours
         let drops = convert_to_villager(&old, v, nausea);
-||||||| base
-        let drops = convert_to_villager(&old, v);
-=======
-        let drops = convert_to_villager(&old, v);
         for rider in self.mobs.iter_mut() {
             if rider.extra.mount == Some(old.id) {
                 rider.extra.mount = Some(vid);
@@ -183,7 +178,6 @@ impl Game<'_> {
         if old.extra.mount.is_some() {
             self.position_riders();
         }
->>>>>>> theirs
         for stack in drops {
             self.spawn_item(
                 stack,
@@ -296,25 +290,15 @@ fn carry_over(from: &Mob, to: &mut Mob) {
     to.invulnerable_time = from.invulnerable_time;
     to.no_gravity = from.no_gravity;
     to.silent = from.silent;
-<<<<<<< ours
-    for slot in horizon_items::equipment::MAINHAND..=horizon_items::equipment::BODY {
-        to.extra
-            .set_slot_stack(slot, from.extra.slot_stack(slot).cloned());
-||||||| base
-    to.extra.set_main_hand(from.extra.main_hand.clone());
-    if let Some(stack) = from.extra.main_hand_stack() {
-        to.extra.set_main_hand_stack(Some(stack.clone()));
-=======
     to.extra.mount = from.extra.mount;
     to.extra.passenger = from.extra.passenger;
     to.fluids.boat = from.fluids.boat;
     to.extra.leash = from.extra.leash;
     to.extra.leash_pending = from.extra.leash_pending;
     to.extra.leash_player = from.extra.leash_player;
-    to.extra.set_main_hand(from.extra.main_hand.clone());
-    if let Some(stack) = from.extra.main_hand_stack() {
-        to.extra.set_main_hand_stack(Some(stack.clone()));
->>>>>>> theirs
+    for slot in horizon_items::equipment::MAINHAND..=horizon_items::equipment::BODY {
+        to.extra
+            .set_slot_stack(slot, from.extra.slot_stack(slot).cloned());
     }
     to.extra.gear = from.extra.gear.clone();
     to.retain_effects(|_| false);
