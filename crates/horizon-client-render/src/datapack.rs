@@ -4,6 +4,7 @@
 use crate::resource_source::ResourceSource;
 mod slot_sources;
 use crate::zip::Zip;
+use horizon_items::recipe_sources::PriorityLayer;
 use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
@@ -867,11 +868,23 @@ impl DataStore {
                     .source()
                     .singleton_resources("data", "recipe_priorities.json")
                 {
-                    if let Ok(bytes) = resource.read() {
-                        s.files
+                    let source = format!("recipe_priorities.json of pack {}", pack.id);
+                    let layer = resource
+                        .read()
+                        .map_err(|e| format!("{source}: {e}"))
+                        .and_then(|bytes| {
+                            let file = serde_json::from_slice(&bytes)
+                                .map_err(|e| format!("{source}: {e}"))?;
+                            PriorityLayer::decode(&source, file)?;
+                            Ok(bytes)
+                        });
+                    match layer {
+                        Ok(bytes) => s
+                            .files
                             .entry("recipe_priorities".into())
                             .or_default()
-                            .push(bytes);
+                            .push(bytes),
+                        Err(e) => log::error!("Horizon: layer refused, {e}"),
                     }
                 }
             }
@@ -1349,6 +1362,30 @@ mod tests {
                 br#"{"entries":{"test:b":5}}"#.to_vec(),
                 br#"{"replace":true}"#.to_vec(),
             ]
+        );
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_malformed_recipe_priority_layer_is_left_out_of_the_stack() {
+        let root =
+            std::env::temp_dir().join(format!("horizon-bad-priority-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        for (pack, bytes) in [("a", r#"{"entries":{"test:b":5}}"#), ("b", r#"[1]"#)] {
+            let dir = root.join(format!("datapacks/{pack}"));
+            fs::create_dir_all(dir.join("data/test")).unwrap();
+            fs::write(
+                dir.join("pack.mcmeta"),
+                r#"{"pack":{"description":"","pack_format":15}}"#,
+            )
+            .unwrap();
+            fs::write(dir.join("data/test/recipe_priorities.json"), bytes).unwrap();
+        }
+        let packs = discover(&root);
+        let store = DataStore::load(&packs.iter().collect::<Vec<_>>());
+        assert_eq!(
+            store.files["recipe_priorities"],
+            [br#"{"entries":{"test:b":5}}"#.to_vec()]
         );
         let _ = fs::remove_dir_all(&root);
     }

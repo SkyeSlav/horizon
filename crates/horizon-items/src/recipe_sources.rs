@@ -2,7 +2,25 @@
 use crate::Result;
 use horizon_world::loot::PackOverlay;
 use serde_json::Value;
-use std::path::Path;
+use std::{collections::HashMap, path::Path};
+
+/// One `recipe_priorities.json` layer: `replace` clears the priorities of the
+/// layers below, `entries` gives recipe ids their signed priority.
+#[derive(serde::Deserialize)]
+pub struct PriorityLayer {
+    #[serde(default)]
+    pub replace: bool,
+    #[serde(default)]
+    pub entries: HashMap<String, i32>,
+}
+impl PriorityLayer {
+    /// The layer `file` holds, which `source` (a pack or a path) supplied: a
+    /// JSON object whose `replace` is a boolean and whose `entries` map recipe
+    /// ids to 32-bit integers. The error names `source`.
+    pub fn decode(source: &str, file: Value) -> std::result::Result<Self, String> {
+        serde_json::from_value(file).map_err(|e| format!("{source}: {e}"))
+    }
+}
 
 /// A recipe's whole id from its name in the tables: vanilla's are kept bare
 /// (`oak_planks`), everyone else's whole (`mymod:crusher/iron`). The book,

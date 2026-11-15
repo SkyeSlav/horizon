@@ -200,3 +200,34 @@ fn every_projection_uses_the_same_priority_order() {
         );
     }
 }
+
+#[test]
+fn a_malformed_layer_is_refused_whole_naming_its_source() {
+    let mut priorities = Priorities::default();
+    let conditions = LoadConditions::vanilla();
+    priorities
+        .layer("pack a", br#"{"entries":{"test:a":3}}"#, &conditions)
+        .unwrap();
+    for (bytes, error) in [
+        (
+            &br#"[{"test:a":9}]"#[..],
+            "pack b: invalid type: sequence, expected struct PriorityLayer",
+        ),
+        (
+            br#"7"#,
+            "pack b: invalid type: integer `7`, expected struct PriorityLayer",
+        ),
+        (
+            br#"{"replace":true,"entries":{"test:a":2147483648}}"#,
+            "pack b: invalid value: integer `2147483648`, expected i32",
+        ),
+    ] {
+        let refused = priorities.layer("pack b", bytes, &conditions).unwrap_err();
+        assert!(refused.starts_with(error), "{refused}");
+        assert_eq!(
+            priorities.get("test:a"),
+            3,
+            "the refused layer changed nothing"
+        );
+    }
+}
