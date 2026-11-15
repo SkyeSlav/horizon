@@ -6056,7 +6056,10 @@ mod age_up_tests {
             let kind = Arc::new(types.types["minecraft:goat"].clone());
             let mut m = Mob::new(1, kind, Vec3::ZERO, 0.0);
             // As a natural spawn leaves it, then on its last baby tick.
-            super::super::finalize::goat_spawn(&mut m, &mut LegacyRandom::new(0));
+            super::super::finalize::goat_spawn(
+                &mut m,
+                &mut horizon_core::random::LegacyRandom::new(0),
+            );
             super::super::finalize::set_age(&mut m, -1, None);
             let (mut test_level, mut events) = (crate::health::TestLevel::new(0), Vec::new());
             let level = &mut test_level.level();

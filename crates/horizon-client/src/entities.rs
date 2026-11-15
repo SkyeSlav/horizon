@@ -4980,6 +4980,7 @@ mod orb_lava_tests {
                     &mut || 0.0,
                     None,
                     fluids,
+                    crate::test_resources::server_loop_context(),
                     &mut |_, _| {},
                 )
             };

@@ -2849,7 +2849,7 @@ pub fn ominous_item_spawner_from_nbt(tag: &Tag) -> Option<(crate::items::ItemSta
     Some((item, position(tag)?, after))
 }
 
-/// `ExperienceOrb`: Health, Age, Value, Count.
+/// `ExperienceOrb`: Fire, Health, Age, Value, Count.
 pub fn orb_to_nbt(o: &ExperienceOrb, uuid: [i32; 4]) -> Tag {
     let base = Base {
         id: "minecraft:experience_orb",
@@ -2862,6 +2862,7 @@ pub fn orb_to_nbt(o: &ExperienceOrb, uuid: [i32; 4]) -> Tag {
     };
     let mut tag = base.tag(None);
     for (key, value) in [
+        ("Fire", Tag::Short(o.fire_ticks as i16)),
         ("Health", Tag::Short(o.health as i16)),
         ("Air", Tag::Short(o.air as i16)),
         ("Age", Tag::Short(o.age.min(i16::MAX as u32) as i16)),
@@ -2883,7 +2884,7 @@ pub fn orbs_from_nbt(tag: &Tag) -> Vec<ExperienceOrb> {
     };
     let count = number(tag.get("Count")).unwrap_or(1).max(1) as u32;
     let orb = ExperienceOrb {
-        fire_ticks: number(tag.get("Fire")).unwrap_or(0) as i32,
+        fire_ticks: number(tag.get("Fire")).unwrap_or(0) as i16 as i32,
         attachment_lifetime: Default::default(),
         fall_distance: float(tag.get("fall_distance")).unwrap_or(0.0),
         rotation: rotation(tag),
@@ -6396,6 +6397,7 @@ mod tests {
     #[test]
     fn orbs_save_and_load_their_fire() {
         let mut o = ExperienceOrb {
+            attachment_lifetime: Default::default(),
             rotation: [0.0, 0.0],
             join: Default::default(),
             no_gravity: false,

@@ -2203,9 +2203,12 @@ mod tests {
         let assets = Assets::load(&root).unwrap();
         let registry = assets.registry;
         let facts = BlockFacts::load(&root, registry).unwrap();
-        let biomes = Biomes::load(&root).unwrap();
+        let biomes = Biomes::load(&crate::resource_source::ResourceRoot::directory(
+            root.clone(),
+        ))
+        .unwrap();
         let collision = crate::collisions::load(&root, registry).unwrap();
-        let tables = AnimateTables::load(&root, registry, &biomes).unwrap();
+        let tables = AnimateTables::load(&root, registry).unwrap();
         let portal = |axis: &str| {
             registry
                 .resolve(&StateSpec {
@@ -2247,8 +2250,13 @@ mod tests {
                 gateway_particles: &no_gateway,
                 thundering: false,
                 ultrawarm: false,
+                enchant_power: &EnchantPower::default(),
             };
-            let mut engine = ParticleEngine::new(Path::new(""), &HashMap::new(), &HashSet::new());
+            let mut engine = ParticleEngine::new(
+                &crate::resource_source::ResourceSource::directory(Path::new("").to_path_buf()),
+                &HashMap::new(),
+                &HashSet::new(),
+            );
             engine.seed_randoms(5, 9, 0);
             engine.created_requests = Some(Vec::new());
             engine.camera = [0.5, 65.0, 0.5];

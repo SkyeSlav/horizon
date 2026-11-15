@@ -3703,20 +3703,10 @@ mod tests {
     /// the column does not hurt. The same sink with no snow in it is hurt.
     #[test]
     fn a_server_player_sinking_in_powder_snow_takes_no_fall_damage() {
-        let root = std::env::var_os("HORIZON_TEST_RESOURCES")
-            .map(std::path::PathBuf::from)
-            .unwrap_or_else(|| {
-                Path::new(env!("CARGO_MANIFEST_DIR"))
-                    .join("../../.local/horizon-client")
-                    .join(horizon_core::VANILLA_VERSION)
-            });
-        if !root.join("movement-properties.nbt").exists() {
+        let Some(v) = crate::test_fixtures::vanilla() else {
             return;
-        }
-        let assets = Assets::load(&root).unwrap();
-        let render = assets.reload(&root).unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
         let mut scene = World::test_scene(&assets, &render, 1).unwrap();
         let snow = assets
             .registry
@@ -3742,6 +3732,10 @@ mod tests {
                     original: Some(delta),
                 });
             let mut w = MotionWorld {
+                tag_items: None,
+                block_registries: None,
+                loop_context: crate::test_resources::server_loop_context(),
+                damage_hooks: &crate::health::DamageHooks::NONE,
                 entities: &[],
                 player: &mut player,
                 scene,
@@ -6307,13 +6301,10 @@ mod tests {
     #[test]
     #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
     fn a_flying_or_gliding_player_is_not_slowed_by_soul_sand() {
-        let root = std::path::PathBuf::from(
-            std::env::var_os("HORIZON_TEST_RESOURCES").expect("HORIZON_TEST_RESOURCES"),
-        );
-        let assets = Assets::load(&root).unwrap();
-        let render = assets.reload(&root).unwrap();
-        let binding = crate::collisions::load(&root, assets.registry).unwrap();
-        let resources = MotionResources::load(&root, &assets).unwrap();
+        let Some(v) = crate::test_fixtures::vanilla() else {
+            return;
+        };
+        let (assets, render, binding, resources) = (&v.assets, &v.render, &v.collision, &v.motion);
         let mut scene = World::test_scene(&assets, &render, 2).unwrap();
         // How much of a 0.1 step east the move leaves in the velocity.
         let mut kept = |floor: &str, y: f64, flying: bool, gliding: bool| {
@@ -6324,6 +6315,10 @@ mod tests {
             (player.glider, player.fall_flying) = (gliding, gliding);
             player.velocity = Vec3::new(0.1, 0.0, 0.0);
             let mut w = MotionWorld {
+                tag_items: None,
+                block_registries: None,
+                loop_context: crate::test_resources::server_loop_context(),
+                damage_hooks: &crate::health::DamageHooks::NONE,
                 entities: &[],
                 player: &mut player,
                 scene: &mut scene,
@@ -6332,7 +6327,8 @@ mod tests {
                 resources: &resources,
                 health: &resources.health,
             };
-            w.move_self(Vec3::new(0.1, 0.0, 0.0)).unwrap();
+            w.move_self(&mut MoveGate::new(), Vec3::new(0.1, 0.0, 0.0))
+                .unwrap();
             w.player.velocity.x / 0.1
         };
         let (soul_sand, grass) = ("minecraft:soul_sand", "minecraft:grass_block");

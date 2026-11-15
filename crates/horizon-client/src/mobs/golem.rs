@@ -1093,18 +1093,18 @@ mod tests {
                     gossips,
                     ..Default::default()
                 }));
-                let seen = [villager.seen(None)];
+                let seen = [villager.seen(None, &crate::items::Items::empty())];
                 let world = crate::mobs::MobWorld {
                     others: &seen,
                     ..world
                 };
                 let mut golem = mob(1, Species::IronGolem, Vec3::new(0.5, 64.0, 0.5));
                 golem.ai.targets.add(1, DefendVillage);
-                let mut lr = horizon_core::random::LegacyRandom::new(0);
+                let mut lr = crate::health::TestLevel::new(0);
                 let mut events = Vec::new();
                 let mut cx = Cx {
                     w: &world,
-                    lr: &mut lr,
+                    level: &mut lr.level(),
                     events: &mut events,
                 };
                 let mut goals = std::mem::take(&mut golem.ai.targets);

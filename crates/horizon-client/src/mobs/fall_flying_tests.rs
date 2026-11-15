@@ -310,7 +310,12 @@ fn a_gliding_mob_posts_elytra_glide_on_every_tenth_glide_tick() {
             let mut glided_at = Vec::new();
             for t in 1..=40 {
                 let mut events = Vec::new();
-                assert!(tick(&mut m, w, &mut LegacyRandom::new(2), &mut events));
+                assert!(tick(
+                    &mut m,
+                    w,
+                    &mut crate::health::TestLevel::new(2).level(),
+                    &mut events
+                ));
                 let glides: Vec<_> = events
                     .iter()
                     .filter(|e| {
