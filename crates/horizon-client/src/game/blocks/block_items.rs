@@ -7,9 +7,9 @@ use horizon_client::{
     Result, block_entity_item, block_entity_nbt, containers::BlockEntity, item_data,
     items::ItemStack, save,
 };
+use horizon_core::nbt::{Compound, JavaString, Tag};
 use horizon_world::{
     level::{Behaviours, classes::Class, flags},
-    nbt::{Compound, JavaString, Tag},
     registry::BlockStateId,
 };
 
