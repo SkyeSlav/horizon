@@ -1855,9 +1855,19 @@ impl Game<'_> {
     /// simulation as lingering potions, with their own timing and potion data.
     /// The caller retains their UUID and original compound for command queries.
     pub(super) fn load_potion_cloud(&mut self, tag: &Tag) -> Option<u32> {
+        self.load_potion_cloud_transferred(tag, None)
+    }
+    pub(super) fn load_potion_cloud_transferred(
+        &mut self,
+        tag: &Tag,
+        transferred: Option<super::entity_initialization::TransferredEntityState>,
+    ) -> Option<u32> {
         let (_, mut cloud) = potion_cloud_from_nbt(tag)?;
         let id = self.take_entity_id();
         cloud.id = id;
+        if let Some(state) = transferred {
+            self.adopt_transferred_entity_state(id, state);
+        }
         self.breath_clouds.push(cloud);
         Some(id)
     }

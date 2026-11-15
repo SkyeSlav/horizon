@@ -663,7 +663,7 @@ impl Game<'_> {
                 self.close_container();
                 self.carried = None;
             }
-            self.screen = Screen::Playing;
+            self.set_screen(Screen::Playing);
             self.capture(true);
         }
         if self.screen_fx.portal == 0.0 {
@@ -1260,6 +1260,26 @@ impl Game<'_> {
         if let Some(o) = self.orbs.iter().find(|o| o.id == id) {
             return Some((o.position, 0.5, 0.5));
         }
+        let entity = self.entity(id)?;
+        let target = self.native_entity_target(entity)?;
+        if matches!(
+            target,
+            super::commands::Target::Stand(_)
+                | super::commands::Target::Frame(_)
+                | super::commands::Target::Painting(_)
+                | super::commands::Target::Falling(_)
+                | super::commands::Target::Cushion(_)
+                | super::commands::Target::Other(_)
+                | super::commands::Target::Fangs(_)
+                | super::commands::Target::Crystal(_)
+                | super::commands::Target::Dragon(_)
+                | super::commands::Target::Spawner(_)
+                | super::commands::Target::Cloud(_)
+        ) {
+            let at = self.target_position(target)?;
+            let [width, height] = self.entity_dimensions(entity)?;
+            return Some((Vec3::new(at[0], at[1], at[2]), width as f32, height as f32));
+        }
         let p = self
             .creatures
             .projectiles
@@ -1278,6 +1298,44 @@ impl Game<'_> {
         &mut self,
         id: u32,
     ) -> Option<(Tag, super::entity_initialization::TransferredEntityState)> {
+        use super::commands::Target;
+        let entity = self.entity(id)?;
+        let target = self.native_entity_target(entity)?;
+        if matches!(
+            target,
+            Target::Stand(_)
+                | Target::Frame(_)
+                | Target::Painting(_)
+                | Target::Falling(_)
+                | Target::Cushion(_)
+                | Target::Other(_)
+                | Target::Fangs(_)
+                | Target::Crystal(_)
+                | Target::Dragon(_)
+                | Target::Spawner(_)
+                | Target::Cloud(_)
+        ) {
+            let mut tag = self.command_target_nbt(target)?;
+            super::persist::write_attachments(&mut tag, id, &self.entity_attachments);
+            let state = self.take_transferred_entity_state(id);
+            // Remove only the resident body: no death, drops, or discard effects.
+            match target {
+                Target::Stand(_) => self.armor_stands.retain(|e| e.id != id),
+                Target::Frame(_) => self.item_frames.retain(|e| e.id != id),
+                Target::Painting(_) => self.paintings.retain(|e| e.id != id),
+                Target::Falling(_) => self.falling.retain(|e| e.id != id),
+                Target::Cushion(_) => self.cushions.retain(|e| e.id != id),
+                Target::Other(_) => self.others.retain(|e| e.id != id),
+                Target::Fangs(_) => self.fangs.list.retain(|e| e.id != id),
+                Target::Crystal(_) => self.crystals.retain(|e| e.id != id),
+                Target::Dragon(_) => self.discard_resident_dragon(),
+                Target::Spawner(_) => self.ominous_spawners.retain(|e| e.id != id),
+                Target::Cloud(_) => self.breath_clouds.retain(|e| e.id != id),
+                _ => unreachable!("lone traveller kind selected above"),
+            }
+            self.forget_entity(id);
+            return Some((tag, state));
+        }
         enum List {
             Item,
             Tnt,
@@ -1371,7 +1429,8 @@ impl Game<'_> {
         // restoreFrom copies to the arriving entity.
         let cooldown = self.dimension_changing_delay(id);
         if let Some((at, width, height)) = self.lone_traveller_box(id) {
-            let plan = self.entity_plan(entry, at, width, height, false);
+            let living = self.armor_stands.iter().any(|stand| stand.id == id);
+            let plan = self.entity_plan(entry, at, width, height, living);
             if !self.may_travel_through(id, &plan) {
                 return;
             }

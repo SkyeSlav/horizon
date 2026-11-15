@@ -366,7 +366,18 @@ impl Game<'_> {
         | Target::Trident(id)
         | Target::Rocket(id)
         | Target::Orb(id)
-        | Target::Projectile(id)) = target
+        | Target::Projectile(id)
+        | Target::Stand(id)
+        | Target::Frame(id)
+        | Target::Painting(id)
+        | Target::Falling(id)
+        | Target::Cushion(id)
+        | Target::Other(id)
+        | Target::Fangs(id)
+        | Target::Crystal(id)
+        | Target::Dragon(id)
+        | Target::Spawner(id)
+        | Target::Cloud(id)) = target
         else {
             return Ok(None);
         };
@@ -407,6 +418,16 @@ impl Game<'_> {
             };
             let to = Vec3::new(at[0], at[1], at[2]);
             super::nether_portal::set_arrival_pose(&mut tag, to, kept, [yaw, pitch], 0.0);
+            if matches!(
+                target,
+                Target::Frame(_) | Target::Painting(_) | Target::Cushion(_)
+            ) && let Tag::Compound(c) = &mut tag
+            {
+                c.insert(
+                    "block_pos".into(),
+                    Tag::IntArray(at.map(|v| v.floor() as i32).to_vec()),
+                );
+            }
             if let Tag::Compound(c) = &mut tag {
                 c.insert("PortalCooldown".into(), Tag::Int(cooldown));
             }

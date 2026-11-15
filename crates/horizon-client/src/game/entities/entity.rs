@@ -1526,6 +1526,21 @@ impl Game<'_> {
     ) -> Result<(), Tag> {
         let mut state = Some(state);
         load_entity_of_any_kind!(self, kind, uuid, player_uuid, tag, &mut state)
+            .or_else(|tag| {
+                self.load_unlisted_transferred(
+                    Self::chunk_of(horizon_client::entity_nbt::position(&tag).unwrap_or_default()),
+                    kind,
+                    uuid,
+                    tag,
+                    &mut state,
+                )
+            })
+            .or_else(|tag| {
+                let saved = tag.clone();
+                self.load_other_transferred(tag, kind, state.take())
+                    .map(|_| ())
+                    .ok_or(saved)
+            })
     }
 
     /// The ids of the entities that are not on the walk of `entity_lists!`.
@@ -2139,10 +2154,14 @@ impl Entity for ArmorStand {
         if !(kind == "minecraft:armor_stand") {
             return Err(tag);
         }
-        if transferred.is_some() {
-            return Err(tag);
-        }
-        game.load_armor_stand(tag, uuid);
+        load_with_transfer!(
+            game,
+            transferred,
+            load_armor_stand,
+            load_armor_stand_transferred,
+            tag,
+            uuid
+        );
         Ok(())
     }
     stored_motion!();

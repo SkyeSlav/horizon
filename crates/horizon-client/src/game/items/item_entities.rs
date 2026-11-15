@@ -650,12 +650,14 @@ impl Game<'_> {
             self.apply_equipment();
         }
         let stacks = stacks.into_iter().map(|stack| (stack, at, 0)).collect();
-        self.drop_death_items(dying, stacks, 40, |_game| {
-            let mut own = random_source::entity();
-            let r = &mut own;
-            let strength = f64::from(r.next_float()) * 0.5;
-            let angle = f64::from(r.next_float()) * std::f64::consts::TAU;
-            Some([-angle.sin() * strength, 0.2, angle.cos() * strength])
+        let mut random = random_source::entity();
+        self.drop_death_items(dying, stacks, 40, |game| {
+            Some(horizon_client::entities::drop_motion(
+                &mut random,
+                game.yaw,
+                game.pitch,
+                true,
+            ))
         });
     }
 
