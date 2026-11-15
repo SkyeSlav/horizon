@@ -109,7 +109,7 @@ impl Goal for SwimToTreasure {
         m.nav_move_to(cx.w, next, 1.3);
         // `adjustedTickDelay(80)`: this goal does not require every tick, so
         // 40, and the draw is the level's random, not the dolphin's.
-        if cx.lr.next_int_bound(reduced(80)).unwrap_or(1) == 0 {
+        if cx.level.random().next_int_bound(reduced(80)).unwrap_or(1) == 0 {
             // Entity event 38: happy villager particles about the dolphin.
             cx.events.push(MobEvent::AroundSelf {
                 mob: m.id,

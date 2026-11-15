@@ -57,12 +57,6 @@ pub(crate) fn parse_passenger_attachments(value: &serde_json::Value) -> Vec<[f32
             .collect()
     })
 }
-/// An `EntityType` attachment point: the builder takes floats, so the double
-/// the position math sees is the float's widening (`Vec3(x, y, z)` of
-/// `0.86875F` is `0.8687499761581421`).
-fn pt(x: f32, y: f32, z: f32) -> [f64; 3] {
-    [f64::from(x), f64::from(y), f64::from(z)]
-}
 /// The type's attachment alone, in its scale: what a vehicle's own
 /// `getPassengerAttachmentPoint` adds its offset to (a rearing horse's slide).
 pub fn type_attachment(v: &Mob) -> [f64; 3] {
@@ -109,7 +103,7 @@ fn base_attachment_at(v: &Mob, index: usize) -> [f64; 3] {
     if !v.kind.passenger_attachments.is_empty() {
         let i = index.min(v.kind.passenger_attachments.len() - 1);
         let [x, y, z] = v.kind.passenger_attachments[i];
-        return pt(x, y, z);
+        return pt32(x, y, z);
     }
     match v.species() {
         Species::Chicken => pt(0.0, 0.7, -0.1),

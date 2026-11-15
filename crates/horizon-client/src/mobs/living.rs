@@ -591,16 +591,16 @@ impl Mob {
     /// `Entity.saveWithoutId`'s `CustomName`: the whole component as
     /// `ComponentSerialization.CODEC` writes it (a name tag's `custom_name`
     /// keeps its colour), else the plain text. `None` without a name.
-    pub fn custom_name_tag(&self) -> Option<horizon_world::nbt::Tag> {
+    pub fn custom_name_tag(&self) -> Option<horizon_core::nbt::Tag> {
         let name = self.custom_name.as_ref()?;
         Some(match &self.custom_name_text {
             Some(text) => crate::scoreboard::component_tag(&text.component()),
-            None => horizon_world::nbt::Tag::String(name.as_str().into()),
+            None => horizon_core::nbt::Tag::String(name.as_str().into()),
         })
     }
     /// Whether the save's `CustomName` is not this mob's name, style included:
     /// a rename to the same text with another colour still changes it.
-    pub fn custom_name_changed(&self, saved: Option<&horizon_world::nbt::Tag>) -> bool {
+    pub fn custom_name_changed(&self, saved: Option<&horizon_core::nbt::Tag>) -> bool {
         match (&self.custom_name_text, saved) {
             (Some(current), Some(saved)) => crate::entity_nbt::name_text(saved) != *current,
             (Some(_), None) => true,

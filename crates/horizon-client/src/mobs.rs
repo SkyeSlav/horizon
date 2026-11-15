@@ -3841,10 +3841,6 @@ impl Mob {
     pub fn damage(&mut self, level: &mut DamageLevel<'_>, amount: f32, source: Damage) -> bool {
         self.damage_with(level, amount, source, None)
     }
-    /// `Entity.isInvulnerable`: `Invulnerable`, or `invulnerable_time` left.
-    pub fn is_invulnerable(&self) -> bool {
-        self.invulnerable_flag || self.invulnerable_time > 0
-    }
     /// `LivingEntity.hurtServer`'s partial mob adapter, with health reductions inline.
     /// `damage` by a source with a weapon: `armor_effectiveness` runs the
     /// weapon's armor-effectiveness enchantments (breach) over the armor fraction, with the

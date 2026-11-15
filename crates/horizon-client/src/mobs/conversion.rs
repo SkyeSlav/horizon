@@ -117,7 +117,6 @@ pub fn common(from: &Mob, to: &mut Mob, preserve_can_pick_up_loot: bool) {
     // convertCommon, in its order: the absorption first, then the effects.
     to.absorption = from.absorption;
     to.extra.effects = from.extra.effects.clone();
-    to.extra.effect_fallbacks = from.extra.effect_fallbacks.clone();
     to.extra.hidden_effects = from.extra.hidden_effects.clone();
     to.extra.effect_chains = from.extra.effect_chains.clone();
     to.extra.ambient_effects = from.extra.ambient_effects.clone();

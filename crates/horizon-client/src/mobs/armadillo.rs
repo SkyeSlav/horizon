@@ -1000,11 +1000,11 @@ mod panic_environmental_tests {
 mod armadillo_scute_time_tests {
     use crate::entity_nbt::mob_from_nbt_with_random;
     use crate::mobs::{Mob, MobType};
+    use horizon_core::nbt::Tag;
     use horizon_core::{
         geometry::Vec3,
         random::{EntityRandom, LegacyRandom, RandomSource},
     };
-    use horizon_world::nbt::Tag;
     use std::{collections::HashMap, sync::Arc};
 
     /// #15784: `Armadillo`'s constructor draws `scuteTime` from its own random, and
