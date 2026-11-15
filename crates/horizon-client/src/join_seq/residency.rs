@@ -155,9 +155,15 @@ pub(super) struct SavedUuidUpdate {
     pub uuid: Option<[i32; 4]>,
 }
 
+#[derive(Debug)]
+pub(super) struct RecordedEvent {
+    pub event: Event,
+    pub sequence: Option<JoinSeq>,
+}
+
 #[derive(Debug, Default)]
 struct Batches {
-    structural: Vec<Event>,
+    structural: Vec<RecordedEvent>,
     saved_uuids: Vec<SavedUuidUpdate>,
 }
 
@@ -216,7 +222,14 @@ impl Journal {
             events.structural.len() < 1_000_000,
             "entity journal was not drained"
         );
-        events.structural.push(event);
+        let sequence = match event.change {
+            Change::Install(_) | Change::PutBack(_) | Change::EnteredSection(_) => {
+                Some(JoinSeq::next())
+            }
+            Change::Spawned(identity) => Some(identity.join),
+            _ => None,
+        };
+        events.structural.push(RecordedEvent { event, sequence });
         #[cfg(any(test, feature = "test-residency-observer"))]
         if let Some(observer) = self.0.observer.get() {
             observer.push(event);
@@ -248,12 +261,18 @@ impl Journal {
     /// Consumers run after releasing the lock and can safely produce events.
     /// An idle drain takes no mutex and performs no allocation.
     pub fn drain_into(&self, scratch: &mut Vec<Event>) {
-        self.drain_batches(scratch, None);
+        assert!(scratch.is_empty(), "previous entity batch was not consumed");
+        if !self.0.ready.load(Ordering::Acquire) {
+            return;
+        }
+        let mut events = self.0.events.lock().unwrap();
+        scratch.extend(events.structural.drain(..).map(|record| record.event));
+        self.0.ready.store(!events.is_empty(), Ordering::Release);
     }
 
     pub(super) fn drain_batches(
         &self,
-        scratch: &mut Vec<Event>,
+        scratch: &mut Vec<RecordedEvent>,
         saved_uuids: Option<&mut Vec<SavedUuidUpdate>>,
     ) {
         assert!(scratch.is_empty(), "previous entity batch was not consumed");

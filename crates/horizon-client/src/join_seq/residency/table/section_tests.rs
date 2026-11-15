@@ -117,3 +117,18 @@ fn an_id_given_after_spawning_admits_the_entity_where_it_spawned() {
     emit(&journal, Change::Spawned(arrow));
     assert_eq!(table.level_entities(HOME.dimension), vec![20, 21, 30]);
 }
+
+#[test]
+fn delayed_ids_do_not_reorder_crossings_or_admissions_in_an_undrained_batch() {
+    let journal = Journal::default();
+    let mut table = EntityTable::new(journal.clone());
+    admit(&journal, 1);
+    admit(&journal, 2);
+    journal.entered_section(HOME.dimension, 1);
+    let delayed = Identity::new(3, JoinSeq::next()).unwrap();
+    admit(&journal, 4);
+    emit(&journal, Change::Spawned(delayed));
+    // Nothing drained between the write, the spawn and the later admission.
+    assert_eq!(section(&mut table, &[1, 2, 3, 4]), [2, 1, 3, 4]);
+    assert_eq!(table.level_entities(HOME.dimension), [1, 2, 3, 4]);
+}

@@ -1,11 +1,11 @@
 //! A journal-fed index. Every hit is checked against its named storage owner;
 //! there is no owner reconciliation scan or reference back to the game.
-use super::{
-    Change, DimensionKey, Event, Identity, IdentityDetails, Journal, Owner, SavedUuidUpdate,
-};
+use super::{Change, DimensionKey, Identity, IdentityDetails, Journal, Owner, SavedUuidUpdate};
 
 #[path = "table/uuid_index.rs"]
 mod uuid_index;
+#[cfg(test)]
+use super::Event;
 use crate::join_seq::JoinSeq;
 use horizon_core::fast_hash::FxHashMap;
 use std::num::NonZeroU32;
@@ -57,7 +57,7 @@ struct ResidentRow {
 /// Runtime ids are allocated by the game's one counter, not per dimension.
 pub struct EntityTable {
     journal: Journal,
-    pending: Vec<Event>,
+    pending: Vec<super::RecordedEvent>,
     saved_uuid_updates: Vec<SavedUuidUpdate>,
     uuids: UuidIndex,
     rows: FxHashMap<NonZeroU32, ResidentRow>,
@@ -140,7 +140,8 @@ impl EntityTable {
             self.uuids
                 .remember(update, self.rows.get(&update.id).copied());
         }
-        for event in self.pending.drain(..) {
+        for record in self.pending.drain(..) {
+            let event = record.event;
             let location = |identity: Identity| Location {
                 owner: event.owner,
                 join: identity.join,
@@ -149,7 +150,7 @@ impl EntityTable {
             match event.change {
                 Change::EnteredSection(id) => {
                     if let Some(row) = NonZeroU32::new(id).and_then(|id| self.rows.get_mut(&id)) {
-                        row.entry = JoinSeq::next();
+                        row.entry = record.sequence.unwrap();
                     }
                 }
                 Change::Install(identity)
@@ -159,13 +160,8 @@ impl EntityTable {
                     let old = self.rows.get(&identity.id).copied();
                     // A new member joins the lookup now, or, given its id
                     // after it spawned, when it joined its storage.
-                    let admission = old.map_or_else(
-                        || match event.change {
-                            Change::Spawned(_) => identity.join,
-                            _ => JoinSeq::next(),
-                        },
-                        |row| row.admission,
-                    );
+                    let admission =
+                        old.map_or_else(|| record.sequence.unwrap(), |row| row.admission);
                     let row = ResidentRow {
                         location,
                         details: identity.details,
