@@ -20,6 +20,7 @@ mod cooking;
 mod ingredient;
 pub mod mod_kinds;
 pub mod native_hooks;
+mod priorities;
 #[cfg(test)]
 mod registration_tests;
 mod remainders;
@@ -1262,7 +1263,7 @@ pub struct Recipes {
     pub crafting: Vec<(String, Recipe)>,
     pub cooking: Vec<Cooking>,
     /// Every effective recipe's file, by recipe type (`minecraft:smelting`,
-    /// `mymod:crusher`), in file order: data packs merged, load conditions held.
+    /// `mymod:crusher`), in priority order: data packs merged, load conditions held.
     pub by_type: HashMap<String, std::sync::Arc<[crate::crafting::RecipeSnapshot]>>,
     /// `category` and `group` of each crafting recipe, by file name.
     pub meta: HashMap<String, (String, String)>,
@@ -1452,20 +1453,6 @@ impl ResolvedSources {
                 .collect()
         })
     }
-    /// The recipes under `root` and `overlay`, resolved for `context`'s load.
-    /// The pass's context carries the same resources' fluid tags, for the
-    /// ingredient hooks' fluid ingredients.
-    pub fn load(
-        root: &Path,
-        overlay: &PackOverlay,
-        context: &horizon_world::native_load_context::LoadContext,
-    ) -> Result<Self> {
-        let context = context.with_fluid_tags(horizon_items::items::fluid_tag_list(root, overlay)?);
-        Self::resolve(
-            horizon_items::recipe_sources::sources(root, overlay)?,
-            &context,
-        )
-    }
     /// `load`, an unreadable recipe folder leaving no recipes.
     pub fn load_or_empty(
         root: &Path,
@@ -1480,12 +1467,10 @@ impl ResolvedSources {
     /// `sources` (`recipe_sources::sources`' shape), the hook asked once for
     /// each mod ingredient in the recipes the loader parses (minecraft's own
     /// types; a mod's recipe types are its own to read).
-    pub fn resolve(
-        mut sources: Vec<(String, Value)>,
+    fn resolve_sorted(
+        sources: Vec<(String, Value)>,
         context: &horizon_world::native_load_context::LoadContext,
     ) -> Result<Self> {
-        // Every consumer keeps vanilla's resource-file registration order.
-        sources.sort_by_cached_key(|(name, _)| registration_key(name));
         for (name, file) in &sources {
             if let Some(serializer) = file["type"].as_str() {
                 mod_kinds::recipe_type(name, serializer)?;
@@ -1613,7 +1598,7 @@ impl Recipes {
             root,
             items,
             overlay,
-            &ResolvedSources::resolve(sources, context)?,
+            &ResolvedSources::resolve_prioritized(root, overlay, sources, context)?,
         )
     }
     /// The tables from the condition-selected recipes of one owning load. Unknown serializers
