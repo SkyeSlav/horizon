@@ -1,5 +1,6 @@
 use super::*;
 use crate::testing::FakeHost;
+use crate::{ItemResource, Tag};
 use std::{cell::RefCell, rc::Rc};
 
 /// A mod's own resource, which the game knows nothing of.
@@ -88,20 +89,50 @@ fn a_combined_handler_numbers_both_and_fills_the_second_when_the_first_is_full()
     let full = Some((HYDROGEN, 100));
     let first = Tanks::new(vec![full.clone(), full.clone()]);
     let second = Tanks::new(vec![None, None]);
-    let combined = CombinedResourceHandler::new(vec![
-        Box::new(first.clone()) as Box<dyn ResourceHandler<Chemical>>,
-        Box::new(second.clone()),
-    ]);
     let mut fake = FakeHost::new();
     let host: &mut dyn ServerHost = &mut fake;
+    let combined = CombinedResourceHandler::new(
+        host,
+        vec![
+            Box::new(first.clone()) as Box<dyn ResourceHandler<Chemical>>,
+            Box::new(second.clone()),
+        ],
+    );
     assert_eq!(combined.size(host), 4);
     assert_eq!(combined.amount(host, 1), 100);
     assert_eq!(combined.resource(host, 2), None);
-    let went =
-        host.transaction(|host, tx| Ok::<_, ()>(combined.insert_resource(host, tx, &HYDROGEN, 150)));
+    let went = host
+        .transaction(|host, tx| Ok::<_, ()>(combined.insert_resource(host, tx, &HYDROGEN, 150)));
     assert_eq!(went, Ok(150));
     assert_eq!(first.held(), vec![full.clone(), full.clone()]);
     assert_eq!(second.held(), vec![full, Some((HYDROGEN, 50))]);
+    // Its size is the one it was built with, whatever its handlers grow to.
+    second.0.borrow_mut().push(None);
+    assert_eq!(combined.size(host), 4);
+    assert_eq!(combined.amount(host, 4), 0);
+}
+
+#[test]
+fn a_ranged_handler_numbers_its_range_from_0_and_refuses_a_range_the_handler_lacks() {
+    let tanks = Tanks::new(vec![None, Some((HYDROGEN, 10)), None]);
+    let mut fake = FakeHost::new();
+    let host: &mut dyn ServerHost = &mut fake;
+    let boxed = || Box::new(tanks.clone()) as Box<dyn ResourceHandler<Chemical>>;
+    let ranged = RangedResourceHandler::of(host, boxed(), 1, 3).unwrap();
+    assert_eq!(ranged.size(host), 2);
+    assert_eq!(ranged.amount(host, 0), 10);
+    let went = host.transaction(|host, tx| Ok::<_, ()>(ranged.insert(host, tx, 1, &HYDROGEN, 30)));
+    assert_eq!(went, Ok(30));
+    assert_eq!(
+        tanks.held(),
+        vec![None, Some((HYDROGEN, 10)), Some((HYDROGEN, 30))]
+    );
+    assert_eq!(ranged.amount(host, 2), 0);
+    assert!(RangedResourceHandler::of(host, boxed(), 2, 2).is_none());
+    assert!(RangedResourceHandler::of(host, boxed(), 0, 4).is_none());
+    let single = RangedResourceHandler::of_single_index(host, boxed(), 2).unwrap();
+    assert_eq!(single.size(host), 1);
+    assert!(RangedResourceHandler::of_single_index(host, boxed(), 3).is_none());
 }
 
 #[test]
@@ -110,8 +141,9 @@ fn insert_stacking_tops_up_a_holding_index_before_an_empty_one() {
     let handler: &dyn ResourceHandler<Chemical> = &tanks;
     let mut fake = FakeHost::new();
     let host: &mut dyn ServerHost = &mut fake;
-    let went =
-        host.transaction(|host, tx| Ok::<_, ()>(handler.insert_stacking(host, tx, &HYDROGEN, 95)));
+    let went = host.transaction(|host, tx| {
+        Ok::<_, ()>(insert_stacking(host, handler, &HYDROGEN, 95, Some(tx)))
+    });
     assert_eq!(went, Ok(95));
     // The default `insert_resource` would have filled index 0 first.
     assert_eq!(
@@ -125,7 +157,7 @@ fn the_comparator_reads_0_when_empty_15_when_full_and_vanillas_steps_between() {
     let mut fake = FakeHost::new();
     let host: &mut dyn ServerHost = &mut fake;
     let signal = |host: &mut dyn ServerHost, held| {
-        (&Tanks::new(held) as &dyn ResourceHandler<Chemical>).comparator_signal(host)
+        redstone_signal_from_resource_handler(host, &Tanks::new(held))
     };
     assert_eq!(signal(&mut *host, vec![None, None]), 0);
     assert_eq!(
@@ -135,10 +167,57 @@ fn the_comparator_reads_0_when_empty_15_when_full_and_vanillas_steps_between() {
         ),
         15
     );
-    // One unit in one of two tanks: any content gives at least 1.
+    // One unit in a tank of 100: any content gives at least 1.
     assert_eq!(signal(&mut *host, vec![Some((HYDROGEN, 1)), None]), 1);
     // Half full: floor(0.5 * 14) + 1.
-    assert_eq!(signal(&mut *host, vec![Some((HYDROGEN, 100)), None]), 8);
+    assert_eq!(signal(&mut *host, vec![Some((HYDROGEN, 50)), None]), 8);
+}
+
+/// Indices holding `(amount, capacity)` of hydrogen each.
+struct Fills(Vec<(u32, u32)>);
+
+impl ResourceHandler<Chemical> for Fills {
+    fn size(&self, _: &mut dyn ServerHost) -> usize {
+        self.0.len()
+    }
+    fn resource(&self, _: &mut dyn ServerHost, _: usize) -> Option<Chemical> {
+        Some(HYDROGEN)
+    }
+    fn amount(&self, _: &mut dyn ServerHost, index: usize) -> u32 {
+        self.0[index].0
+    }
+    fn capacity(&self, _: &mut dyn ServerHost, index: usize, _: &Chemical) -> u32 {
+        self.0[index].1
+    }
+    fn insert(
+        &self,
+        _: &mut dyn ServerHost,
+        _: &Transaction,
+        _: usize,
+        _: &Chemical,
+        _: u32,
+    ) -> u32 {
+        0
+    }
+    fn extract(
+        &self,
+        _: &mut dyn ServerHost,
+        _: &Transaction,
+        _: usize,
+        _: &Chemical,
+        _: u32,
+    ) -> u32 {
+        0
+    }
+}
+
+#[test]
+fn an_overfull_index_does_not_fill_up_for_a_partial_one() {
+    let mut fake = FakeHost::new();
+    let host: &mut dyn ServerHost = &mut fake;
+    // Fills of 2.0 and 0.5 read as 1.0 and 0.5, not as 1.25 capped to 15: 0.75 gives 11.
+    let fills = Fills(vec![(200, 100), (50, 100)]);
+    assert_eq!(redstone_signal_from_resource_handler(host, &fills), 11);
 }
 
 /// A handler of `size` indices each holding `u32::MAX` of hydrogen in a capacity of 1: amounts
@@ -184,12 +263,17 @@ impl ResourceHandler<Chemical> for Oversized {
 fn oversized_amounts_and_sizes_cap_instead_of_overflowing() {
     let mut fake = FakeHost::new();
     let host: &mut dyn ServerHost = &mut fake;
-    let full = &Oversized(1) as &dyn ResourceHandler<Chemical>;
-    assert_eq!(full.comparator_signal(host), 15);
-    let combined = CombinedResourceHandler::new(vec![
-        Box::new(Oversized(usize::MAX)) as Box<dyn ResourceHandler<Chemical>>,
-        Box::new(Oversized(2)),
-    ]);
+    assert_eq!(
+        redstone_signal_from_resource_handler(host, &Oversized(1)),
+        15
+    );
+    let combined = CombinedResourceHandler::new(
+        host,
+        vec![
+            Box::new(Oversized(usize::MAX)) as Box<dyn ResourceHandler<Chemical>>,
+            Box::new(Oversized(2)),
+        ],
+    );
     assert_eq!(combined.size(host), usize::MAX);
 }
 
@@ -232,37 +316,50 @@ fn capability<R: 'static>(
 fn a_part_answering_more_than_asked_shows_through_every_total() {
     let mut fake = FakeHost::new();
     let host: &mut dyn ServerHost = &mut fake;
-    let tank_then_liar = || {
-        CombinedResourceHandler::new(vec![
-            Box::new(Tanks::new(vec![None])) as Box<dyn ResourceHandler<Chemical>>,
-            Box::new(Liar),
-        ])
+    let tank_then_liar = |host: &mut dyn ServerHost| {
+        CombinedResourceHandler::new(
+            host,
+            vec![
+                Box::new(Tanks::new(vec![None])) as Box<dyn ResourceHandler<Chemical>>,
+                Box::new(Liar),
+            ],
+        )
     };
     let insert = |host: &mut dyn ServerHost, handler: &dyn ResourceHandler<Chemical>, amount| {
-        host.transaction(|host, tx| Ok::<_, ()>(handler.insert_resource(host, tx, &HYDROGEN, amount)))
+        host.transaction(|host, tx| {
+            Ok::<_, ()>(handler.insert_resource(host, tx, &HYDROGEN, amount))
+        })
     };
     // The tank takes 100; the liar, asked for 50, answers 51: the total is over 150.
-    assert_eq!(insert(&mut *host, &tank_then_liar(), 150), Ok(151));
-    // Asked `u32::MAX`, no total can be over it: it answers 0, never `u32::MAX`.
-    assert_eq!(insert(&mut *host, &tank_then_liar(), u32::MAX), Ok(0));
+    let combined = tank_then_liar(&mut *host);
+    assert_eq!(insert(&mut *host, &combined, 150), Ok(151));
+    // The most a total is asked for is one short of `u32::MAX`, so the lie still shows.
+    assert_eq!(insert(&mut *host, &combined, u32::MAX - 1), Ok(u32::MAX));
     // The default `insert_resource` and `insert_stacking` add up their indices the same way.
-    let indices = CombinedResourceHandler::new(vec![
-        Box::new(Tanks::new(vec![Some((HYDROGEN, 90))])) as Box<dyn ResourceHandler<Chemical>>,
-        Box::new(Liar),
-    ]);
-    let indices = &indices as &dyn ResourceHandler<Chemical>;
-    let stacking =
-        host.transaction(|host, tx| Ok::<_, ()>(indices.insert_stacking(host, tx, &HYDROGEN, 20)));
+    let indices = CombinedResourceHandler::new(
+        host,
+        vec![
+            Box::new(Tanks::new(vec![Some((HYDROGEN, 90))])) as Box<dyn ResourceHandler<Chemical>>,
+            Box::new(Liar),
+        ],
+    );
+    let stacking = host.transaction(|host, tx| {
+        Ok::<_, ()>(insert_stacking(host, &indices, &HYDROGEN, 20, Some(tx)))
+    });
     assert_eq!(stacking, Ok(21));
 
-    // A move out of an endless source asks `u32::MAX`: the saturated total used to read as all
-    // of it going in, and the lying move committed.
+    // A move out of an endless source asks for the most there is: the lie is refused, not
+    // read as all of it going in.
     let from = capability(InfiniteResourceHandler::new(HYDROGEN), "test:creative");
-    let to = capability(tank_then_liar(), "test:liar");
-    let moved = host.transaction(|host, tx| {
-        crate::move_resources(host, &from, &to, |_: &Chemical| true, u32::MAX, tx)
-    });
-    assert_eq!(moved, Ok(0));
+    let to = capability(tank_then_liar(&mut *host), "test:liar");
+    let moved = host
+        .transaction(|host, tx| r#move(host, &from, &to, |_: &Chemical| true, u32::MAX, Some(tx)));
+    assert_eq!(
+        moved,
+        Err(Overanswered {
+            owner: "test:liar".into()
+        })
+    );
 }
 
 /// A host with `ids` registered, stacking to 64, and their resources.
@@ -323,39 +420,63 @@ fn move_first_moves_one_resource_and_an_abort_puts_it_back() {
 
     // Aborted: both chests as they were.
     let host: &mut dyn ServerHost = &mut fake;
-    let aborted: Result<(), _> =
-        host.transaction(|host, tx| Err(move_first_stacking(host, &from, &to, only_stone, 64, tx)));
+    let aborted: Result<(), _> = host.transaction(|host, tx| {
+        Err(move_first_stacking(
+            host,
+            &from,
+            &to,
+            only_stone,
+            64,
+            Some(tx),
+        ))
+    });
     assert_eq!(aborted, Err(Ok(Some((stone.clone(), 5)))));
     assert_eq!(counts(&fake, A), [3, 5]);
     assert_eq!(counts(&fake, B), [0, 10]);
 
     // Committed, stacking: onto the 10 stone, not into the empty slot.
     let host: &mut dyn ServerHost = &mut fake;
-    let moved =
-        host.transaction(|host, tx| move_first_stacking(host, &from, &to, only_stone, 64, tx));
+    let moved = host
+        .transaction(|host, tx| move_first_stacking(host, &from, &to, only_stone, 64, Some(tx)));
     assert_eq!(moved, Ok(Some((stone.clone(), 5))));
     assert_eq!(counts(&fake, A), [3, 0]);
     assert_eq!(counts(&fake, B), [0, 15]);
 
     // `move_first` moves the first resource that goes, the dirt, and only it.
     let host: &mut dyn ServerHost = &mut fake;
-    let moved = host.transaction(|host, tx| move_first(host, &from, &to, |_| true, 2, tx));
+    let moved = host.transaction(|host, tx| move_first(host, &from, &to, |_| true, 2, Some(tx)));
     assert_eq!(moved, Ok(Some((dirt.clone(), 2))));
     assert_eq!(counts(&fake, A), [1, 0]);
     assert_eq!(counts(&fake, B), [2, 15]);
 }
 
 #[test]
-fn find_extractable_probes_without_taking_anything() {
+fn move_first_goes_on_with_its_resource_from_the_later_indices() {
+    let (mut fake, r) = items_host(&["minecraft:stone", "minecraft:dirt"]);
+    let (stone, dirt) = (&r[0], &r[1]);
+    chest(
+        &mut fake,
+        A,
+        &[Some((stone, 5)), Some((dirt, 3)), Some((stone, 4))],
+    );
+    chest(&mut fake, B, &[None, None, None]);
+    let (from, to) = (items_at(&mut fake, A), items_at(&mut fake, B));
+    let host: &mut dyn ServerHost = &mut fake;
+    let moved = host.transaction(|host, tx| move_first(host, &from, &to, |_| true, 64, Some(tx)));
+    assert_eq!(moved, Ok(Some((stone.clone(), 9))));
+    assert_eq!(counts(&fake, A), [0, 3, 0]);
+    assert_eq!(counts(&fake, B), [9, 0, 0]);
+}
+
+#[test]
+fn find_extractable_resource_probes_without_taking_anything() {
     let (mut fake, r) = items_host(&["minecraft:stone", "minecraft:dirt"]);
     let (stone, dirt) = (&r[0], &r[1]);
     chest(&mut fake, A, &[Some((dirt, 3)), Some((stone, 5))]);
     let items = items_at(&mut fake, A);
     let host: &mut dyn ServerHost = &mut fake;
-    let found = host.transaction(|host, tx| {
-        Ok::<_, ()>(items.find_extractable(host, tx, |r: &ItemResource| r == stone))
-    });
-    assert_eq!(found, Ok(Some(stone.clone())));
+    let found = find_extractable_resource(host, &*items, |r: &ItemResource| r == stone);
+    assert_eq!(found, Some(stone.clone()));
     assert_eq!(counts(&fake, A), [3, 5]);
 }
 
@@ -367,14 +488,13 @@ fn an_overanswer_after_an_honest_part_undoes_the_whole_move() {
     chest(&mut fake, B, &[Some((stone, 62))]);
     let from = items_at(&mut fake, A);
     let honest = items_at(&mut fake, B).handler;
+    let host: &mut dyn ServerHost = &mut fake;
     let to = capability(
-        CombinedResourceHandler::new(vec![honest, Box::new(Liar)]),
+        CombinedResourceHandler::new(host, vec![honest, Box::new(Liar)]),
         "test:liar",
     );
-    let host: &mut dyn ServerHost = &mut fake;
     // B takes 2; the liar, asked for 3, answers 4.
-    let moved =
-        host.transaction(|host, tx| crate::move_resources(host, &from, &to, |_| true, 5, tx));
+    let moved = host.transaction(|host, tx| r#move(host, &from, &to, |_| true, 5, Some(tx)));
     assert_eq!(
         moved,
         Err(Overanswered {
@@ -383,4 +503,35 @@ fn an_overanswer_after_an_honest_part_undoes_the_whole_move() {
     );
     assert_eq!(counts(&fake, A), [5]);
     assert_eq!(counts(&fake, B), [62]);
+}
+
+#[test]
+fn an_overanswer_nested_in_combined_handlers_leaves_nothing_behind_at_the_most_asked() {
+    let (mut fake, r) = items_host(&["minecraft:stone"]);
+    let stone = &r[0];
+    chest(&mut fake, B, &[Some((stone, 60))]);
+    let honest = items_at(&mut fake, B).handler;
+    let host: &mut dyn ServerHost = &mut fake;
+    // An honest chest, then a liar, in a handler that an endless one follows.
+    let inner = CombinedResourceHandler::new(host, vec![honest, Box::new(Liar)]);
+    let to = capability(
+        CombinedResourceHandler::new(
+            host,
+            vec![
+                Box::new(inner) as Box<dyn ResourceHandler<ItemResource>>,
+                Box::new(InfiniteResourceHandler::new(stone.clone())),
+            ],
+        ),
+        "test:liar",
+    );
+    let from = capability(InfiniteResourceHandler::new(stone.clone()), "test:creative");
+    let moved = host.transaction(|host, tx| r#move(host, &from, &to, |_| true, u32::MAX, Some(tx)));
+    assert_eq!(
+        moved,
+        Err(Overanswered {
+            owner: "test:liar".into()
+        })
+    );
+    // The chest took 4 before the liar answered; the abort put them back.
+    assert_eq!(counts(&fake, B), [60]);
 }
