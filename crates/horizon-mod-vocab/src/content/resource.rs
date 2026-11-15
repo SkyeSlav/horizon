@@ -533,8 +533,9 @@ pub trait ResourceHandler<R> {
         amount: u32,
     ) -> u32;
     /// Puts up to `amount` of `resource` in wherever it goes (NeoForge's `insert` without an
-    /// index): by default index by index from 0. How much went in; an index answering more than
-    /// it was asked makes it answer more than `amount`, or 0 when asked `u32::MAX`.
+    /// index): by default index by index from 0. How much went in. Aggregation asks for at most
+    /// `u32::MAX - 1` at a time. An index answering more than requested makes this return one
+    /// more than the capped request.
     fn insert_resource(
         &self,
         host: &mut dyn ServerHost,
@@ -547,8 +548,9 @@ pub trait ResourceHandler<R> {
         })
     }
     /// Takes up to `amount` of `resource` out from wherever it is (`extract` without an index):
-    /// by default index by index from 0. How much came out; an index answering more than it was
-    /// asked makes it answer more than `amount`, or 0 when asked `u32::MAX`.
+    /// by default index by index from 0. How much came out. Aggregation asks for at most
+    /// `u32::MAX - 1` at a time. An index answering more than requested makes this return one
+    /// more than the capped request.
     fn extract_resource(
         &self,
         host: &mut dyn ServerHost,

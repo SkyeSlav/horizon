@@ -316,10 +316,19 @@ impl<R> ResourceHandler<R> for RangedResourceHandler<R> {
 
 /// No indices, refusing everything (`EmptyResourceHandler`): what a provider answers for a side
 /// that reaches nothing.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Debug)]
 // no wire: a mod-side handler, invoked where it was built; never crosses the boundary.
-// exhaustive: a unit marker
-pub struct EmptyResourceHandler;
+// exhaustive: its field is private, so mods cannot build or destructure it
+pub struct EmptyResourceHandler(());
+
+static EMPTY: EmptyResourceHandler = EmptyResourceHandler(());
+
+impl EmptyResourceHandler {
+    /// The one empty handler (`EmptyResourceHandler.instance`).
+    pub fn instance() -> &'static Self {
+        &EMPTY
+    }
+}
 
 impl<R> ResourceHandler<R> for EmptyResourceHandler {
     fn size(&self, _: &mut dyn ServerHost) -> usize {
@@ -505,7 +514,7 @@ pub fn redstone_signal_from_resource_handler<R>(
     handler: &dyn ResourceHandler<R>,
 ) -> u8 {
     let mut fill = 0f32;
-    let mut counted = 0u32;
+    let mut counted = 0usize;
     for index in 0..handler.size(host) {
         let Some(resource) = handler.resource(host, index) else {
             continue;
@@ -555,7 +564,9 @@ pub fn insert_stacking<R: PartialEq>(
 
 /// Takes up to `amount` of the first resource `filter` accepts out of `handler`, from wherever it
 /// holds it (`extractFirst`), in `tx`, or in a transaction of its own without one: what came out
-/// and how much, none when nothing did.
+/// and how much, none when nothing did. The resource is chosen once, by
+/// [`find_extractable_resource`], and only that one is asked for `amount`: a resource that gives a
+/// whole index's batch but not `amount` is chosen, and nothing comes out.
 pub fn extract_first<R>(
     host: &mut dyn ServerHost,
     handler: &dyn ResourceHandler<R>,
@@ -564,46 +575,42 @@ pub fn extract_first<R>(
     tx: Option<&Transaction>,
 ) -> Option<(R, u32)> {
     let Ok(taken) = within(host, tx, |host, tx| {
-        for index in 0..handler.size(host) {
-            if handler.amount(host, index) == 0 {
-                continue;
-            }
-            let Some(resource) = handler.resource(host, index).filter(|r| filter(r)) else {
-                continue;
-            };
-            let came = handler.extract_resource(host, tx, &resource, amount);
-            if came > 0 {
-                return Ok::<_, Infallible>(Some((resource, came)));
-            }
-        }
-        Ok(None)
+        let Some(resource) = find_extractable_resource(host, handler, filter, Some(tx)) else {
+            return Ok::<_, Infallible>(None);
+        };
+        let came = handler.extract_resource(host, tx, &resource, amount);
+        Ok((came > 0).then_some((resource, came)))
     });
     taken
 }
 
 /// The first resource `filter` accepts that `handler` can give (`findExtractableResource`): one
-/// whole index's amount of it is taken in a transaction nested in the open one and aborted, so
-/// nothing changes.
+/// whole index's amount of it is taken in a transaction nested in `tx` (in a root one without)
+/// and aborted, so nothing changes.
 pub fn find_extractable_resource<R>(
     host: &mut dyn ServerHost,
     handler: &dyn ResourceHandler<R>,
     filter: impl Fn(&R) -> bool,
+    tx: Option<&Transaction>,
 ) -> Option<R> {
-    for index in 0..handler.size(host) {
-        let amount = handler.amount(host, index).min(MAX_REQUEST);
-        if amount == 0 {
-            continue;
+    let Ok(found) = within(host, tx, |host, _| {
+        for index in 0..handler.size(host) {
+            let amount = handler.amount(host, index).min(MAX_REQUEST);
+            if amount == 0 {
+                continue;
+            }
+            let Some(resource) = handler.resource(host, index).filter(|r| filter(r)) else {
+                continue;
+            };
+            let probe: Result<(), u32> = host
+                .transaction(|host, tx| Err(handler.extract(host, tx, index, &resource, amount)));
+            if probe.is_err_and(|came| came > 0) {
+                return Ok::<_, Infallible>(Some(resource));
+            }
         }
-        let Some(resource) = handler.resource(host, index).filter(|r| filter(r)) else {
-            continue;
-        };
-        let probe: Result<(), u32> =
-            host.transaction(|host, tx| Err(handler.extract(host, tx, index, &resource, amount)));
-        if probe.is_err_and(|came| came > 0) {
-            return Some(resource);
-        }
-    }
-    None
+        Ok(None)
+    });
+    found
 }
 
 /// Moves up to `max` of what `filter` accepts out of `from` into wherever `to` takes it, index by

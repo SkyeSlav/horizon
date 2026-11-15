@@ -127,7 +127,7 @@ NeoForge's stock handlers are ready to compose: `CombinedResourceHandler` (sever
 indices one after another, sized when built), `RangedResourceHandler` (`of` and
 `of_single_index`, refusing a range the handler lacks), `DelegatingResourceHandler` (the base of
 a wrapper: implement `ResourceHandler` on a struct holding it, change the calls you want and
-forward the rest; its API docs show one), `EmptyResourceHandler`, `InfiniteResourceHandler` (a
+forward the rest; its API docs show one), `EmptyResourceHandler::instance()`, `InfiniteResourceHandler` (a
 creative tank) and `VoidingResourceHandler` (a trash can). Handlers added up are asked for at
 most `u32::MAX - 1` at a time, so that a part answering more than it was asked always shows.
 
