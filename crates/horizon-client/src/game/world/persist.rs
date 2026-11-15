@@ -791,7 +791,7 @@ impl Game<'_> {
     }
     /// The kinds `entity_lists!` does not hold: `Err` hands the compound back
     /// when `kind` is not one of them.
-    fn load_unlisted(
+    pub(super) fn load_unlisted(
         &mut self,
         key: ChunkKey,
         kind: &str,

@@ -100,6 +100,9 @@ fn vehicle_id(t: Target) -> Option<u32> {
     }
 }
 
+#[cfg(test)]
+mod teleport_cross_tests;
+
 impl Game<'_> {
     /// `AbstractMinecart.getDismountLocationForPassenger` for a standing mob.
     pub(super) fn cart_dismount_point(&self, vehicle: u32, rider: u32) -> Option<Vec3> {
@@ -560,6 +563,25 @@ impl Game<'_> {
             destination,
             super::server_travel::TravelCause::Teleport,
         )
+    }
+
+    /// `BlockAttachedEntity.setPos`: a frame or painting moves to the block
+    /// holding the position; its bounds follow from it.
+    pub(super) fn teleport_hanging(&mut self, t: Target, v: Vec3) {
+        let pos = [v.x.floor() as i32, v.y.floor() as i32, v.z.floor() as i32];
+        match t {
+            Target::Frame(id) => {
+                if let Some(f) = self.item_frames.iter_mut().find(|f| f.id == id) {
+                    f.pos = pos;
+                }
+            }
+            Target::Painting(id) => {
+                if let Some(p) = self.paintings.iter_mut().find(|p| p.id == id) {
+                    p.pos = pos;
+                }
+            }
+            _ => {}
+        }
     }
 
     /// `Entity.teleportSameDimension`: after `t` moved from `from` to `to`, its
