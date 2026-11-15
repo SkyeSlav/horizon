@@ -53,7 +53,10 @@ fn a_move_out_and_back_is_two_crossings() {
     admit(&journal, 1);
     admit(&journal, 2);
     table.entered_section(1);
+    let first = table.section_entry_order()(1).unwrap();
     table.entered_section(1);
+    let second = table.section_entry_order()(1).unwrap();
+    assert!(second > first);
     assert_eq!(section(&mut table, &[1, 2]), vec![2, 1]);
 }
 

@@ -107,6 +107,47 @@ fn crossing(id: u32, old: [i32; 3], new: [i32; 3]) -> Crossing {
 }
 
 #[test]
+fn server_section_entries_share_admission_order_without_a_listener() {
+    use horizon_client::join_seq::{
+        JoinSeq,
+        residency::{Change, Event, Identity, Journal, Kind, Owner, table::EntityTable},
+    };
+    let journal = Journal::default();
+    let mut table = EntityTable::new(journal.clone());
+    let mut sections = EntitySections {
+        journal: Some(journal.clone()),
+        ..Default::default()
+    };
+    let owner = Owner {
+        dimension: Overworld.key(),
+        kind: Kind::Mob,
+    };
+    let admit = |id| {
+        journal.push(Event {
+            owner,
+            change: Change::Install(Identity::new(id, JoinSeq::next()).unwrap()),
+        })
+    };
+    admit(1);
+    sections.placed(scope(Overworld), 1, [0.0; 3]);
+    admit(2);
+    sections.placed(scope(Overworld), 2, [0.0; 3]);
+    sections.moved(scope(Overworld), 1, None, [16.0, 0.0, 0.0]);
+    let first = table.section_entry_order()(1).unwrap();
+    admit(3);
+    sections.moved(scope(Overworld), 1, None, [0.0; 3]);
+    let entry = table.section_entry_order();
+    assert!(
+        entry(1).unwrap() > first,
+        "both writes must enter separately"
+    );
+    let mut ids = [1, 2, 3];
+    ids.sort_by_key(|id| entry(*id));
+    assert_eq!(ids, [2, 3, 1]);
+    assert_eq!(table.level_entities(Overworld.key()), [1, 2, 3]);
+}
+
+#[test]
 fn a_section_is_the_floored_block_shifted_by_four() {
     // Blocks 0..=15 are section 0, -1..=-16 section -1, -17 section -2.
     assert_eq!(section_of([0.0, 15.999, 15.0]), [0, 0, 0]);

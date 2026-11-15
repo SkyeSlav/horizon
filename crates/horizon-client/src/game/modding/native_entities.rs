@@ -206,7 +206,7 @@ impl Game<'_> {
         removed: &[u32],
         through: Option<horizon_client::join_seq::JoinSeq>,
     ) -> bool {
-        if self.remote.is_some() || mod_api::__private::mods().is_empty() || !self.joins_pending() {
+        if self.remote.is_some() || !self.joins_pending() {
             return true;
         }
         self.assign_pending_join_ids();

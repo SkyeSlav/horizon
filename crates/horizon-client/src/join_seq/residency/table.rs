@@ -147,6 +147,11 @@ impl EntityTable {
                 source: identity.source,
             };
             match event.change {
+                Change::EnteredSection(id) => {
+                    if let Some(row) = NonZeroU32::new(id).and_then(|id| self.rows.get_mut(&id)) {
+                        row.entry = JoinSeq::next();
+                    }
+                }
                 Change::Install(identity)
                 | Change::Spawned(identity)
                 | Change::PutBack(identity) => {

@@ -128,6 +128,8 @@ impl Identity {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Change {
     Install(Identity),
+    /// A crossing reported by the sole section authority, in mutation order.
+    EnteredSection(u32),
     /// A zero-id entity was given its id. It was added to the level when it
     /// joined its storage (`addFreshEntity`), so that join is its admission.
     Spawned(Identity),

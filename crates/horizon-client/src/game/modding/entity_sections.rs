@@ -20,8 +20,9 @@
 //! deferred by the surrounding entity write and is never re-entered from its own call; listeners
 //! should queue such work themselves until the write completes.
 //!
-//! With no listener each boundary is one subscription check and nothing is filed. With one, a
-//! boundary is a hash lookup and the reusable crossing record is told without a per-frame scan.
+//! Servers file sections even without listeners: saves consume crossings through the residency
+//! journal in admission order. A same-section write is one hash lookup; a crossing appends a
+//! retained journal record. Clients without listeners still skip filing.
 
 #[path = "entity_sections/observer_cache.rs"]
 pub(super) mod observer_cache;
@@ -71,6 +72,8 @@ pub(super) struct Scope {
 /// The section each entity is filed under, and the crossings not told yet.
 #[derive(Default)]
 pub(super) struct EntitySections {
+    /// Server crossings share the admission journal; clients need no save ordering.
+    pub(super) journal: Option<horizon_client::join_seq::residency::Journal>,
     /// The world open the table was filled in: another one starts it over.
     epoch: Option<WorldEpoch>,
     /// Each entity's level and section.
@@ -135,7 +138,21 @@ impl EntitySections {
             }
         };
         if old != new {
-            self.queue.push(Crossing { id, old, new });
+            if let Some(journal) = &self.journal {
+                use horizon_client::join_seq::residency::{Change, Event, Kind, Owner};
+                journal.push(Event {
+                    owner: Owner {
+                        dimension: scope.level,
+                        kind: Kind::Other,
+                    },
+                    change: Change::EnteredSection(id),
+                });
+            }
+            if self.journal.is_none()
+                || mod_api::__private::listened(mod_api::HookId::EntityEnteringSection)
+            {
+                self.queue.push(Crossing { id, old, new });
+            }
         }
     }
 
@@ -268,9 +285,11 @@ impl crate::mobs::living::section_writes::WriteObserver for LiveSectionObserver 
 }
 
 impl Game<'_> {
-    /// Where boundaries are now: None with no listener (nothing is filed) or no world open.
+    /// Where boundaries are now: servers always file; clients file only with a listener.
     pub(super) fn entity_section_scope(&self) -> Option<Scope> {
-        if !mod_api::__private::listened(mod_api::HookId::EntityEnteringSection) {
+        if !self.is_logical_server()
+            && !mod_api::__private::listened(mod_api::HookId::EntityEnteringSection)
+        {
             return None;
         }
         Some(Scope {

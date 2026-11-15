@@ -51,9 +51,8 @@ the order the moves happen: an entity that steps out of a section and back is
 at the end of it again, and a passenger enters after its vehicle. A vehicle
 comes before its passengers.
 
-Some differences remain. Several moves within one entity's own tick, such as an
-enderman's teleport and its walk, count as one crossing, from where it was to
-where it ended. Entities that the engine keeps outside the residency families,
+Each crossing write within an entity's tick is recorded separately.
+Some differences remain: entities that the engine keeps outside the residency families,
 such as lingering potion clouds, lightning bolts and eyes of ender, are not
 lookup members at all.
 The call allocates buffers for the result and sorts admission keys; it does not

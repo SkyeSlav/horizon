@@ -254,8 +254,8 @@ pub trait LevelsBackend {
     /// each in the order its entities entered it, as vanilla stores them. A
     /// section crossing is recorded as the entity moves (`Callback.onMove`): a
     /// move out and back is two crossings, and a passenger enters after its
-    /// vehicle. Several moves within one entity's own tick count as one, from
-    /// where it was to where it ended. Entities kept outside the residency
+    /// vehicle. Each crossing write within one tick is recorded separately.
+    /// Entities kept outside the residency
     /// families (lingering potion clouds, lightning bolts, eyes of ender) are
     /// not members.
     /// Allocates a result buffer, not one allocation per entity; sorting is

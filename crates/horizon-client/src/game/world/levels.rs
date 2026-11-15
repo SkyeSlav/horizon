@@ -397,6 +397,8 @@ impl Game<'_> {
         let table = self.resident_entities.table.get_mut();
         table.reset();
         let journal = table.producer();
+        self.native_lifecycle.entity_sections.journal =
+            self.is_logical_server().then(|| journal.clone());
         self.bind_resident_owners(&journal, self.dim.key(), self.is_logical_server());
         self.bind_specialized_resident_owners(&journal);
         for (dim, parked) in &mut self.levels.parked {
@@ -1546,6 +1548,7 @@ impl Game<'_> {
             return;
         }
         let journal = self.resident_entities.table.borrow().producer();
+        self.native_lifecycle.entity_sections.journal = Some(journal.clone());
         if dim == self.dim {
             self.bind_resident_owners(&journal, dim.key(), true);
         } else if let Some(parked) = self.levels.parked.get_mut(&dim) {
