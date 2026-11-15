@@ -94,7 +94,7 @@ fn scene(resources: &mut Option<Arc<crate::game::Resources>>) -> Game<'_> {
 /// One server tick in which the guest's client sent these positions, one per client tick.
 fn tick_with_moves(g: &mut Game<'_>, heights: &[f64]) {
     let guest = &mut g.lan.as_mut().unwrap().hub.guests[0];
-    guest.inbox.push_back(InboxItem::uncredited(S::ClientTickEnd(Empty)));
+    guest.inbox.push_back(InboxItem::Packet(S::ClientTickEnd(Empty), None));
     for &y in heights {
         let to = play::MovePlayerPos {
             x: 12.5,
@@ -102,8 +102,8 @@ fn tick_with_moves(g: &mut Game<'_>, heights: &[f64]) {
             z: 12.5,
             flags: 0,
         };
-        guest.inbox.push_back(InboxItem::uncredited(S::MovePlayerPos(to)));
-        guest.inbox.push_back(InboxItem::uncredited(S::ClientTickEnd(Empty)));
+        guest.inbox.push_back(InboxItem::Packet(S::MovePlayerPos(to), None));
+        guest.inbox.push_back(InboxItem::Packet(S::ClientTickEnd(Empty), None));
     }
     g.tick_lan_packets();
     let guest = &g.lan.as_ref().unwrap().hub.guests[0];

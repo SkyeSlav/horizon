@@ -420,7 +420,7 @@ fn a_world_spawn_search_keeps_movement_held_between_candidate_chunks() {
     let mut resources = None;
     let (mut game, _rx) = server(&mut resources);
     game.level.world_spawn = Some([0, 100, 0]);
-    game.world_spawn_trip(CONN);
+    game.world_spawn_trip(CONN, None);
     // A deterministic search starts at (-64, -64), outside the lit 5x5. This is the
     // same search state a previous arrival pass keeps when a candidate is missing.
     game.server_trips[0].finder = Some(PlayerSpawnFinder::new([0, 100, 0], 64, |_| 0));

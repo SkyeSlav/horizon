@@ -76,6 +76,10 @@ fn mob(id: u32, entity: &str, species: Species, width: f64, height: f64) -> Mob 
         sounds: ["entity.cow.hurt", "entity.cow.hurt", "entity.cow.death"],
         food: Default::default(),
         tempt: Default::default(),
+        shadow: None,
+        attribute_bounds: Default::default(),
+        sound_overrides: Default::default(),
+        passenger_attachments: Vec::new(),
     };
     Mob::new(id, Arc::new(kind), Vec3::new(0.0, 64.0, 0.0), 0.0)
 }

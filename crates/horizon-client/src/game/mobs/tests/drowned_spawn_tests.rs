@@ -119,7 +119,8 @@ fn only_an_empty_offhand_drowned_draws_for_the_shell() {
     ];
     for kind in ["minecraft:zombie", "minecraft:husk"] {
         for (seed, state) in before {
-            let (m, level) = finalize(&mut game, base(&game, kind), seed);
+            let spawned = base(&game, kind);
+            let (m, level) = finalize(&mut game, spawned, seed);
             assert_eq!(level.state(), state, "{kind} seed {seed}");
             assert_eq!(m.extra.off_hand_id(), None);
         }
@@ -151,7 +152,8 @@ fn only_an_empty_offhand_drowned_draws_for_the_shell() {
             Some("minecraft:dandelion".into()),
         );
         let (occupied, mut after) = finalize(&mut game, occupied, seed);
-        let (empty, level) = finalize(&mut game, base(&game, "minecraft:drowned"), seed);
+        let fresh = base(&game, "minecraft:drowned");
+        let (empty, level) = finalize(&mut game, fresh, seed);
         let draw = after.next_float();
         assert_eq!(level.state(), after.state(), "seed {seed}: one draw");
         let shell = empty.extra.off_hand_id() == Some("minecraft:nautilus_shell");

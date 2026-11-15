@@ -12,8 +12,9 @@ use std::sync::Arc;
 #[test]
 #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn a_packs_own_item_and_block_tags_admit_and_match_its_functions() {
-    use crate::game::native_machines::tests::server_game;
-    let mut game = server_game();
+    use crate::game::game_tests::tests::server_game;
+    let mut resources = None;
+    let mut game = server_game(&mut resources);
     let dir = std::env::temp_dir().join(format!(
         "horizon-pack-tags-{}-{}",
         std::process::id(),

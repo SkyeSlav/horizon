@@ -961,7 +961,7 @@ mod controller_tests {
                 cobweb,
             )
             .unwrap();
-        game.boats[0].fall_distance = 4.0;
+        game.boats.update(0, |b| b.fall_distance = 4.0);
         game.guest_move_vehicle(
             3,
             &play::MoveVehicleRequest {
