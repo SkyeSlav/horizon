@@ -27,7 +27,11 @@ static CALLS: AtomicUsize = AtomicUsize::new(0);
 /// The producer fires once; gameplay/enchantment metadata, both render loaders,
 /// banners, loot and the content handshake borrow its published snapshot.
 #[test]
+#[ignore = "daily"]
 fn default_components_reader_baseline() -> client::Result<()> {
+    if crate::in_own_process("load_defaults::default_components_reader_baseline") {
+        return Ok(());
+    }
     let root = std::env::temp_dir().join(format!("horizon-default-reader-{}", std::process::id()));
     for directory in [
         "assets/probe/items",

@@ -22,3 +22,21 @@ mod streaming_meshes;
 mod tall_column;
 #[path = "../../../horizon-client/tests/it/wide_states.rs"]
 mod wide_states;
+
+/// Install-once registries need a fresh process, not just a serial test lock.
+fn in_own_process(test: &str) -> bool {
+    const CHILD: &str = "HORIZON_CLIENT_LIB_ISOLATED_TEST";
+    if std::env::var(CHILD).as_deref() == Ok(test) {
+        return false;
+    }
+    assert!(
+        std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--include-ignored", "--exact", test, "--nocapture"])
+            .env(CHILD, test)
+            .status()
+            .unwrap()
+            .success(),
+        "isolated test {test} failed"
+    );
+    true
+}

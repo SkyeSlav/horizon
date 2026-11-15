@@ -11,7 +11,13 @@ use horizon_protocol::{
 const FIRST_CUSTOM_ID: i32 = 122;
 
 #[test]
+#[ignore = "daily"]
 fn custom_components_survive_save_wire_and_nested_stacks() {
+    if crate::in_own_process(
+        "custom_component_wire::custom_components_survive_save_wire_and_nested_stacks",
+    ) {
+        return;
+    }
     custom::install(
         FIRST_CUSTOM_ID,
         vec!["sample:charge".into(), "sample:mode".into()],

@@ -20,6 +20,9 @@ horizon-client-lib control::tests::a_request_longer_than_the_limit_is_refused li
 horizon-client-lib control::tests::long_tcp_endpoint_opens lib daily network
 horizon-client-lib control::tests::tcp_endpoint_round_trip lib daily network
 horizon-client-lib control::tests::tcp_refuses_a_wrong_token lib daily network
+horizon-client-lib custom_component_api::registration_limits_and_defaults_are_bound_to_the_connection test:it daily child-process
+horizon-client-lib custom_component_unregistered::unregistered_custom_component_id_is_unknown test:it daily child-process
+horizon-client-lib custom_component_wire::custom_components_survive_save_wire_and_nested_stacks test:it daily child-process
 horizon-client-lib datapack_join::a_client_that_offers_the_registry_joins_and_reads_the_entry test:it daily network
 horizon-client-lib datapack_join::a_refused_reload_disconnects_instead_of_retaining_the_old_generation test:it daily network
 horizon-client-lib datapack_join::a_reload_snapshot_gives_the_client_generation_two_and_stales_old_handles test:it daily network
@@ -42,6 +45,7 @@ horizon-client-lib lan::viewed_levels::tests::with_no_viewer_no_copy_is_built li
 horizon-client-lib lan::waypoints::tests::moves_by_receiver_match_the_loop lib daily slow
 horizon-client-lib lan_bot::a_synced_mod_block_entity_reaches_the_chunks_players_once_a_tick test:it daily child-process
 horizon-client-lib launch::tests::launch_refuses_a_socket_path_too_long bin:horizon-ctl daily child-process
+horizon-client-lib load_defaults::default_components_reader_baseline test:it daily child-process
 horizon-client-lib menu::equip_movement::tests::four_slot_menu_transfer_prepares_once_and_stale_placement_refuses lib daily resources
 horizon-client-lib menu::equip_movement::tests::menus_without_actor_or_equipment_candidates_do_not_prepare lib daily resources
 horizon-client-lib menu::equip_movement::tests::occupied_equipment_cursor_and_hotbar_swaps_ask_once_per_click lib daily resources

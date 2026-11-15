@@ -1628,7 +1628,7 @@ fn a_synced_mod_block_entity_reaches_the_chunks_players_once_a_tick() {
                 .args([
                     "--include-ignored",
                     "--exact",
-                    "a_synced_mod_block_entity_reaches_the_chunks_players_once_a_tick",
+                    "lan_bot::a_synced_mod_block_entity_reaches_the_chunks_players_once_a_tick",
                     "--nocapture",
                 ])
                 .env(CHILD, "1")
