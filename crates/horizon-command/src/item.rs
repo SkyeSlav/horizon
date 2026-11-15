@@ -720,14 +720,6 @@ impl ItemState<'_, '_> {
         }
         let cursor = self.reader.cursor;
         let id = read_identifier(self.reader)?;
-        if let Err(message) = horizon_world::item_defaults::validate_component_name(&id) {
-            self.reader.cursor = cursor;
-            return Err(CommandError::tr_at(
-                "arguments.item.component.malformed",
-                &[&id, &message],
-                self.reader,
-            ));
-        }
         if self.reg.persistent_components.contains(&id) {
             return Ok(id);
         }
@@ -1119,10 +1111,7 @@ fn predicate_grammar() -> Grammar<IV> {
                 .ids("minecraft:data_component_type")
                 .iter()
                 .any(|c| c == id);
-            if known
-                && (r.persistent_components.iter().any(|c| c == id)
-                    || horizon_world::item_defaults::is_transient_component(id))
-            {
+            if known && r.persistent_components.iter().any(|c| c == id) {
                 Ok(IV::Comp(id.to_owned()))
             } else {
                 Err(CommandError::tr_at(

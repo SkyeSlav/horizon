@@ -451,6 +451,12 @@ fn assert_nonpersistent_command_error(error: &CommandError, id: &str, reason: &s
     assert_eq!(message["with"][1]["text"].as_str(), Some(reason));
 }
 
+fn assert_unknown_component_error(error: &CommandError, id: &str) {
+    assert_eq!(error.key, "arguments.item.component.unknown");
+    let message = error.message.source_component().unwrap();
+    assert_eq!(message["with"][0]["text"].as_str(), Some(id));
+}
+
 fn transient_component_commands(id: &str, set: &str, remove: &str, reason: &str) {
     let registry = component_command_reg(id, false);
     let dispatcher = vanilla::dispatcher();
@@ -459,26 +465,27 @@ fn transient_component_commands(id: &str, set: &str, remove: &str, reason: &str)
             let input = format!("{prefix}{stack}");
             let parse = dispatcher.parse(&input, &registry);
             let error = parse.executable().unwrap_err();
-            assert_nonpersistent_command_error(&error, id, reason);
+            assert_unknown_component_error(&error, id);
             assert_eq!(error.input.as_deref(), Some(input.as_str()));
         }
     }
-    // Exact comparisons decode a value, including under predicate negation.
-    for stack in [set.to_owned(), set.replacen('[', "[!", 1)] {
-        let input = format!("clear @s {stack}");
-        let parse = dispatcher.parse(&input, &registry);
-        assert_nonpersistent_command_error(&parse.executable().unwrap_err(), id, reason);
-    }
-    // Presence, absence and any-value subpredicates only refer to a type.
-    for condition in [
-        id.to_owned(),
-        format!("!{id}"),
-        format!("{id}~{{}}"),
-        format!("!{id}~{{}}"),
-    ] {
-        let input = format!("clear @s stone[{condition}]");
-        let parse = dispatcher.parse(&input, &registry);
-        assert_eq!(parse.executable().unwrap().1, "clear", "{input}");
+    // Every item test refuses the name: assignment, removal, presence and absence,
+    // in `clear` and in `execute if items`.
+    let short = id.strip_prefix("minecraft:").unwrap();
+    for prefix in ["clear @s ", "execute if items entity @s weapon.mainhand "] {
+        for condition in [
+            format!("{short}={{}}"),
+            format!("!{short}={{}}"),
+            short.to_owned(),
+            format!("!{short}"),
+            id.to_owned(),
+            format!("!{id}"),
+        ] {
+            let input = format!("{prefix}stone[{condition}]");
+            let parse = dispatcher.parse(&input, &registry);
+            let error = parse.executable().unwrap_err();
+            assert_unknown_component_error(&error, id);
+        }
     }
     let value = horizon_core::nbt::Tag::compound([] as [(&str, horizon_core::nbt::Tag); 0]);
     assert_eq!(
@@ -527,11 +534,7 @@ fn transient_component_names_fail_before_reading_a_payload() {
     let input = "give @s stone[map_post_processing={";
     let parse = vanilla::dispatcher().parse(input, &registry);
     let error = parse.executable().unwrap_err();
-    assert_nonpersistent_command_error(
-        &error,
-        "minecraft:map_post_processing",
-        "'minecraft:map_post_processing' is not a persistent component",
-    );
+    assert_unknown_component_error(&error, "minecraft:map_post_processing");
     assert_eq!(error.cursor, input.find("map_post_processing").unwrap());
 }
 
