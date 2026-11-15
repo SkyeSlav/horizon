@@ -749,18 +749,22 @@ impl PacketNames<'_> {
     /// A server's stonecutter list (`UpdateRecipes`) as a table, in the server's
     /// order, which its button numbers follow. The wire carries no recipe id:
     /// the result's item stands for it. An entry whose result this client
-    /// lacks is left out.
+    /// lacks keeps its place with an empty stack, so the numbers stay the
+    /// server's.
     pub fn stonecutting(&self, list: &[(HolderSet, SlotDisplay)]) -> Vec<Stonecutting> {
         list.iter()
-            .filter_map(|(input, display)| {
+            .map(|(input, display)| {
                 let mut stacks = Vec::new();
                 self.stacks(display, &mut stacks);
-                let result = stacks.into_iter().next()?;
-                Some(Stonecutting {
+                let result = stacks
+                    .into_iter()
+                    .next()
+                    .unwrap_or_else(|| ItemStack::new("minecraft:air", 0));
+                Stonecutting {
                     id: result.item.to_string(),
                     input: Ingredient::of(self.holder_set(input)),
                     result,
-                })
+                }
             })
             .collect()
     }
