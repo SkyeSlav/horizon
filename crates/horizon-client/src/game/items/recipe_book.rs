@@ -82,6 +82,10 @@ pub(super) struct RecipeUi {
     custom: mod_screen::ModRecipeUi,
     /// The last authoritative property-set and stonecutter generation.
     pub(super) server_properties: crate::recipe_book::ServerRecipeProperties,
+    /// The station tables with that generation's stonecutter list in place of
+    /// the client's own, so a station shows, predicts and numbers its buttons
+    /// as the server does (`Game::station_recipes`).
+    pub(super) server_stations: Option<horizon_client::stations::StationRecipes>,
     book: Option<Book>,
     tab: Option<Tab>,
     pub(super) search: Option<EditBox>,
@@ -471,17 +475,14 @@ impl Game<'_> {
         self.recipe_tables.books = None;
         self.invalidate_mod_book_placement_catalogues();
     }
-    /// Puts a server's entries over `book` (`Book::use_server_entries`). The
-    /// names come from the connection's registries; a tag's items are the ones
-    /// the client knows for it (the server's tags are not read).
-    fn server_entries_over<'a>(
+    /// `read` over how the connected server's packets name things: from the
+    /// connection's registries, and a tag's items are the ones the client
+    /// knows for it (the server's tags are not read). None on no connection.
+    pub(super) fn with_packet_names<R>(
         &self,
-        book: &mut Book,
-        entries: impl IntoIterator<Item = &'a horizon_protocol::packets::recipes::RecipeBookEntry>,
-    ) {
-        let Some(r) = self.remote.as_ref() else {
-            return;
-        };
+        read: impl FnOnce(&horizon_client::recipe_book::PacketNames) -> R,
+    ) -> Option<R> {
+        let r = self.remote.as_ref()?;
         let items = self.items();
         let name_of = |registry: &str, id: i32| {
             r.builtin
@@ -497,14 +498,19 @@ impl Game<'_> {
             })
         };
         let tag = |name: &str| items.item_tag_order.get(name).cloned().unwrap_or_default();
-        book.use_server_entries(
-            entries,
-            &horizon_client::recipe_book::PacketNames {
-                item: &item,
-                category: &category,
-                tag: &tag,
-            },
-        );
+        Some(read(&horizon_client::recipe_book::PacketNames {
+            item: &item,
+            category: &category,
+            tag: &tag,
+        }))
+    }
+    /// Puts a server's entries over `book` (`Book::use_server_entries`).
+    fn server_entries_over<'a>(
+        &self,
+        book: &mut Book,
+        entries: impl IntoIterator<Item = &'a horizon_protocol::packets::recipes::RecipeBookEntry>,
+    ) {
+        self.with_packet_names(|names| book.use_server_entries(entries, names));
     }
     fn ensure_book(&mut self) {
         if self.recipe_ui.book.is_none() {

@@ -1757,6 +1757,105 @@ mod tests {
         std::fs::remove_dir_all(root).unwrap();
     }
 
+    /// A guest whose own packs list the stonecutter's results the other way
+    /// round draws, predicts and numbers its buttons by the list it received.
+    #[test]
+    fn a_guest_stonecutter_follows_the_received_list_not_its_own_packs() {
+        use crate::{
+            banner::Banners,
+            brewing::Brewing,
+            crafting::Recipes,
+            items::{ItemStack, Items},
+            menu::{Env, Kind, Menu},
+            stations::StationRecipes,
+        };
+        use horizon_protocol::{buf::Codec, packets::recipes::UpdateRecipes};
+        use horizon_world::loot::PackOverlay;
+
+        let root = resources(
+            "guest_stonecutter",
+            &[
+                (
+                    "a_cut",
+                    r#"{"type":"minecraft:stonecutting","ingredient":"minecraft:raw_copper",
+                    "result":{"id":"minecraft:copper_ingot","count":2}}"#,
+                ),
+                (
+                    "b_cut",
+                    r#"{"type":"minecraft:stonecutting","ingredient":"minecraft:raw_copper",
+                    "result":{"id":"minecraft:redstone","count":3}}"#,
+                ),
+            ],
+        );
+        let defaults = horizon_world::item_defaults::read(&root).unwrap();
+        let items = Items::catalog(&root, &PackOverlay::NONE, &defaults).unwrap();
+        let own = crate::test_resources::server_sources(&root, &PackOverlay::NONE);
+        let own_stations = StationRecipes::from_sources(&root, &items, &own);
+        // The server's packs put b_cut first.
+        std::fs::write(
+            root.join("data/minecraft/recipe_priorities.json"),
+            r#"{"entries":{"minecraft:b_cut":5}}"#,
+        )
+        .unwrap();
+        let sources = crate::test_resources::server_sources(&root, &PackOverlay::NONE);
+        let sync = SyncData::load(&root, &PackOverlay::NONE, &defaults, &sources).unwrap();
+        let packet = UpdateRecipes::read(&mut Reader::new(&sync.recipes)).unwrap();
+        let item = |id: i32| {
+            sync.builtin
+                .get("minecraft:item")
+                .and_then(|i| i.name(id))
+                .map(str::to_owned)
+        };
+        let table = horizon_client::recipe_book::PacketNames {
+            item: &item,
+            category: &|_| None,
+            tag: &|_| Vec::new(),
+        }
+        .stonecutting(&packet.stonecutter);
+        let received = own_stations.with_stonecutting(table);
+
+        let recipes = Recipes::from_resolved(&root, &items, &PackOverlay::NONE, &own).unwrap();
+        let brewing = Brewing::load(&root, &items, &PackOverlay::NONE);
+        let banners = Banners::default();
+        let enchantments = crate::enchant::Enchantments::default();
+        let names = crate::creative::Names::default();
+        let first_button = |stations: &StationRecipes| {
+            let env = Env {
+                crafting_remainder: None,
+                player: None,
+                player_entity_id: None,
+                loop_context: crate::test_resources::server_loop_context(),
+                can_equip: None,
+                items: &items,
+                recipes: &recipes,
+                brewing: &brewing,
+                banners: &banners,
+                station_recipes: stations,
+                enchantments: &enchantments,
+                names: &names,
+                trade: None,
+                maps: None,
+                limited_crafting: false,
+                known_recipes: None,
+                slot_rules: None,
+            };
+            let mut menu = Menu::new(Kind::Stonecutter);
+            menu.set_slot(&env, 0, Some(ItemStack::new("minecraft:raw_copper", 1)));
+            assert!(menu.button(&env, 0));
+            let result = menu.slot(1).expect("a result for button 0");
+            (result.item.to_string(), result.count)
+        };
+        assert_eq!(
+            first_button(&own_stations),
+            ("minecraft:copper_ingot".to_owned(), 2)
+        );
+        assert_eq!(
+            first_button(&received),
+            ("minecraft:redstone".to_owned(), 3)
+        );
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
     /// A world's own load over the data its packs gave (`SyncData::load_over`, which keeps
     /// that data's recipes) sends what a full read of the same packs sends: their recipes too.
     #[test]

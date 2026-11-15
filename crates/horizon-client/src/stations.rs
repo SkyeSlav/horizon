@@ -730,7 +730,7 @@ impl ParsedStationRecipe {
         }
     }
 }
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct StationRecipes {
     pub smithing: Vec<Smithing>,
     /// Sorted by recipe id, the registry order vanilla lists them in.
@@ -743,6 +743,14 @@ pub struct StationRecipes {
     item_limits: std::collections::HashMap<Arc<str>, (u32, u32)>,
 }
 impl StationRecipes {
+    /// These tables with `stonecutting` in place of their own: a server's
+    /// list, whose order its button numbers follow.
+    pub fn with_stonecutting(&self, stonecutting: Vec<Stonecutting>) -> Self {
+        Self {
+            stonecutting,
+            ..self.clone()
+        }
+    }
     pub fn load(
         root: &Path,
         items: &Items,

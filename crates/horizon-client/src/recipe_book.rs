@@ -6,6 +6,7 @@
 use crate::{
     crafting::{Ingredient, Placement, Recipe, Recipes},
     items::{ItemStack, Items},
+    stations::Stonecutting,
 };
 use horizon_core::nbt::Tag;
 use horizon_protocol::packets::recipes::{HolderSet, RecipeBookEntry, RecipeDisplay, SlotDisplay};
@@ -744,6 +745,24 @@ impl PacketNames<'_> {
             SlotDisplay::WithRemainder { input, .. } => self.stacks(input, out),
             SlotDisplay::Composite(list) => list.iter().for_each(|d| self.stacks(d, out)),
         }
+    }
+    /// A server's stonecutter list (`UpdateRecipes`) as a table, in the server's
+    /// order, which its button numbers follow. The wire carries no recipe id:
+    /// the result's item stands for it. An entry whose result this client
+    /// lacks is left out.
+    pub fn stonecutting(&self, list: &[(HolderSet, SlotDisplay)]) -> Vec<Stonecutting> {
+        list.iter()
+            .filter_map(|(input, display)| {
+                let mut stacks = Vec::new();
+                self.stacks(display, &mut stacks);
+                let result = stacks.into_iter().next()?;
+                Some(Stonecutting {
+                    id: result.item.to_string(),
+                    input: Ingredient::of(self.holder_set(input)),
+                    result,
+                })
+            })
+            .collect()
     }
     /// A slot display as an ingredient: the items it shows, without repeats.
     fn ingredient(&self, display: &SlotDisplay) -> Ingredient {

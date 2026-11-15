@@ -209,6 +209,15 @@ impl Game<'_> {
         }
     }
 
+    /// The station tables a menu reads: the connected server's stonecutter
+    /// list once it sent one, over the window's own tables.
+    pub(super) fn station_recipes(&self) -> &horizon_client::stations::StationRecipes {
+        self.recipe_ui
+            .server_stations
+            .as_ref()
+            .unwrap_or(&self.stations().recipes)
+    }
+
     /// What the chunk and far-terrain workers mesh with: the pack's context,
     /// over the world's biomes when it has its own.
     pub(super) fn worker_context(&self) -> Arc<WorkerContext> {
