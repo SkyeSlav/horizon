@@ -225,6 +225,7 @@ fn check_layers(kind: &str, identical_path: bool, replace_allowed: bool) {
 }
 
 #[test]
+#[ignore = "daily"]
 fn enabled_passive_recipe_priorities_preserve_dependency_layers_and_conditions() {
     const MODE: &str = "HORIZON_PASSIVE_RECIPE_PRIORITIES_TEST";
     if std::env::var_os(MODE).is_none() {

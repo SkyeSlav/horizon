@@ -1,0 +1,2 @@
+# The passive recipe-priorities layers test runs its checks in a child process (#3791).
+horizon-client game::mods::tests::recipe_priorities::enabled_passive_recipe_priorities_preserve_dependency_layers_and_conditions lib daily child-process
