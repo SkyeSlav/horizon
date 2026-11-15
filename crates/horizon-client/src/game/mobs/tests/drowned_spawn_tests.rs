@@ -71,10 +71,10 @@ fn summoned_drowned_hold_shells_as_guaranteed_drops() {
     assert_eq!(guaranteed, live, "every shell is a guaranteed drop");
 }
 
-/// The other side of the shell opportunity, through the same
-/// `spawning::finalize` route on mobs that `summon` with NBT left
-/// unfinalized, from fixed seeds of the level's random it draws from. The
-/// expected values were read from this route without the shell branch.
+/// The other side of the shell opportunity, through the fork's finalize
+/// funnel on mobs that `summon` with NBT left unfinalized, from fixed seeds of the level's random it draws from. The
+/// expectations are comparisons between runs of the fork's funnel (`finalize_plain`), not end
+/// states read from another route.
 #[test]
 #[ignore = "needs prepared resources in HORIZON_TEST_RESOURCES"]
 fn only_an_empty_offhand_drowned_draws_for_the_shell() {
@@ -99,46 +99,43 @@ fn only_an_empty_offhand_drowned_draws_for_the_shell() {
         );
         m.clone()
     };
-    // The fork's finalize funnel draws from the level's random (`world.random`).
+    // The fork's finalize funnel draws from the level's random (`world.random`). `Command` is
+    // `/summon`'s reason: a Natural drowned can also roll a zombie nautilus after its shell.
     let finalize = |game: &mut Game<'_>, mut m: horizon_client::mobs::Mob, seed: i64| {
         m.random.set_seed(seed);
         game.world.random = horizon_core::random::LevelRandom::for_level(LegacyRandom::new(seed));
         game.finalize_plain(
             &mut m,
             &difficulty,
-            horizon_client::mobs::spawn_rules::Reason::Natural,
+            horizon_client::mobs::spawn_rules::Reason::Command,
         );
         (m, game.world.random.clone())
     };
-    // Other species draw nothing more: the end state of their random is the
-    // one the route had before.
-    let before = [
-        (1, 200055422738958u64),
-        (2, 259836486421929),
-        (3, 239909465194272),
-    ];
-    for kind in ["minecraft:zombie", "minecraft:husk"] {
-        for (seed, state) in before {
-            let spawned = base(&game, kind);
-            let (m, level) = finalize(&mut game, spawned, seed);
-            assert_eq!(level.state(), state, "{kind} seed {seed}");
-            assert_eq!(m.extra.off_hand_id(), None);
-        }
-    }
-    // An occupied offhand: no shell draw, the item and the chances stay.
-    let occupied = [
-        (1, 200055422738958u64),
-        (2, 241258967538006),
-        (3, 63989017391689),
-    ];
-    for (seed, state) in occupied {
-        let mut m = base(&game, "minecraft:drowned");
+    let dandelion = |m: &mut horizon_client::mobs::Mob| {
         m.extra.set_slot_id(
             horizon_items::equipment::OFFHAND,
             Some("minecraft:dandelion".into()),
         );
-        let (m, level) = finalize(&mut game, m, seed);
-        assert_eq!(level.state(), state, "occupied seed {seed}");
+    };
+    // Other species draw nothing for the shell: with or without an item in the offhand, the
+    // level's random ends each seed on the same state and nothing is put in an empty offhand.
+    for kind in ["minecraft:zombie", "minecraft:husk"] {
+        for seed in 1..=3 {
+            let spawned = base(&game, kind);
+            let (m, level) = finalize(&mut game, spawned, seed);
+            assert_eq!(m.extra.off_hand_id(), None, "{kind} seed {seed}");
+            let mut held = base(&game, kind);
+            dandelion(&mut held);
+            let (held, held_level) = finalize(&mut game, held, seed);
+            assert_eq!(level.state(), held_level.state(), "{kind} seed {seed}");
+            assert_eq!(held.extra.off_hand_id(), Some("minecraft:dandelion"));
+        }
+    }
+    // An occupied offhand: no shell draw, the item and the chances stay.
+    for seed in 1..=3 {
+        let mut m = base(&game, "minecraft:drowned");
+        dandelion(&mut m);
+        let (m, _) = finalize(&mut game, m, seed);
         assert_eq!(m.extra.off_hand_id(), Some("minecraft:dandelion"));
         assert_eq!(m.extra.drop_chances, None);
     }
@@ -147,10 +144,7 @@ fn only_an_empty_offhand_drowned_draws_for_the_shell() {
     let mut shells = 0;
     for seed in 0..400 {
         let mut occupied = base(&game, "minecraft:drowned");
-        occupied.extra.set_slot_id(
-            horizon_items::equipment::OFFHAND,
-            Some("minecraft:dandelion".into()),
-        );
+        dandelion(&mut occupied);
         let (occupied, mut after) = finalize(&mut game, occupied, seed);
         let fresh = base(&game, "minecraft:drowned");
         let (empty, level) = finalize(&mut game, fresh, seed);
