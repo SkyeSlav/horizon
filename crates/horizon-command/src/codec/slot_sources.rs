@@ -215,7 +215,7 @@ mod tests {
         ] {
             // The top level wraps them in element_or_list's either error; only
             // the inner message is checked against the bytecode.
-            let (tag, _) = horizon_world::nbt::parse_snbt(input).unwrap();
+            let (tag, _) = horizon_core::nbt::parse_snbt(input).unwrap();
             let actual = decode(&tag, &reg).unwrap_err();
             assert!(actual.contains(error), "{input}: {actual}");
         }
