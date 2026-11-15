@@ -158,17 +158,9 @@ impl Default for Game {
             screen: Screen::Playing, remote: None, studio: Studio::default(), replay: Replay::default(),
             mining: false, lan_acting: None,
             renderer: None, cursor: (0.0, 0.0), server_packs: ServerPacks::default(),
-<<<<<<< ours
             command_prompt: None, options: Options::default(), settings: Settings,
-            unclaimed_window: false, scripted: false, focus_after_run: None, applied_focus: Vec::new() }
-||||||| base
-            command_prompt: None, options: Options::default(),
-            unclaimed_window: false, scripted: false, focus_after_run: None, applied_focus: Vec::new() }
-=======
-            command_prompt: None, options: Options::default(),
             unclaimed_window: false, scripted: false, focus_after_run: None, applied_focus: Vec::new(),
             unclaimed_modifiers: None, applied_modifiers: Vec::new() }
->>>>>>> theirs
     }
 }
 HELPER

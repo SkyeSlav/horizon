@@ -30,7 +30,6 @@ Feature → files → harness for the most-changed areas: [docs/architecture.md]
 - Everything players run is Rust. Python/Java only for dev tools and harness drivers in `tools/`.
 - Horizon-only features follow [docs/design-system.md](docs/design-system.md) and are off by default where
   they would change the vanilla look.
-<<<<<<< ours
 - One concern per PR, at whatever size it needs; no line limit on the fork. Labels: `feature` (players get something new), `skip-release` (they see no
   change), none for a fix. Agents never add `release-now`: the maintainer decides it. Merges reach players through the
   nightly, published by the daily run when every leg is green ([docs/release-flow.md](docs/release-flow.md#daily-run)).
@@ -42,17 +41,6 @@ Feature → files → harness for the most-changed areas: [docs/architecture.md]
   becomes an issue listing the suspect PRs, fixed by an ordinary PR. Existing tests still in `verify` that need
   resources, a child process or the network are being moved by the next change of #4022. Builds: snapshot (a commit of main, gate green; published as
   `snapshot-<date>-<short>`, which no launcher offers), nightly (published by a fully green daily run), release (cut from a nightly).
-||||||| base
-- Small PRs (< ~500 lines of code; docs and test files don't count:
-  [CONTRIBUTING.md](CONTRIBUTING.md#pull-requests)). Labels: `feature` (players get something new), `skip-release`
-  (they see no change), none for a fix. Agents never add `release-now`: the maintainer decides it. Merges ship in batches of 5, or after
-  6 hours ([docs/release-flow.md](docs/release-flow.md)).
-=======
-- PRs under ~3000 lines of code (docs, test files, inline test modules and moved lines don't count:
-  [CONTRIBUTING.md](CONTRIBUTING.md#pull-requests)). Labels: `feature` (players get something new), `skip-release`
-  (they see no change), none for a fix. Agents never add `release-now`: the maintainer decides it. Merges ship in batches of 5, or after
-  6 hours ([docs/release-flow.md](docs/release-flow.md)).
->>>>>>> theirs
 - **No hardcoded user-facing strings.** Keep UI translation-ready from the start. In the launcher (`launcher/`), wrap visible text with `tr("...")` or `trf("... {arg} ...", &[("arg", &val)])` from `crate::i18n` instead of raw string literals or `format!`. In the game, use translation keys (`Text::tr`, `lang::get`), never hardcoded English strings.
 - **Claim before you start**: comment `/claim` on the issue (no issue yet: open one, then claim it). An assigned
   issue is taken, and so is one labelled `in progress` (claimed on Discord): pick another. `/unclaim` when you stop;

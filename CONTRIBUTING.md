@@ -192,24 +192,8 @@ it (edited on every push, never repeated): talk to its author in the thread befo
 
 ## Pull requests
 
-<<<<<<< ours
 - **One change.** One concern per pull request (a hook, a handle, a feature or a fix), at whatever size it
   needs. There's no line limit; split by concern, never by size, and don't bundle unrelated changes.
-||||||| base
-- **Small.** One change per pull request, under about 500 lines of code where you can; split bigger work into
-  pieces that each make sense alone. Small pull requests get reviewed and merged the same day. Bigger than that:
-  [large pull requests](#large-pull-requests). What counts: lines added plus lines removed, outside Markdown (`.md`)
-  files and test files (any `tests/` or `test/` folder, and `test_*.py`). Tests written inside a source file do count.
-  pr_ready counts it the same way and warns when a pull request is over.
-=======
-- **One change per pull request**, under about 3000 lines of code; split bigger work into pieces that each make
-  sense alone. Smaller pull requests get reviewed and merged faster. Bigger than that:
-  [large pull requests](#large-pull-requests). What counts: lines added plus lines removed, outside Markdown (`.md`)
-  files and test files (any `tests/` or `test/` folder, and `test_*.py`). Tests inside a source file
-  (`#[cfg(test)]` modules) don't count, and neither do lines moved unchanged (same text, whitespace ignored, runs of
-  3 or more lines), so a refactor that moves code can be far bigger than 3000 lines.
-  pr_ready counts it the same way and warns when a pull request is over.
->>>>>>> theirs
 - **Fill in the template**: what and why, the vanilla reference, the pr_ready block, screenshots for anything you
   can see.
 - **We never push to your branch on this fork.** When something small is left (a lint, a rebase, a nit) we carry

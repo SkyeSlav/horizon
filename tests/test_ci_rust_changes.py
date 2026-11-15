@@ -4,15 +4,10 @@ import subprocess
 import tempfile
 import unittest
 
-<<<<<<< ours
 from tools.ci.rust_changes import (
-    UNKNOWN_CHANGE, changed_entries, changed_paths, needs_launcher, needs_rust, needs_tooling, selections,
+    UNKNOWN_CHANGE, changed_entries, changed_paths, needs_launcher, needs_rust, needs_server_build, needs_tooling,
+    selections,
 )
-||||||| base
-from tools.ci.rust_changes import changed_paths, needs_launcher, needs_rust
-=======
-from tools.ci.rust_changes import changed_paths, needs_launcher, needs_rust, needs_server_build
->>>>>>> theirs
 
 
 class RustChangesTests(unittest.TestCase):

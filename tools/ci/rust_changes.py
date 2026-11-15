@@ -1,16 +1,10 @@
 #!/usr/bin/env python3
 """Select CI checks from one fail-closed Git diff.
 
-<<<<<<< ours
 The default answers Rust selection; --launcher uses the launcher's dependency paths.
 --all emits the shared Rust, launcher and tooling decisions for dyna-checks (the machine sample is a daily leg,
 machine-sample.yml, so dyna-checks selects nothing for it).
-||||||| base
---launcher: whether the change is built into the launcher, its own workspace (release_train.LAUNCHER_PATHS).
-=======
---launcher: whether the change is built into the launcher, its own workspace (release_train.LAUNCHER_PATHS).
 server_build: whether verify's clippy of the server build has anything new to check (needs_server_build).
->>>>>>> theirs
 """
 
 import argparse
@@ -119,7 +113,6 @@ if __name__ == "__main__":
     mode.add_argument("--launcher", action="store_true", help="answer for the launcher instead")
     mode.add_argument("--all", action="store_true", help="emit centralized dyna-checks selections")
     args = parser.parse_args()
-<<<<<<< ours
     changes = changed_entries(args.base, args.head)
     paths = [path for _, path in changes]
     if args.all:
@@ -129,14 +122,4 @@ if __name__ == "__main__":
         needs = needs_launcher if args.launcher else needs_rust
         print(f"required={str(needs(paths)).lower()}")
         print(f"sample={str(needs_sample(paths)).lower()}")
-||||||| base
-    needs = needs_launcher if args.launcher else needs_rust
-    print(f"required={str(needs(changed_paths(args.base, args.head))).lower()}")
-=======
-    paths = changed_paths(args.base, args.head)
-    if args.launcher:
-        print(f"required={str(needs_launcher(paths)).lower()}")
-    else:
-        print(f"required={str(needs_rust(paths)).lower()}")
         print(f"server_build={str(needs_server_build(paths)).lower()}")
->>>>>>> theirs

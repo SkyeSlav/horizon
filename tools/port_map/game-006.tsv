@@ -20,19 +20,9 @@ Leashable.leashableInArea	port	crates/horizon-client/src/game/entities/leads.rs:
 Leashable.Wrench.torqueFromForce	inline	crates/horizon-client/src/mobs/leash.rs::spring	lever.z * force.x - lever.x * force.z
 Leashable.Wrench.accumulate	inline	crates/horizon-client/src/mobs/leash.rs::tick	gap: minor: one wrench only, nothing to sum (quad leash would need it)
 Leashable.Wrench.scale	inline	crates/horizon-client/src/mobs/leash.rs::tick	gap: minor: the 0.25 scale of a quad connection is not applied
-<<<<<<< ours
 LightningBolt.powerLightningRod	port	crates/horizon-client/src/game/entities/lightning.rs::Game::strike_rod	powered for 8 ticks with level event 3002 along the rod
 LightningBolt.getStrikePosition	inline	crates/horizon-client/src/game/entities/lightning.rs::Game::strike_rod	the block 1e-6 below the bolt, also used by bolt_clear_copper
-LightningBolt.spawnFire	port	crates/horizon-client/src/game/entities/lightning.rs::Game::bolt_fire	gap: minor: no fire_spread_radius_around_player check (canSpreadFireAround)
-||||||| base
-LightningBolt.powerLightningRod	port	crates/horizon-client/src/game/lightning.rs::Game::strike_rod	powered for 8 ticks with level event 3002 along the rod
-LightningBolt.getStrikePosition	inline	crates/horizon-client/src/game/lightning.rs::Game::strike_rod	the block 1e-6 below the bolt, also used by bolt_clear_copper
-LightningBolt.spawnFire	port	crates/horizon-client/src/game/lightning.rs::Game::bolt_fire	gap: minor: no fire_spread_radius_around_player check (canSpreadFireAround)
-=======
-LightningBolt.powerLightningRod	port	crates/horizon-client/src/game/lightning.rs::Game::strike_rod	powered for 8 ticks with level event 3002 along the rod
-LightningBolt.getStrikePosition	inline	crates/horizon-client/src/game/lightning.rs::Game::strike_rod	the block 1e-6 below the bolt, also used by bolt_clear_copper
-LightningBolt.spawnFire	port	crates/horizon-client/src/game/lightning.rs::Game::bolt_fire	asks ServerLevel.canSpreadFireAround (the fire_spread_radius_around_player rule, can_spread_fire_around) at the bolt before any fire or random draw
->>>>>>> theirs
+LightningBolt.spawnFire	port	crates/horizon-client/src/game/entities/lightning.rs::Game::bolt_fire	asks ServerLevel.canSpreadFireAround (the fire_spread_radius_around_player rule, can_spread_fire_around) at the bolt before any fire or random draw
 LightningBolt.randomWalkCleaningCopper	inline	crates/horizon-world/src/level/tick.rs::Sim::lightning_clear_copper	3 to 5 walks of up to 8 steps
 LightningBolt.randomStepCleaningCopper	inline	crates/horizon-world/src/level/tick.rs::Sim::lightning_clear_copper	up to 10 random blocks in the 3x3x3 cube, first weathering copper steps back
 LightningBolt.shouldRenderAtSqrDistance	port	crates/horizon-client/src/game/entities/lightning.rs::Game::bolt_instances	ticked in #3514; `LightningBolt.shouldRenderAtSqrDistance` is cited at crates/horizon-client/src/game/entities/lightning.rs:591
