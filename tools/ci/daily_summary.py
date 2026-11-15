@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""The daily run's summary (.github/workflows/daily.yml): the `daily-green` tag and one issue per failing test.
+"""The daily run's summary (.github/workflows/daily.yml): one issue per failing test.
 
 Reads this run's jobs (names, conclusions and step names from the Actions API, never a log) and the legs' verdict
 files (tools/ci/ignored_tests.py --report: test identity, kind, panic location, policy file), then:
-- every leg green: moves the tag `daily-green` to the commit;
-- a failing test: files `Daily: <crate> <test>` (label `bug`) with its panic location, this run as the first that
-  saw it and the pull requests merged since the last green daily as suspects, or comments on the open one;
+- a failing test: files `Daily: <crate> <test>` (label `bug`) with its panic location and this run as the first
+  that saw it, or comments on the open one;
 - a leg that failed without a test name (build error, timeout, killed, cancelled, skipped, or a leg with no
   sanitised verdict): one issue per leg, `Daily: <leg> did not complete`, naming the failed steps and, for a shard,
   why each run stopped as its verdict file says (signal or exit status, memory peak and limit, wall time, the tests
@@ -15,22 +14,18 @@ A job it does not know, or an expected leg with no job, is a red leg ("did not r
 shard of the matrix (tools/ci/ignored_shards.py, which builds it) with no job of its name. Each comment
 names this run's URL, and none is posted twice for one run (a rerun of failed jobs, or a retry after a partial
 write, completes what is missing). `daily_summary.py --seen SHA` prints a completed real daily run of SHA, if any.
-`daily_summary.py --after JOB RESULT` reports a job that runs after the summary (the SDK's publish, `sdk-publish`) the
-same way: not `success` files or comments on `Daily: JOB did not complete`, naming its failed steps; `success` closes
-it.
 Only a run on refs/heads/main with DRY_RUN=false writes; otherwise it prints what it would do to the job summary.
 Lookups come first and fail the job on any API error (a rate limit included), so a failed lookup never files
 duplicates.
 
 Environment: GITHUB_REPOSITORY, GITHUB_RUN_ID, GITHUB_REF, GITHUB_SERVER_URL, GH_TOKEN, COMMIT, DRY_RUN,
-RESULTS (toJSON(needs)), REPORTS (the downloaded daily-report-* artifacts), GITHUB_STEP_SUMMARY, GITHUB_OUTPUT.
+RESULTS (toJSON(needs)), REPORTS (the downloaded daily-report-* artifacts), GITHUB_STEP_SUMMARY.
 """
 
 import datetime as dt
 import json
 import os
 import re
-import subprocess
 import sys
 import urllib.error
 import urllib.request
@@ -39,22 +34,17 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 from tools.ci import ignored_shards  # noqa: E402
 
-TAG = "daily-green"
 LABEL = "bug"
 PREFIX = "Daily: "
 UNFINISHED = " did not complete"
 DISCLOSURE = "> 🤖 Filed by the daily run."
 # daily.yml's leg jobs (each a called workflow), and the called workflows' own routing jobs, which test nothing.
-LEGS = ("shards", "wasm-mods", "fn-replace-check", "linkage", "windows-runtime-leases", "sdk")
+LEGS = ("shards", "wasm-mods", "fn-replace-check", "linkage", "windows-runtime-leases")
 HELPERS = ("plan", "route", "fresh", "gate")
 # Jobs of a called workflow that the daily run does not use: launcher-windows-check's push and pull-request tests.
 NOT_DAILY = ("windows-runtime-leases / test",)
-# The one green skip: the SDK build skips when sdk-<sha> already exists, which `sdk / fresh` found (it
-# succeeded). Any other skip of an expected job is red.
-FRESH = "sdk / fresh"
 # The wasm fixture step whose failures its verdict file names test by test.
 FIXTURE_TESTS_STEP = "Run the client tests that load the compiled fixture"
-MERGE = re.compile(r"^Merge pull request #(\d+) from ")
 MAX_PAGES = 100
 
 
@@ -101,9 +91,8 @@ def expected_shards():
             for shard in [*ignored_shards.expand(ignored_shards.SHARDS), *ignored_shards.DAILY_ROWS_LEGS.values()]]
 
 
-def job_green(job, fresh_ok):
-    return job["conclusion"] == "success" or (
-        job["conclusion"] == "skipped" and job["name"].startswith("sdk / ") and fresh_ok)
+def job_green(job):
+    return job["conclusion"] == "success"
 
 
 def failed_helpers(jobs):
@@ -134,8 +123,7 @@ def report_for(job, reports):
 
 def known(name):
     """daily.yml's own jobs and its legs' jobs; any other job is one the summary cannot judge."""
-    return (name in ("resolve", "schedule-dispatch", "sdk-publish-report")
-            or name.startswith(("summary ", "nightly / ", "sdk-publish / "))
+    return (name in ("resolve", "schedule-dispatch") or name.startswith("summary ")
             or name.split(" / ", 1)[0] in LEGS and " / " in name)
 
 
@@ -199,13 +187,12 @@ def verdicts(jobs, reports, results):
     A failing test is a dict of package, test, kind, panic, policy and leg; an unfinished leg is (leg, conclusion,
     failed steps, reason). Green means every leg job and every called workflow concluded success."""
     tests, unfinished, passed, green_legs = [], [], set(), set()
-    fresh_ok = any(job["name"] == FRESH and job["conclusion"] == "success" for job in jobs)
     helpers = failed_helpers(jobs)
     for job in leg_jobs(jobs):
         report = report_for(job, reports)
         if report:
             passed |= {(item["package"], item["test"]) for item in report["passed"]}
-        if job_green(job, fresh_ok):
+        if job_green(job):
             green_legs.add(job["name"])
             continue
         if job["conclusion"] == "skipped" and job["name"].split(" / ", 1)[0] in helpers:
@@ -250,26 +237,8 @@ def verdicts(jobs, reports, results):
             unfinished.append((leg, result, [], "did not complete, and no job or test of it says why"))
         elif result == "success" and not accounted:
             green_legs.add(leg)  # a whole leg that reported and passed closes its leg-level issue
-    green = (all(results.get(leg, {}).get("result") == "success" for leg in LEGS)
-             and all(job_green(job, fresh_ok) for job in leg_jobs(jobs)) and not tests and not unfinished)
     failing = {(item["package"], item["test"]) for item in tests}
-    return tests, unfinished, passed - failing, green_legs, green
-
-
-def suspects(commit, git):
-    """The pull requests merged since the last green daily (`daily-green..commit`), or None with no green daily yet."""
-    if git("rev-parse", "--verify", "--quiet", f"refs/tags/{TAG}^{{commit}}") is None:
-        return None
-    log = git("log", "--merges", "--format=%s", f"refs/tags/{TAG}..{commit}") or ""
-    return sorted({int(found[1]) for line in log.splitlines() if (found := MERGE.match(line))})
-
-
-def suspect_line(numbers, commit):
-    if numbers is None:
-        return f"Suspects: no daily run has been green yet, so every merge before `{commit[:9]}` is a suspect."
-    if not numbers:
-        return f"Suspects: no pull request merged between `{TAG}` and `{commit[:9]}` (a direct push or an older break)."
-    return f"Suspects, merged since the last green daily (`{TAG}`..`{commit[:9]}`): " + ", ".join(f"#{n}" for n in numbers)
+    return tests, unfinished, passed - failing, green_legs
 
 
 def test_title(item):
@@ -296,13 +265,10 @@ def leg_detail(leg, conclusion, steps, reason):
     return f"Leg `{leg}` ended `{conclusion}`: {reason}. Failed steps: {named_steps}."
 
 
-def plan(commit, run_url, tests, unfinished, passed, green_legs, green, open_issues, numbers):
-    """Every write this run makes, in order: ("tag", sha) / ("create", title, body) / ("comment", number, title, body)
+def plan(commit, run_url, tests, unfinished, passed, green_legs, open_issues):
+    """Every write this run makes, in order: ("create", title, body) / ("comment", number, title, body)
     / ("close", number, title, body)."""
     actions = []
-    if green:
-        actions.append(("tag", commit))
-    line = suspect_line(numbers, commit)
     reds = [(test_title(item), detail(item)) for item in tests]
     reds += [(leg_title(leg), leg_detail(leg, conclusion, steps, reason)) for leg, conclusion, steps, reason in unfinished]
     filed = set()
@@ -312,11 +278,11 @@ def plan(commit, run_url, tests, unfinished, passed, green_legs, green, open_iss
         filed.add(title)
         if title in open_issues:
             actions.append(("comment", open_issues[title], title,
-                            f"🤖 Agent: {red_marks(run_url)[1]} on `{commit[:9]}`.\n\n{text}\n\n{line}\n"))
+                            f"🤖 Agent: {red_marks(run_url)[1]} on `{commit[:9]}`.\n\n{text}\n"))
         else:
             actions.append(("create", title,
                             f"{DISCLOSURE}\n\n{text}\n\n{red_marks(run_url)[0]} on `{commit[:9]}`.\n\n"
-                            f"{line}\n\nThis issue gets a comment from each later daily run that still sees it and is "
+                            f"This issue gets a comment from each later daily run that still sees it and is "
                             "closed by the first that does not.\n"))
     for title, number in sorted(open_issues.items()):
         if title in filed:
@@ -336,15 +302,11 @@ def plan(commit, run_url, tests, unfinished, passed, green_legs, green, open_iss
 def render(actions, writes):
     lead = "## Daily summary" + ("" if writes else " (dry run: nothing written)")
     lines = [lead, ""]
-    if any(action[0] == "tag" for action in actions):
-        lines.append("Every leg is green: then publish the nightly of this commit (release.yml, kind nightly).")
     if not actions:
         lines.append("Nothing to do: no leg is red and no open daily issue went green.")
     for action in actions:
-        verb = {"tag": "Move", "create": "File", "comment": "Comment on", "close": "Close"}[action[0]]
-        if action[0] == "tag":
-            lines.append(f"- {verb} `{TAG}` to `{action[1]}`")
-        elif action[0] == "create":
+        verb = {"create": "File", "comment": "Comment on", "close": "Close"}[action[0]]
+        if action[0] == "create":
             lines += [f"- {verb} **{action[1]}**", "", "  " + action[2].strip().replace("\n", "\n  "), ""]
         else:
             lines += [f"- {verb} #{action[1]} **{action[2]}**", "", "  " + action[3].strip().replace("\n", "\n  "), ""]
@@ -370,13 +332,7 @@ def already_said(number, marks, call):
 
 def apply(actions, call, run_url):
     for action in actions:
-        if action[0] == "tag":
-            # Force-update the one tag; create it the first time.
-            if any(ref["ref"] == f"refs/tags/{TAG}" for ref in call("GET", f"git/matching-refs/tags/{TAG}")):
-                call("PATCH", f"git/refs/tags/{TAG}", {"sha": action[1], "force": True})
-            else:
-                call("POST", "git/refs", {"ref": f"refs/tags/{TAG}", "sha": action[1]})
-        elif action[0] == "create":
+        if action[0] == "create":
             call("POST", "issues", {"title": action[1], "body": action[2], "labels": [LABEL]})
         elif action[0] == "comment":
             if not already_said(action[1], red_marks(run_url), call):
@@ -387,12 +343,7 @@ def apply(actions, call, run_url):
             call("PATCH", f"issues/{action[1]}", {"state": "closed", "state_reason": "completed"})
 
 
-def git(*args):
-    result = subprocess.run(["git", *args], capture_output=True, text=True)
-    return result.stdout.strip() if result.returncode == 0 else None
-
-
-def main(call=api, run_git=git):
+def main(call=api):
     env = os.environ
     commit = env["COMMIT"]
     # Only main writes, whatever the input says: a branch's run is always a dry run.
@@ -401,44 +352,11 @@ def main(call=api, run_git=git):
     reports = [json.loads(path.read_text()) for path in sorted(Path(env["REPORTS"]).glob("*/*.json"))] \
         if Path(env.get("REPORTS", "")).is_dir() else []
     jobs = pages(call, f"actions/runs/{env['GITHUB_RUN_ID']}/jobs?filter=latest", "jobs")
-    tests, unfinished, passed, green_legs, green = verdicts(jobs, reports, json.loads(env["RESULTS"]))
+    tests, unfinished, passed, green_legs = verdicts(jobs, reports, json.loads(env["RESULTS"]))
     open_issues = {issue["title"]: issue["number"]
                    for issue in pages(call, f"issues?state=open&labels={LABEL}")
                    if "pull_request" not in issue and issue["title"].startswith(PREFIX)}
-    numbers = suspects(commit, run_git) if tests or unfinished else []
-    actions = plan(commit, run_url, tests, unfinished, passed, green_legs, green, open_issues, numbers)
-    text = render(actions, writes)
-    print(text)
-    if env.get("GITHUB_STEP_SUMMARY"):
-        with open(env["GITHUB_STEP_SUMMARY"], "a") as summary:
-            summary.write(text)
-    if env.get("GITHUB_OUTPUT"):
-        with open(env["GITHUB_OUTPUT"], "a") as out:
-            out.write(f"green={str(green).lower()}\n")
-    if writes:
-        apply(actions, call, run_url)
-    return 0
-
-
-def after(name, result, call=api, run_git=git):
-    """Reports the job `name` that ran after the summary, which concluded `result` (`needs.<name>.result`): one
-    issue for it while it fails, closed by its next success. Writes only where the summary would."""
-    env = os.environ
-    writes = env.get("GITHUB_REF") == "refs/heads/main" and env.get("DRY_RUN") == "false"
-    run_url = f"{env.get('GITHUB_SERVER_URL', 'https://github.com')}/{env['GITHUB_REPOSITORY']}/actions/runs/{env['GITHUB_RUN_ID']}"
-    commit = env["COMMIT"]
-    open_issues = {issue["title"]: issue["number"]
-                   for issue in pages(call, f"issues?state=open&labels={LABEL}")
-                   if "pull_request" not in issue and issue["title"] == leg_title(name)}
-    if result == "success":
-        actions = plan(commit, run_url, [], [], set(), {name}, False, open_issues, [])
-    else:
-        jobs = pages(call, f"actions/runs/{env['GITHUB_RUN_ID']}/jobs?filter=latest", "jobs")
-        steps = [f"{job['name']}: {step}" for job in jobs if job["name"].startswith(f"{name} / ")
-                 for step in failed_steps(job)]
-        unfinished = [(name, result, steps, "nothing was published, so no Nightly follows")]
-        actions = plan(commit, run_url, [], unfinished, set(), set(), False, open_issues,
-                       suspects(commit, run_git))
+    actions = plan(commit, run_url, tests, unfinished, passed, green_legs, open_issues)
     text = render(actions, writes)
     print(text)
     if env.get("GITHUB_STEP_SUMMARY"):
@@ -467,6 +385,4 @@ if __name__ == "__main__":
     if sys.argv[1:2] == ["--seen"]:
         print(seen(sys.argv[2]))
         sys.exit(0)
-    if sys.argv[1:2] == ["--after"]:
-        sys.exit(after(sys.argv[2], sys.argv[3]))
     sys.exit(main())
