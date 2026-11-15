@@ -87,17 +87,6 @@ impl<R> ResourceHandler<R> for CombinedResourceHandler<R> {
             handler.extract(host, tx, at, resource, amount)
         })
     }
-    fn set(
-        &self,
-        host: &mut dyn ServerHost,
-        tx: &Transaction,
-        index: usize,
-        resource: &R,
-        amount: u32,
-    ) -> bool {
-        self.locate(host, index)
-            .is_some_and(|(handler, at)| handler.set(host, tx, at, resource, amount))
-    }
     fn insert_any(
         &self,
         host: &mut dyn ServerHost,
@@ -227,17 +216,6 @@ impl<R> ResourceHandler<R> for RangedResourceHandler<R> {
     ) -> u32 {
         self.inner(host, index)
             .map_or(0, |at| self.handler.extract(host, tx, at, resource, amount))
-    }
-    fn set(
-        &self,
-        host: &mut dyn ServerHost,
-        tx: &Transaction,
-        index: usize,
-        resource: &R,
-        amount: u32,
-    ) -> bool {
-        self.inner(host, index)
-            .is_some_and(|at| self.handler.set(host, tx, at, resource, amount))
     }
 }
 

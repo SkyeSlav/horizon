@@ -532,19 +532,6 @@ pub trait ResourceHandler<R> {
         resource: &R,
         amount: u32,
     ) -> u32;
-    /// Makes index `index` hold exactly `amount` of `resource`, 0 emptying it, whatever it held,
-    /// in transaction `tx` (NeoForge's `IndexModifier`): what a menu slot or a creative screen
-    /// writes. Whether it did; refused by default, as by a handler that only fills and drains.
-    fn set(
-        &self,
-        _host: &mut dyn ServerHost,
-        _tx: &Transaction,
-        _index: usize,
-        _resource: &R,
-        _amount: u32,
-    ) -> bool {
-        false
-    }
     /// Puts up to `amount` of `resource` in wherever it goes (NeoForge's `insert` without an
     /// index): by default index by index from 0. How much went in; an index answering more than
     /// it was asked makes it answer more than `amount`, or 0 when asked `u32::MAX`.
