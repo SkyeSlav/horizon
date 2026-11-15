@@ -2,6 +2,8 @@
 use mod_api::{Hand, HostSide, InteractionResult as Answer};
 use std::sync::Mutex;
 
+pub const ITEM: &str = "minecraft:paper";
+
 pub(super) static STATE: Mutex<([i32; 3], [i32; 3])> = Mutex::new(([0; 3], [0; 3]));
 
 fn answer(path: i32, host: HostSide<'_>, hand: Hand) -> Option<Answer> {
@@ -97,7 +99,7 @@ impl mod_api::BlockEntityPart for Control {
 }
 
 pub fn register(registrar: &mut dyn mod_api::Registrar) {
-    let item = registrar.item_key("minecraft:paper");
+    let item = registrar.item_key(ITEM);
     registrar.item_part(item, Part);
     let kind = registrar
         .block_entity_type("prediction_control")

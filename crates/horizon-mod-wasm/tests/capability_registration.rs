@@ -4,6 +4,9 @@
 mod fixture;
 #[path = "support/no_hooks.rs"]
 mod no_hooks;
+#[allow(dead_code)]
+#[path = "fixture/src/predicted_use.rs"]
+mod predicted_use;
 #[path = "../src/test_stack.rs"]
 mod test_stack;
 
@@ -110,7 +113,13 @@ fn compiled_guest_capability_registration_order_and_proxy_metadata() {
         .unwrap();
         let mut host = mod_api::testing::FakeHost::new();
         host.registries
-            .resolve_items(fixture::ITEMS.map(|id| mod_api::Identifier::parse(id).unwrap()))
+            .resolve_items(
+                fixture::ITEMS
+                    .into_iter()
+                    // The shared guest also registers the prediction item Part.
+                    .chain([predicted_use::ITEM])
+                    .map(|id| mod_api::Identifier::parse(id).unwrap()),
+            )
             .unwrap();
         for index in 0..4 {
             host.level
