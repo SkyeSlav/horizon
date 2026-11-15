@@ -3,6 +3,8 @@
 
 mod atomic_member_values;
 mod fragment_output_components;
+mod render_slots;
 mod sunrise_shader;
 mod texture_matrix;
 mod uniform_initial_render;
+mod world_view_slots;
