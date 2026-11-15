@@ -730,33 +730,35 @@ fn move_by<R: PartialEq>(
         let mut first: Option<R> = None;
         let mut moved = 0;
         for index in 0..from.size(host) {
-            while moved < max {
-                let Some(resource) = from.resource(host, index).filter(|r| {
-                    filter(r) && (!only_first || first.as_ref().is_none_or(|first| first == r))
-                }) else {
-                    break;
-                };
-                let want = (max - moved).min(from.amount(host, index)).min(MAX_REQUEST);
-                if want == 0 {
-                    break;
-                }
-                let went = move_once(
-                    host,
-                    Ends {
-                        from,
-                        to,
-                        at: &index,
-                    },
-                    want,
-                    |host, tx, want| from.extract(host, tx, index, &resource, want),
-                    |host, tx, out| insert(host, tx, &resource, out),
-                )?;
-                if went == 0 {
-                    break;
-                }
-                moved += went;
-                first.get_or_insert(resource);
+            if moved >= max {
+                break;
             }
+            let Some(resource) = from.resource(host, index).filter(|r| {
+                filter(r) && (!only_first || first.as_ref().is_none_or(|first| first == r))
+            }) else {
+                continue;
+            };
+            let want = (max - moved).min(from.amount(host, index)).min(MAX_REQUEST);
+            if want == 0 {
+                continue;
+            }
+            // A partial acceptance is retried by move_once, not by revisiting this index.
+            let went = move_once(
+                host,
+                Ends {
+                    from,
+                    to,
+                    at: &index,
+                },
+                want,
+                |host, tx, want| from.extract(host, tx, index, &resource, want),
+                |host, tx, out| insert(host, tx, &resource, out),
+            )?;
+            if went == 0 {
+                continue;
+            }
+            moved += went;
+            first.get_or_insert(resource);
         }
         Ok((first, moved))
     };
