@@ -506,6 +506,86 @@ fn an_overanswer_after_an_honest_part_undoes_the_whole_move() {
 }
 
 #[test]
+fn caught_move_error_rolls_back_prior_steps_without_aborting_its_caller() {
+    for stacking in [false, true] {
+        let (mut fake, resources) = items_host(&["minecraft:stone"]);
+        let stone = &resources[0];
+        chest(&mut fake, A, &[Some((stone, 5)), Some((stone, 5))]);
+        chest(&mut fake, B, &[Some((stone, 59))]);
+        let from = items_at(&mut fake, A);
+        let honest = items_at(&mut fake, B).handler;
+        let host: &mut dyn ServerHost = &mut fake;
+        let to = capability(
+            CombinedResourceHandler::new(host, vec![honest, Box::new(Liar)]),
+            "test:liar",
+        );
+        let committed = host.transaction(|host, tx| {
+            // The first source slot fills the honest target from 59 to 64. Only the
+            // second slot reaches the liar, so this error follows a successful step.
+            let failed = if stacking {
+                move_stacking(host, &from, &to, |_| true, 10, Some(tx))
+            } else {
+                r#move(host, &from, &to, |_| true, 10, Some(tx))
+            };
+            assert_eq!(
+                failed,
+                Err(Overanswered {
+                    owner: "test:liar".into()
+                })
+            );
+            assert_eq!([from.amount(host, 0), from.amount(host, 1)], [5, 5]);
+            assert_eq!(to.amount(host, 0), 59);
+            assert_eq!(host.transaction_depth(tx), Some(0));
+            // A separate caller-owned write still commits after catching the error.
+            assert_eq!(from.extract(host, tx, 0, stone, 1), 1);
+            Ok::<_, ()>(())
+        });
+        assert_eq!(committed, Ok(()));
+        assert_eq!(counts(&fake, A), [4, 5]);
+        assert_eq!(counts(&fake, B), [59]);
+    }
+}
+
+#[test]
+fn caught_move_first_error_retains_prior_steps_in_its_callers_transaction() {
+    for stacking in [false, true] {
+        let (mut fake, resources) = items_host(&["minecraft:stone"]);
+        let stone = &resources[0];
+        chest(&mut fake, A, &[Some((stone, 5)), Some((stone, 5))]);
+        chest(&mut fake, B, &[Some((stone, 59))]);
+        let from = items_at(&mut fake, A);
+        let honest = items_at(&mut fake, B).handler;
+        let host: &mut dyn ServerHost = &mut fake;
+        let to = capability(
+            CombinedResourceHandler::new(host, vec![honest, Box::new(Liar)]),
+            "test:liar",
+        );
+        let committed = host.transaction(|host, tx| {
+            let failed = if stacking {
+                move_first_stacking(host, &from, &to, |_| true, 10, Some(tx))
+            } else {
+                move_first(host, &from, &to, |_| true, 10, Some(tx))
+            };
+            assert_eq!(
+                failed,
+                Err(Overanswered {
+                    owner: "test:liar".into()
+                })
+            );
+            // First-only variants place each step directly in the caller's context.
+            assert_eq!([from.amount(host, 0), from.amount(host, 1)], [0, 5]);
+            assert_eq!(to.amount(host, 0), 64);
+            assert_eq!(host.transaction_depth(tx), Some(0));
+            assert_eq!(from.extract(host, tx, 1, stone, 1), 1);
+            Ok::<_, ()>(())
+        });
+        assert_eq!(committed, Ok(()));
+        assert_eq!(counts(&fake, A), [0, 4]);
+        assert_eq!(counts(&fake, B), [64]);
+    }
+}
+
+#[test]
 fn an_overanswer_nested_in_combined_handlers_leaves_nothing_behind_at_the_most_asked() {
     let (mut fake, r) = items_host(&["minecraft:stone"]);
     let stone = &r[0];

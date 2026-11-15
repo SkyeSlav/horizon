@@ -109,14 +109,17 @@ attachments. Your handler can look up and call a neighbour's capability through 
 Use `resource_util::r#move(host, &from, &to, filter, max, Some(tx))` to transfer matching resources, up to `max`,
 from source indices in order into any destination index that accepts them. Each transfer uses a nested
 transaction: rejected items stay in the source, and partial acceptance is retried with the accepted
-amount. The result is `Result<u32, Overanswered>`. If a handler reports more than requested, its transfer
-is undone and `Overanswered` identifies the provider in `owner`. Propagate the error from your
-`host.transaction` closure to abort the whole operation.
+amount. The result is `Result<u32, Overanswered>`. If a handler reports more than requested,
+`Overanswered` identifies the provider in `owner`. `move` and `move_stacking` wrap all their steps
+in their own transaction: an error rolls back the whole move even if the caller catches it.
+Propagate the error from your `host.transaction` closure to abort the caller's other work too.
 
 `resource_util::move_stacking` inserts into indices that already hold the resource before empty ones.
 `move_first` and `move_first_stacking` move only the first resource that goes (and, from later
-source indices, more of that one), and return which and how much. A missing `tx` (`None`) opens
-a transaction of its own. `move` is a Rust keyword, so it is written `resource_util::r#move`.
+source indices, more of that one), and return which and how much. With a supplied `tx`, these
+first-only variants commit each successful step directly into that context; catching a later
+error retains those earlier steps. A missing `tx` (`None`) opens a transaction of its own.
+`move` is a Rust keyword, so it is written `resource_util::r#move`.
 
 The rest of NeoForge's `ResourceHandlerUtil` is in the same module, taking the handler (a
 `Capability` derefs to one): `index_of`, `contains`, `is_empty`, `is_full`, `is_valid` (whether

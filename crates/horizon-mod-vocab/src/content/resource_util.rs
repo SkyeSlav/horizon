@@ -618,7 +618,9 @@ pub fn find_extractable_resource<R>(
 /// moved. Each move is all or nothing, in a transaction of its own: what `to` won't take stays in
 /// `from`, and a move `to` takes only part of is tried again with that part (a cauldron gives
 /// whole thirds). A handler answering more than it was asked has its move undone and ends the
-/// moving with [`Overanswered`], which aborts the whole of it.
+/// moving with [`Overanswered`], which aborts the whole move, with or without a caller's context.
+/// With a context, the move runs in its own nested transaction; catching its error leaves the
+/// caller's transaction open without retaining any of this move's earlier steps.
 pub fn r#move<R: PartialEq>(
     host: &mut dyn ServerHost,
     from: &Capability<dyn ResourceHandler<R>>,
@@ -723,7 +725,7 @@ fn move_by<R: PartialEq>(
     only_first: bool,
     insert: impl Fn(&mut dyn ServerHost, &Transaction, &R, u32) -> u32,
 ) -> Result<(Option<R>, u32), Overanswered> {
-    within(host, tx, |host, _| {
+    let transfer = |host: &mut dyn ServerHost, _: &Transaction| {
         let mut first: Option<R> = None;
         let mut moved = 0;
         for index in 0..from.size(host) {
@@ -756,7 +758,12 @@ fn move_by<R: PartialEq>(
             }
         }
         Ok((first, moved))
-    })
+    };
+    if only_first {
+        within(host, tx, transfer)
+    } else {
+        host.transaction(transfer)
+    }
 }
 
 #[cfg(test)]
