@@ -66,6 +66,13 @@ impl Game<'_> {
         Some(waypoints(&self.waypoints))
     }
 
+    /// The listed players' skins as the Tab overlay draws them ([`player_skins`]); None outside
+    /// a logged-in client world.
+    pub(super) fn native_client_player_skins(&self) -> Option<mod_api::ClientPlayerSkins> {
+        let remote = self.native_session()?;
+        Some(player_skins(&remote.listed_player_skins()))
+    }
+
     /// The local player's item use (`isUsingItem`, `getUsedItemHand`, `getTicksUsingItem`,
     /// `getUseItemRemainingTicks`); None when no item is in use or outside a logged-in client
     /// world.
@@ -223,6 +230,16 @@ fn waypoints(waypoints: &horizon_client::locator_bar::ClientWaypoints) -> mod_ap
         })
         .collect();
     mod_api::ClientWaypoints::new(entries)
+}
+
+/// `Remote::listed_player_skins` as `ClientPlayerSkin`s, so the read cannot drift from what the
+/// tab list draws.
+fn player_skins(skins: &[(u128, String, bool)]) -> mod_api::ClientPlayerSkins {
+    let entries = skins
+        .iter()
+        .map(|(uuid, skin, slim)| mod_api::ClientPlayerSkin::new(*uuid, skin.clone(), *slim))
+        .collect();
+    mod_api::ClientPlayerSkins::new(entries)
 }
 
 #[cfg(test)]
@@ -387,6 +404,26 @@ pub(super) mod tests {
             list.entries[1].id,
             mod_api::ClientWaypointId::Name("home".into())
         );
+    }
+
+    /// The listed players' skins as `client_player_skins` reads them: the resolved path and the
+    /// slim flag, joined on UUID.
+    #[test]
+    fn the_player_skins_read_as_the_tab_list_draws_them() {
+        let skins = player_skins(&[
+            (1, "skins/abc123".to_owned(), true),
+            (2, "entity/player/wide/steve".to_owned(), false),
+            (3, "entity/player/slim/alex".to_owned(), true),
+        ]);
+        assert_eq!(skins.entries.len(), 3, "every listed player's skin");
+        assert_eq!(skins.entries[0].uuid, 1);
+        assert_eq!(skins.entries[0].skin, "skins/abc123");
+        assert!(skins.entries[0].slim, "a downloaded slim skin stays slim");
+        assert_eq!(skins.entries[1].uuid, 2);
+        assert_eq!(skins.entries[1].skin, "entity/player/wide/steve");
+        assert!(!skins.entries[1].slim, "a wide default is not slim");
+        assert_eq!(skins.entries[2].uuid, 3);
+        assert!(skins.entries[2].slim, "a slim default is slim");
     }
 
     pub(in crate::game) fn logged_client(

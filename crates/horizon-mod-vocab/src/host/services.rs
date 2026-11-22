@@ -112,6 +112,16 @@ pub trait ClientSession {
             crate::world::phase::LoadAccess::ClientSetup,
         )
     }
+    /// The listed players' skins as the Tab overlay draws them: each player's skin texture path
+    /// and whether it uses the slim model. What this client has been sent; None outside a
+    /// logged-in client world. Sends nothing.
+    fn client_player_skins(&self) -> Option<ClientPlayerSkins> {
+        crate::world::phase::unprovided(
+            "ClientSession::client_player_skins",
+            "client_player_skins",
+            crate::world::phase::LoadAccess::ClientSetup,
+        )
+    }
     /// Side: client.
     /// Existing local frame counters; None outside a logged-in client world.
     /// This read collects no history and sends nothing anywhere.

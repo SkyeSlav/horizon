@@ -160,6 +160,23 @@ impl ClientWaypoints {
         Self { entries }
     }
 }
+/// The listed players' skins as the Tab overlay draws them, read with
+/// `ClientSession::client_player_skins`: what this client has been sent, changing as the server
+/// updates the list and skins download.
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+#[derive(horizon_mod_api_macros::Wire)]
+pub struct ClientPlayerSkins {
+    /// The listed players' skins, in no order; join on `uuid`.
+    pub entries: Vec<ClientPlayerSkin>,
+}
+
+impl ClientPlayerSkins {
+    /// Skins from their entries.
+    pub fn new(entries: Vec<ClientPlayerSkin>) -> Self {
+        Self { entries }
+    }
+}
 
 /// One tracked waypoint (`TrackedWaypoint`) as the locator bar holds it.
 #[derive(Clone, Debug, PartialEq)]
@@ -219,4 +236,25 @@ pub enum ClientWaypointTarget {
     Chunk([i32; 2]),
     /// A bearing in radians (`AzimuthWaypoint`).
     Azimuth(f32),
+}
+/// One listed player's skin (`PlayerInfo`) as the Tab overlay draws it.
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+#[derive(horizon_mod_api_macros::Wire)]
+pub struct ClientPlayerSkin {
+    /// The profile UUID.
+    pub uuid: u128,
+    /// The skin texture path as the Tab overlay draws it: a downloaded skin (`skins/<hash>`) or
+    /// the profile's default (`entity/player/{slim,wide}/<name>`). Draw the face with a blit of
+    /// uv [8, 8], src [8, 8] over tex [64, 64], then the hat at uv [40, 8].
+    pub skin: String,
+    /// Whether the skin uses the slim (Alex) model.
+    pub slim: bool,
+}
+
+impl ClientPlayerSkin {
+    /// A player's skin from its parts.
+    pub fn new(uuid: u128, skin: String, slim: bool) -> Self {
+        Self { uuid, skin, slim }
+    }
 }

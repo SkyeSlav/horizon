@@ -159,6 +159,13 @@ These read the local player as the client sees it. They take no mod-controlled n
   (`None` when the server sent none — the bar then colours the dot from the waypoint's id).
   Entries come in the order the server sent them. It is what this client has been sent and
   changes as the server tracks and untracks waypoints; `None` outside a world.
+- `ClientHost::client_session().client_player_skins()` is the listed players' skins as the Tab
+  overlay draws them: `ClientPlayerSkins { entries }`. Each `ClientPlayerSkin` has the player's
+  `uuid`, the skin texture path `skin` (`skins/<hash>` for a downloaded skin, or a default like
+  `entity/player/wide/steve`), and `slim` for the Alex model. Draw the face with a `GuiDraw::Blit`
+  of uv [8, 8], src [8, 8] over tex [64, 64], then the hat at uv [40, 8] — the same blit the tab
+  list uses. Entries come in no order; join on `uuid`. It is what this client has been sent and
+  changes as skins download; `None` outside a world.
 - `ClientHost::local_item_use()` is the item in use: `ItemUse { hand, ticks_used, ticks_remaining }`
   (`isUsingItem`, `getUsedItemHand`, `getTicksUsingItem`, `getUseItemRemainingTicks`).
   `ticks_used + ticks_remaining` is the use duration. It is `None` when no item is in use or no world

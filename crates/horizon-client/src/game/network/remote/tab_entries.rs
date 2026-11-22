@@ -13,3 +13,26 @@ impl Remote {
             .collect()
     }
 }
+
+impl Remote {
+    /// The listed players' skins as the Tab overlay draws them: each player's resolved skin
+    /// texture path and whether it uses the slim model, in no order. A skin still downloading
+    /// reads as the profile's default (`tab_list::default_skin`), as the overlay draws it.
+    pub(in crate::game) fn listed_player_skins(&self) -> Vec<(u128, String, bool)> {
+        self.listed
+            .iter()
+            .map(|uuid| {
+                let skin = self.skins.get(uuid).map_or_else(
+                    || horizon_client::tab_list::default_skin(*uuid).to_owned(),
+                    |skin| skin.clone(),
+                );
+                let slim = self
+                    .skin_textures
+                    .get(uuid)
+                    .map(|textures| textures.slim)
+                    .unwrap_or_else(|| skin.contains("/slim/"));
+                (*uuid, skin, slim)
+            })
+            .collect()
+    }
+}
