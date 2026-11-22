@@ -1,0 +1,3 @@
+ids = ["hook:player_turn", "type:PlayerTurnEvent"]
+why = "Adds a cancellable client hook for the local player's view turn: mods see the (xo, yo) deltas in Entity.turn units (0.15 degrees each) before the view moves, may change either, or set cancelled to leave the view where it is. Every look source funnels through it — mouse, pad, arrow keys and an agent's turn."
+migrate = "Additive. Listen on the client; it fires at the head of the player's turn, before the built-in studio freecam branch."

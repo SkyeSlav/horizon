@@ -56,7 +56,7 @@ of the kind vanilla picks, and only while the camera is the player (a rider send
 packet). Several calls in one tick send the last values once, and a call after the sync goes out the
 next tick. NaN or infinity returns `NotFinite` and changes nothing; outside a world the call returns
 `NoWorld`. The server sees an ordinary client look, at tick granularity, as from a mouse.
-`calculate_player_turn` changes how far the mouse turns the view; `set_local_rotation` sets it directly.
+`calculate_player_turn` changes how far the mouse turns the view; `set_local_rotation` sets it directly. `player_turn` fires before the view turns at all, with the turn's (`xo`, `yo`) in `Entity.turn` units (0.15 degrees each): change either to redirect the turn, or set `cancelled` to leave the view where it is. It catches every look source — mouse, pad, arrow keys and an agent's `turn` — where `calculate_player_turn` only shapes the mouse path.
 
 `ClientHost::set_camera_type(type)` is a queued client-only effect and takes `&self`, so
 shared callbacks such as `camera_pose` can request a perspective. `camera_type()` reports

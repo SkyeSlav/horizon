@@ -697,7 +697,18 @@ impl Game<'_> {
     /// agent's `turn`.
     /// The model's old pitch is the player's `xRotO`, which the turn moves
     /// with `xRot` (`turn_rotation`).
-    pub(super) fn turn_player(&mut self, xo: f64, yo: f64) {
+    pub(in crate::game) fn turn_player(&mut self, xo: f64, yo: f64) {
+        // `player_turn`: a mod hears the turn before the view moves and may
+        // change the deltas or cancel it; without a listener this costs nothing.
+        let mut xo = xo;
+        let mut yo = yo;
+        let mut cancel = false;
+        if mod_api::__private::listened(mod_api::HookId::PlayerTurn) {
+            self.native_player_turn(&mut xo, &mut yo, &mut cancel);
+        }
+        if cancel {
+            return;
+        }
         if self.studio.flying() {
             self.studio
                 .freecam

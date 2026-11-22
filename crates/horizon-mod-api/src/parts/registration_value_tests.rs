@@ -484,6 +484,46 @@ fn player_turn_mods_receive_identity_and_chain_changes() {
 }
 
 #[test]
+fn player_turn_mods_chain_changes_and_one_cancels() {
+    struct Halve;
+    #[mod_api::__subscriptions]
+    impl Hooks for Halve {
+        fn player_turn(&self, _host: &dyn ClientHost, event: &mut PlayerTurnEvent) -> Flow {
+            event.xo *= 0.5;
+            event.yo *= 0.5;
+            Flow::Continue
+        }
+    }
+    struct Cancel;
+    #[mod_api::__subscriptions]
+    impl Hooks for Cancel {
+        fn player_turn(&self, _host: &dyn ClientHost, event: &mut PlayerTurnEvent) -> Flow {
+            event.cancelled = true;
+            Flow::Continue
+        }
+    }
+    let host = FakeHost::new();
+    let mods: Vec<ModEntry> = vec![
+        ModEntry::new("halve-1", Box::new(Halve)),
+        ModEntry::new("halve-2", Box::new(Halve)),
+    ];
+    install(mods.into());
+    let mut xo = 10.0;
+    let mut yo = 5.0;
+    let mut cancel = false;
+    dispatch_player_turn(&host, &mut xo, &mut yo, &mut cancel);
+    assert_eq!((xo, yo), (2.5, 1.25));
+    assert!(!cancel);
+    let mods: Vec<ModEntry> = vec![ModEntry::new("cancel", Box::new(Cancel))];
+    install(mods.into());
+    let mut xo = 10.0;
+    let mut yo = 5.0;
+    let mut cancel = false;
+    dispatch_player_turn(&host, &mut xo, &mut yo, &mut cancel);
+    assert!(cancel);
+}
+
+#[test]
 fn a_part_reads_the_clicked_block_and_tells_the_acting_player() {
     // Another test installs parts with tags: a dispatch must run on a game thread.
     mark_game_thread();
