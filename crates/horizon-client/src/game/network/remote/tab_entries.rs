@@ -26,11 +26,13 @@ impl Remote {
                     || horizon_client::tab_list::default_skin(*uuid).to_owned(),
                     |skin| skin.clone(),
                 );
-                let slim = self
-                    .skin_textures
-                    .get(uuid)
-                    .map(|textures| textures.slim)
-                    .unwrap_or_else(|| skin.contains("/slim/"));
+                let slim = match self.skins.get(uuid) {
+                    Some(_) => self
+                        .skin_textures
+                        .get(uuid)
+                        .map_or_else(|| skin.contains("/slim/"), |textures| textures.slim),
+                    None => skin.contains("/slim/"),
+                };
                 (*uuid, skin, slim)
             })
             .collect()
