@@ -66,27 +66,6 @@ impl Game<'_> {
         Some(waypoints(&self.waypoints))
     }
 
-    /// The scoreboard sidebar as the HUD lists it; None when no sidebar is up or outside a
-    /// logged-in client world.
-    pub(super) fn native_client_sidebar(&self) -> Option<mod_api::ClientSidebar> {
-        use super::api_values::TryIntoApi;
-        self.native_session()?;
-        let objective = self.sidebar_objective()?;
-        // A text too deep for the API reads as its plain words rather than dropping the line.
-        let text = |text: &horizon_client::text::Text| {
-            text.try_into_api()
-                .unwrap_or_else(|_| mod_api::Text::literal(text.plain()))
-        };
-        let lines = horizon_client::hud_overlays::sidebar_rows(&self.score.board, objective)
-            .into_iter()
-            .map(|row| mod_api::ClientSidebarLine::new(text(&row.name), text(&row.score), row.value))
-            .collect();
-        Some(mod_api::ClientSidebar::new(
-            text(&objective.display_text()),
-            lines,
-        ))
-    }
-
     /// The title, subtitle and action bar on screen now: a title or action bar whose time has
     /// run out reads as None, and a subtitle shows only with its title. None outside a
     /// logged-in client world.
@@ -451,10 +430,10 @@ pub(super) mod tests {
         );
     }
 
-    /// The sidebar, titles and boss bars a client reads are the ones the server sent it.
+    /// The titles and boss bars a client reads are the ones the server sent it.
     #[test]
     #[ignore = "daily"]
-    fn hud_state_reads_follow_what_the_server_sent() {
+    fn title_and_boss_bar_reads_follow_what_the_server_sent() {
         use horizon_protocol::packets::play::{self, Clientbound as C};
         use horizon_core::nbt::Tag;
 
@@ -474,63 +453,12 @@ pub(super) mod tests {
         }
 
         with_client_game(|game| {
-            assert_eq!(game.client_session().client_sidebar(), None);
             assert_eq!(game.client_session().client_titles(), None);
             assert_eq!(game.client_session().client_boss_bars(), None);
             let _server = logged_client(game);
             // Nothing shown yet.
-            assert_eq!(game.client_session().client_sidebar(), None);
             assert_eq!(game.client_session().client_titles(), None);
             assert_eq!(game.client_session().client_boss_bars(), None);
-
-            // A sidebar whose lines come from team prefixes and suffixes.
-            game.handle_packet(C::SetObjective(play::SetObjective {
-                name: "side".into(),
-                method: 0,
-                display: Some((s("SKYBLOCK"), 0, None)),
-            }))
-            .unwrap();
-            game.handle_packet(C::SetDisplayObjective(play::SetDisplayObjective {
-                slot: 1,
-                objective: "side".into(),
-            }))
-            .unwrap();
-            let team = |name: &str, method: i8, prefix: &str, players: &[&str]| {
-                C::SetPlayerTeam(play::SetPlayerTeam {
-                    name: name.into(),
-                    method,
-                    parameters: (method == 0).then(|| play::TeamParameters {
-                        display_name: s(name),
-                        prefix: s(prefix),
-                        suffix: s(""),
-                        name_tag_visibility: 0,
-                        collision_rule: 0,
-                        color: None,
-                        options: 0,
-                    }),
-                    players: players.iter().map(|p| (*p).into()).collect(),
-                })
-            };
-            game.handle_packet(team("team_1", 0, "Purse: ", &["§0"]))
-                .unwrap();
-            for (owner, score) in [("§0", 2), ("§1", 1)] {
-                game.handle_packet(C::SetScore(play::SetScore {
-                    owner: owner.into(),
-                    objective: "side".into(),
-                    score,
-                    display: None,
-                    number_format: None,
-                }))
-                .unwrap();
-            }
-            let sidebar = game
-                .client_session()
-                .client_sidebar()
-                .expect("a sidebar is up");
-            assert_eq!(plain(&sidebar.title), "SKYBLOCK");
-            assert_eq!(sidebar.lines.len(), 2);
-            assert_eq!(plain(&sidebar.lines[0].name), "Purse: §0");
-            assert_eq!(sidebar.lines[0].value, 2);
 
             // Titles and an action bar.
             game.handle_packet(C::SetSubtitleText(play::Text { text: s("sub") }))

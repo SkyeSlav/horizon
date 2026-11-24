@@ -910,7 +910,7 @@ impl Game<'_> {
     // ---- the sidebar -----------------------------------------------------------
 
     /// The objective in the player's team's sidebar slot, else the sidebar's.
-    pub(super) fn sidebar_objective(&self) -> Option<&sb::Objective> {
+    fn sidebar_objective(&self) -> Option<&sb::Objective> {
         let board = &self.score.board;
         if board.display.is_empty() {
             return None;

@@ -38,13 +38,6 @@ impl ClientSession for Game<'_> {
         );
         self.native_client_waypoints()
     }
-    fn client_sidebar(&self) -> Option<ClientSidebar> {
-        mod_api::__private::check_access(
-            "client_sidebar",
-            mod_api::__private::LoadAccess::ClientSetup,
-        );
-        self.native_client_sidebar()
-    }
     fn client_titles(&self) -> Option<ClientTitles> {
         mod_api::__private::check_access(
             "client_titles",

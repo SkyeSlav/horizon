@@ -1,3 +1,3 @@
-ids = ["method:ClientSession::client_sidebar", "method:ClientSession::client_titles", "method:ClientSession::client_boss_bars", "type:ClientSidebar", "type:ClientSidebarLine", "type:ClientTitles", "type:ClientBossBarEntry"]
-why = "Adds client reads of the HUD state a window holds: the scoreboard sidebar as the HUD lists it, the title, subtitle and action bar on screen now, and the boss bars with their progress — so a mod need not rebuild them from client_packet."
-migrate = "Additive. Read them on the client; each is None outside a logged-in client world, and the sidebar is None when no sidebar is up."
+ids = ["method:ClientSession::client_titles", "method:ClientSession::client_boss_bars", "type:ClientTitles", "type:ClientBossBarEntry"]
+why = "Adds client reads of the HUD state a window holds: the title, subtitle and action bar on screen now, and the boss bars with their progress — so a mod need not rebuild them from client_packet."
+migrate = "Additive. Read them on the client; each is None outside a logged-in client world."

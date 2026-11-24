@@ -113,17 +113,6 @@ pub trait ClientSession {
         )
     }
     /// Side: client.
-    /// The scoreboard sidebar as the HUD lists it: the objective's display text and its lines
-    /// (holder name with team prefix and suffix, score text, value) in drawn order, at most the
-    /// 15 it lists. What this client has been sent; None outside a logged-in client world or
-    /// when no sidebar is up. Sends nothing.
-    fn client_sidebar(&self) -> Option<ClientSidebar> {
-        crate::world::phase::unprovided(
-            "ClientSession::client_sidebar",
-            "client_sidebar",
-            crate::world::phase::LoadAccess::ClientSetup,
-        )
-    }
     /// Side: client.
     /// The title, subtitle and action bar on screen now. Each is None once its timer has run
     /// out; the subtitle shows only with a title. What this client has been sent; None outside

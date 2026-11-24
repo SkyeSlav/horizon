@@ -196,11 +196,6 @@ These read the local player as the client sees it. They take no mod-controlled n
   (`None` when the server sent none — the bar then colours the dot from the waypoint's id).
   Entries come in the order the server sent them. It is what this client has been sent and
   changes as the server tracks and untracks waypoints; `None` outside a world.
-- `ClientHost::client_session().client_sidebar()` is the scoreboard sidebar as the HUD lists it:
-  `ClientSidebar { title, lines }`. Each `ClientSidebarLine` has the holder `name` (with its team's
-  prefix and suffix applied, as the server sent it), the `score` text (empty when blank) and the
-  `value`, in drawn order (highest score first, at most 15, `#` holders left out). It is `None`
-  when no sidebar is up or outside a world.
 - `ClientHost::client_session().client_titles()` is the title, subtitle and action bar on screen
   now: `ClientTitles { title, subtitle, action_bar }`. Each is `None` once its timer has run out,
   and the subtitle shows only with a title. It is `None` outside a world.

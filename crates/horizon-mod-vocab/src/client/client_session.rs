@@ -195,47 +195,6 @@ impl ClientWaypointEntry {
     }
 }
 
-/// The scoreboard sidebar as the HUD lists it (`Hud.displayScoreboardSidebar`), read with
-/// `ClientSession::client_sidebar`: what this client has been sent, changing as the server
-/// updates the objective.
-#[derive(Clone, Debug, PartialEq)]
-#[non_exhaustive]
-#[derive(horizon_mod_api_macros::Wire)]
-pub struct ClientSidebar {
-    /// The objective's display text.
-    pub title: Text,
-    /// The lines in drawn order: highest score first, at most the 15 the HUD lists, `#`
-    /// holders left out.
-    pub lines: Vec<ClientSidebarLine>,
-}
-
-impl ClientSidebar {
-    /// A sidebar from its title and lines.
-    pub fn new(title: Text, lines: Vec<ClientSidebarLine>) -> Self {
-        Self { title, lines }
-    }
-}
-
-/// One line of the scoreboard sidebar, as the HUD lists it.
-#[derive(Clone, Debug, PartialEq)]
-#[non_exhaustive]
-#[derive(horizon_mod_api_macros::Wire)]
-pub struct ClientSidebarLine {
-    /// The holder's name with its team's prefix and suffix applied, as the server sent it.
-    pub name: Text,
-    /// The score as the objective's number format shows it; empty when blank.
-    pub score: Text,
-    /// The score's value.
-    pub value: i32,
-}
-
-impl ClientSidebarLine {
-    /// A sidebar line from its parts.
-    pub fn new(name: Text, score: Text, value: i32) -> Self {
-        Self { name, score, value }
-    }
-}
-
 /// The title, subtitle and action bar on screen now, read with
 /// `ClientSession::client_titles`: what this client has been sent, changing as the server
 /// sends titles.
