@@ -456,9 +456,12 @@ pub(super) mod tests {
             assert_eq!(game.client_session().client_titles(), None);
             assert_eq!(game.client_session().client_boss_bars(), None);
             let _server = logged_client(game);
-            // Nothing shown yet.
-            assert_eq!(game.client_session().client_titles(), None);
-            assert_eq!(game.client_session().client_boss_bars(), None);
+            // Nothing shown yet: an empty snapshot, not None.
+            let titles = game.client_session().client_titles().unwrap();
+            assert!(titles.title.is_none());
+            assert!(titles.subtitle.is_none());
+            assert!(titles.action_bar.is_none());
+            assert_eq!(game.client_session().client_boss_bars(), Some(Vec::new()));
 
             // Titles and an action bar.
             game.handle_packet(C::SetSubtitleText(play::Text { text: s("sub") }))
