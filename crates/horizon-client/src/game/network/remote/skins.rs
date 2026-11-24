@@ -218,7 +218,8 @@ impl Game<'_> {
             }
         }
         let mut resolved: Vec<(u128, String)> = Vec::new();
-        // PlayerSkin.model of each resolved skin: the textures' `slim`.
+        // PlayerSkin.model of each resolved skin: the textures' `slim`, plus
+        // the local player's launcher offline skin (both kept as `skin_slim`).
         let mut slim = std::collections::HashSet::new();
         // PlayerSkin.cape of each resolved skin.
         let mut capes: HashMap<u128, String> = HashMap::new();
@@ -330,10 +331,11 @@ impl Game<'_> {
             }
         }
         if let Some(r) = self.remote.as_mut()
-            && r.skins != skins
+            && (r.skins != skins || r.skin_slim != slim)
         {
             r.skins_revision = r.skins_revision.wrapping_add(1);
             r.skins = skins;
+            r.skin_slim = slim;
         }
         // ClientMannequin.updateSkin (PlayerSkinRenderCache.lookup): a
         // mannequin's DATA_PROFILE `textures` property resolves like a

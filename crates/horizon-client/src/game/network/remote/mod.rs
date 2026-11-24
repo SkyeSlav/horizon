@@ -687,6 +687,12 @@ pub(super) struct Remote {
     own_profile: OwnProfile,
     /// The skin texture each profile's players show, once its download is ready.
     skins: HashMap<u128, String>,
+    /// The resolved skins that use the slim model (`PlayerSkin.model`): the
+    /// textures' `slim`, plus the local player's launcher offline skin and
+    /// signed-in account skin, which `skin_textures` never holds. Kept
+    /// alongside `skins` so `listed_player_skins` reads the model the game
+    /// draws, not the textures property.
+    skin_slim: std::collections::HashSet<u128>,
     skins_revision: u64,
     published_skins: Option<(usize, u128, u64, u64)>,
     listed: std::collections::HashSet<u128>,

@@ -26,11 +26,12 @@ impl Remote {
                     || horizon_client::tab_list::default_skin(*uuid).to_owned(),
                     |skin| skin.clone(),
                 );
+                // The resolved skin's model is the one `update_remote_skins`
+                // kept (`skin_slim`): the textures' `slim`, plus the local
+                // player's launcher offline skin and signed-in account skin,
+                // which `skin_textures` never holds.
                 let slim = match self.skins.get(uuid) {
-                    Some(_) => self
-                        .skin_textures
-                        .get(uuid)
-                        .map_or_else(|| skin.contains("/slim/"), |textures| textures.slim),
+                    Some(_) => self.skin_slim.contains(uuid),
                     None => skin.contains("/slim/"),
                 };
                 (*uuid, skin, slim)
