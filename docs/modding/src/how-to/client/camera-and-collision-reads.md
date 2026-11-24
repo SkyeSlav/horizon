@@ -196,6 +196,17 @@ These read the local player as the client sees it. They take no mod-controlled n
   (`None` when the server sent none — the bar then colours the dot from the waypoint's id).
   Entries come in the order the server sent them. It is what this client has been sent and
   changes as the server tracks and untracks waypoints; `None` outside a world.
+- `ClientHost::client_session().client_sidebar()` is the scoreboard sidebar as the HUD lists it:
+  `ClientSidebar { title, lines }`. Each `ClientSidebarLine` has the holder `name` (with its team's
+  prefix and suffix applied, as the server sent it), the `score` text (empty when blank) and the
+  `value`, in drawn order (highest score first, at most 15, `#` holders left out). It is `None`
+  when no sidebar is up or outside a world.
+- `ClientHost::client_session().client_titles()` is the title, subtitle and action bar on screen
+  now: `ClientTitles { title, subtitle, action_bar }`. Each is `None` once its timer has run out,
+  and the subtitle shows only with a title. It is `None` outside a world.
+- `ClientHost::client_session().client_boss_bars()` is the boss bars the window shows, in the
+  order the server added them: `Vec<ClientBossBarEntry>` with each bar's `name` and `progress`
+  (0 to 1, as drawn). It is `None` outside a world.
 - `ClientHost::local_item_use()` is the item in use: `ItemUse { hand, ticks_used, ticks_remaining }`
   (`isUsingItem`, `getUsedItemHand`, `getTicksUsingItem`, `getUseItemRemainingTicks`).
   `ticks_used + ticks_remaining` is the use duration. It is `None` when no item is in use or no world

@@ -195,6 +195,73 @@ impl ClientWaypointEntry {
     }
 }
 
+/// The scoreboard sidebar as the HUD lists it (`Hud.displayScoreboardSidebar`), read with
+/// `ClientSession::client_sidebar`: what this client has been sent, changing as the server
+/// updates the objective.
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+#[derive(horizon_mod_api_macros::Wire)]
+pub struct ClientSidebar {
+    /// The objective's display text.
+    pub title: Text,
+    /// The lines in drawn order: highest score first, at most the 15 the HUD lists, `#`
+    /// holders left out.
+    pub lines: Vec<ClientSidebarLine>,
+}
+
+impl ClientSidebar {
+    /// A sidebar from its title and lines.
+    pub fn new(title: Text, lines: Vec<ClientSidebarLine>) -> Self {
+        Self { title, lines }
+    }
+}
+
+/// One line of the scoreboard sidebar, as the HUD lists it.
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+#[derive(horizon_mod_api_macros::Wire)]
+pub struct ClientSidebarLine {
+    /// The holder's name with its team's prefix and suffix applied, as the server sent it.
+    pub name: Text,
+    /// The score as the objective's number format shows it; empty when blank.
+    pub score: Text,
+    /// The score's value.
+    pub value: i32,
+}
+
+impl ClientSidebarLine {
+    /// A sidebar line from its parts.
+    pub fn new(name: Text, score: Text, value: i32) -> Self {
+        Self { name, score, value }
+    }
+}
+
+/// The title, subtitle and action bar on screen now, read with
+/// `ClientSession::client_titles`: what this client has been sent, changing as the server
+/// sends titles.
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+#[derive(horizon_mod_api_macros::Wire)]
+pub struct ClientTitles {
+    /// The title; `None` once its timer has run out.
+    pub title: Option<Text>,
+    /// The subtitle; shown only with a title.
+    pub subtitle: Option<Text>,
+    /// The action bar; `None` once its timer has run out.
+    pub action_bar: Option<Text>,
+}
+
+impl ClientTitles {
+    /// Titles from their parts.
+    pub fn new(title: Option<Text>, subtitle: Option<Text>, action_bar: Option<Text>) -> Self {
+        Self {
+            title,
+            subtitle,
+            action_bar,
+        }
+    }
+}
+
 /// A tracked waypoint's identifier (`Either<UUID, String>`).
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
@@ -219,4 +286,24 @@ pub enum ClientWaypointTarget {
     Chunk([i32; 2]),
     /// A bearing in radians (`AzimuthWaypoint`).
     Azimuth(f32),
+}
+
+/// One boss bar the window shows, read with `ClientSession::client_boss_bars`. Unlike
+/// `ClientBossBar`, the bar a `customize_boss_event_progress` event hands a mod, this is the
+/// bar as the window holds it: name and progress only.
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+#[derive(horizon_mod_api_macros::Wire)]
+pub struct ClientBossBarEntry {
+    /// The bar's name.
+    pub name: Text,
+    /// 0 to 1, as drawn (the lerped value).
+    pub progress: f32,
+}
+
+impl ClientBossBarEntry {
+    /// A boss bar entry from its parts.
+    pub fn new(name: Text, progress: f32) -> Self {
+        Self { name, progress }
+    }
 }
