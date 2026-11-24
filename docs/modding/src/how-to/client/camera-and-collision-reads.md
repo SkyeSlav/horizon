@@ -196,6 +196,10 @@ These read the local player as the client sees it. They take no mod-controlled n
   (`None` when the server sent none — the bar then colours the dot from the waypoint's id).
   Entries come in the order the server sent them. It is what this client has been sent and
   changes as the server tracks and untracks waypoints; `None` outside a world.
+- `ClientHost::client_session().client_fishing_hook()` is the local player's fishing hook:
+  `ClientFishingHook { position, biting }`. `position` is the bobber's position as the client
+  tracks it; `biting` is true while a fish is biting. It is `None` outside a world or when
+  no hook is out.
 - `ClientHost::local_item_use()` is the item in use: `ItemUse { hand, ticks_used, ticks_remaining }`
   (`isUsingItem`, `getUsedItemHand`, `getTicksUsingItem`, `getUseItemRemainingTicks`).
   `ticks_used + ticks_remaining` is the use duration. It is `None` when no item is in use or no world

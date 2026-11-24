@@ -1,6 +1,6 @@
 //! Read-only client session and local-player status.
 
-use crate::{BlockPos, GameMode, Identifier, Text};
+use crate::{BlockPos, GameMode, Identifier, Text, Vec3};
 
 /// The connected server, not the reconnect target of an earlier session.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -219,4 +219,24 @@ pub enum ClientWaypointTarget {
     Chunk([i32; 2]),
     /// A bearing in radians (`AzimuthWaypoint`).
     Azimuth(f32),
+}
+
+/// The local player's fishing hook, read with `ClientSession::client_fishing_hook`:
+/// its position and whether a fish is biting.
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+#[derive(horizon_mod_api_macros::Wire)]
+pub struct ClientFishingHook {
+    /// The bobber's position, as the client tracks it.
+    pub position: Vec3,
+    /// A fish is biting (`FishingHook.catchingFish`): the server's DATA_BITING on a
+    /// server, the local bite timer in a single-player world.
+    pub biting: bool,
+}
+
+impl ClientFishingHook {
+    /// A fishing hook from its parts.
+    pub fn new(position: Vec3, biting: bool) -> Self {
+        Self { position, biting }
+    }
 }
